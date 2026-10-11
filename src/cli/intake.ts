@@ -149,7 +149,7 @@ function applyTurnCommand(dir: string, turnFile: string) {
     scored: result.confirmed,
     ...(result.confirmed
       ? { gates: result.session.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons, revisit_trigger: i.gate?.revisit_trigger })) }
-      : { status: statusOf(result.session, fw) }),
+      : { status: statusOf(result.session, fw, transcript ?? []) }),
   });
 }
 
@@ -260,7 +260,7 @@ function main() {
     case "status": {
       const session = readSession(dir);
       if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
-      return out(0, { result: "status", session_id: session.session.id, status: statusOf(session, loadFramework(pluginRoot())) });
+      return out(0, { result: "status", session_id: session.session.id, status: statusOf(session, loadFramework(pluginRoot()), readTranscript(dir) ?? []) });
     }
     case "guide":
       process.stdout.write(guide(loadFramework(pluginRoot())));

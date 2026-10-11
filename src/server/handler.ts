@@ -57,7 +57,7 @@ interface TurnBody {
 const AZURE_HOST = /^[a-z0-9-]+\.(openai\.azure\.com|cognitiveservices\.azure\.com|services\.ai\.azure\.com)$/i;
 
 /** Output tokens the kit's provider may spend per call; also the worst case the budget check assumes. */
-const MAX_OUTPUT_TOKENS = 4000;
+const MAX_OUTPUT_TOKENS = 8000;
 
 const json = (status: number, body: Record<string, unknown>, headers?: Record<string, string>): ApiResponse => ({ status, body, headers });
 const fail = (status: number, error: string, message: string, extra: Record<string, unknown> = {}, headers?: Record<string, string>) =>

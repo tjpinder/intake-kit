@@ -89,10 +89,10 @@ export function sessionSnapshot(session: Session): unknown {
 }
 
 /** This turn's context: session snapshot and status, as a system message after the history. */
-export function buildContext(session: Session, fw: Framework): string {
+export function buildContext(session: Session, fw: Framework, transcript: TranscriptEntry[] = []): string {
   const nextId = `item-${session.items.reduce((n, i) => Math.max(n, Number(i.id.slice(5)) || 0), 0) + 1}`;
   return [
-    `Next step: ${statusOf(session, fw).next_step}`,
+    `Next step: ${statusOf(session, fw, transcript).next_step}`,
     `Next free item ID: ${nextId}. Existing items keep their IDs.`,
     "Session state before this turn (what's recorded so far; quotes omitted):",
     "```json",
@@ -100,7 +100,7 @@ export function buildContext(session: Session, fw: Framework): string {
     "```",
     "Status (what's still open):",
     "```json",
-    JSON.stringify(statusOf(session, fw)),
+    JSON.stringify(statusOf(session, fw, transcript)),
     "```",
   ].join("\n");
 }
@@ -119,6 +119,6 @@ export function buildRequest(args: { skill: string; fw: Framework; session: Sess
   return {
     system: buildSystemPrompt(args.skill, args.fw),
     history: buildHistory(args.transcript, args.replies),
-    context: buildContext(args.session, args.fw),
+    context: buildContext(args.session, args.fw, args.transcript),
   };
 }

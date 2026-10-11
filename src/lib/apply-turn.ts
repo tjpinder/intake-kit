@@ -152,7 +152,7 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
     const path = `/router/add_modifiers/${i}`;
     const item = needItem(`${path}/item`, m.item);
     if (!item) return;
-    if (item.modifiers.includes(m.modifier)) fail(`${path}/modifier`, `${item.id} already has the ${m.modifier} modifier`);
+    if (item.modifiers.includes(m.modifier)) warnings.push(`${path} skipped: ${item.id} already has the ${m.modifier} modifier`);
     else item.modifiers.push(m.modifier);
     grounded(`${path}/quote`, m.quote);
   });

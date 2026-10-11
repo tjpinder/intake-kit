@@ -11,7 +11,7 @@ types:
     module: broken
   manual_process:
     label: Manual process
-    signals: ["by hand", "every morning I", "copy/paste", "takes hours", "manually", "spreadsheet I build"]
+    signals: ["by hand", "every morning I", "every Monday", "copy/paste", "paste into", "takes hours", "manually", "spreadsheet I build", "in Excel"]
     low_confidence_probe: "Walk me through the last time, start to finish."
     output: process_map
     module: manual_process

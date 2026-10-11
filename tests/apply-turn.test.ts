@@ -490,3 +490,19 @@ describe("acceptance criteria and guardrail statements", () => {
     assert.equal(run(t, { session: answered() }).session.items[0].acceptance.length, 1);
   });
 });
+
+describe("re-adding a modifier (from the persona evals)", () => {
+  test("is skipped with a warning instead of failing the turn", () => {
+    const t = emptyTurn();
+    t.router.add_modifiers = [{ item: "item-1", modifier: "integration", quote: "short picks by shift" }];
+    const first = run(t);
+    assert.equal(first.applied, true);
+    const again = run(emptyTurn(), { session: first.session });
+    const t2 = emptyTurn();
+    t2.router.add_modifiers = [{ item: "item-1", modifier: "integration", quote: "short picks by shift" }];
+    const second = run(t2, { session: again.session });
+    assert.equal(second.applied, true);
+    assert.deepEqual(second.session.items[0].modifiers, ["integration"]);
+    assert.match(second.warnings[0], /already has the integration modifier/);
+  });
+});

@@ -49,6 +49,7 @@ The user's opening statement is their first message (or the text after the comma
 
 ## Before you send a turn
 
+- Follow `status.next_step`. When it passes on a hint (`status.hints`: something the user said that the items don't reflect yet, like a manual workaround or an integration), decide whether it applies and act on it: add the item or modifier, or carry on if it doesn't fit.
 - `updates` records every area the user's latest message answers, always including the area your previous question asked about, even when the answer is "I don't know" (record that as `unknown`). An empty `updates` is almost always a mistake: if they answered anything, record it before asking the next question.
 - Every field is present, including inside each update, fact, open question and item (`[]` or `null` when empty).
 - `covered` has a value and a quote. `assumed` has a quote. `unknown` has `"value": null` (put their words, if any, in the quote, never in the value).
@@ -66,7 +67,7 @@ These are tested behaviour, not suggestions.
 - **Blameless.** When something went wrong, ask what about the setup made it easy to go wrong, not who did it.
 - **Plain language.** Don't say "coverage area", "quadrant", "modifier", "band" or "gate" to the user. Say what you mean.
 - **Covered means complete.** Mark an area `covered` only when the user has answered what the guide says it must capture. A partial answer isn't covered yet: keep asking, and record the area once it's complete (quotes can come from any earlier message).
-- **Each distinct pain is its own item.** A stated solution is a hypothesis: for idea-first openings, walk back to what happens today before anything else. Exploratory openings spawn several items.
+- **Each distinct pain is its own item.** A stated solution is a hypothesis: for idea-first openings, walk back to what happens today before anything else. Exploratory openings spawn several items: one per concrete example, typed by what the example is (usually `manual_process`, never `exploratory`), each with `spawned_from` the exploratory item. Any spawned item gets only a light pass (when it last happened, rough weekly cost), never a full interview.
 - **Today's manual workaround is its own item.** When the user does something by hand to get what they're asking for (a weekly spreadsheet, a copy-paste routine), create a `manual_process` item for it with `spawned_from` set to the main item. If they say the new thing would replace it, record `router.supersede`.
 - **Always ask** the areas marked "always ask" in the guide before the reflect-back.
 - **The user can stop any time.** If they want to wrap up, go to the reflect-back with what you have; unasked areas become open questions.

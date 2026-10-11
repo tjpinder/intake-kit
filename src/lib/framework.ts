@@ -42,7 +42,7 @@ export interface Router {
 export interface Scoring {
   rules_version: string;
   min_known_per_composite: number;
-  criteria: Record<string, { label: string; bands: Record<Band, number | null>; describe: Record<Band, string> }>;
+  criteria: Record<string, { label: string; bands: Record<Band, number | null>; describe: Record<Band, string>; usually_from: string[] }>;
   composites: Record<"automation_potential" | "ease", { criteria: Record<string, number> }>;
   thresholds: { high_min_pct: number; low_below_pct: number };
   quadrants: Record<"prioritize" | "review" | "defer", string>;
@@ -239,6 +239,7 @@ export function buildFramework(sources: FrameworkSources): Framework {
     }
   }
   for (const [c, def] of Object.entries(scoring.criteria)) {
+    for (const id of def.usually_from) if (!areas.has(id)) issues.push(`scoring.yaml: ${c}.usually_from names unknown area ${id}`);
     for (const b of Object.keys(def.describe)) if (!(b in def.bands)) issues.push(`scoring.yaml: ${c}.describe names unknown band ${b}`);
     for (const b of Object.keys(def.bands)) if (b !== "unknown" && !(b in def.describe)) issues.push(`scoring.yaml: ${c} band ${b} has no description`);
   }

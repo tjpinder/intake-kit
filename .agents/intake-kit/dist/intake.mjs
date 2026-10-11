@@ -15537,11 +15537,12 @@ var framework_schema_default = {
           additionalProperties: {
             type: "object",
             additionalProperties: false,
-            required: ["label", "bands", "describe"],
+            required: ["label", "bands", "describe", "usually_from"],
             properties: {
               label: { type: "string" },
               bands: { $ref: "#/$defs/band_scores" },
-              describe: { type: "object", additionalProperties: { type: "string" } }
+              describe: { type: "object", additionalProperties: { type: "string" } },
+              usually_from: { type: "array", minItems: 1, items: { type: "string" }, description: "Coverage areas whose answers usually decide this band, shown in the guide." }
             }
           }
         },
@@ -16346,6 +16347,7 @@ function buildFramework(sources) {
     }
   }
   for (const [c, def] of Object.entries(scoring.criteria)) {
+    for (const id of def.usually_from) if (!areas.has(id)) issues.push(`scoring.yaml: ${c}.usually_from names unknown area ${id}`);
     for (const b of Object.keys(def.describe)) if (!(b in def.bands)) issues.push(`scoring.yaml: ${c}.describe names unknown band ${b}`);
     for (const b of Object.keys(def.bands)) if (b !== "unknown" && !(b in def.describe)) issues.push(`scoring.yaml: ${c} band ${b} has no description`);
   }
@@ -16765,7 +16767,7 @@ function applyTurn(original, turnData, ctx) {
     const path = `/router/add_modifiers/${i}`;
     const item = needItem(`${path}/item`, m.item);
     if (!item) return;
-    if (item.modifiers.includes(m.modifier)) fail(`${path}/modifier`, `${item.id} already has the ${m.modifier} modifier`);
+    if (item.modifiers.includes(m.modifier)) warnings.push(`${path} skipped: ${item.id} already has the ${m.modifier} modifier`);
     else item.modifiers.push(m.modifier);
     grounded(`${path}/quote`, m.quote);
   });
@@ -16962,9 +16964,9 @@ function guide(fw) {
     out2.push("", `## mod.${mod} areas`, "");
     for (const a of modules[`mod.${mod}`].areas) out2.push(areaBlock(a));
   }
-  out2.push("", "## Facts: pick a band, never a number", "", "Use only these band names. Use `unknown` when the user hasn't said.", "");
+  out2.push("", "## Facts: pick a band, never a number", "", "Use only these band names. Infer each from the answers it usually comes from; use `unknown` only when nothing the user said bears on it.", "");
   for (const [name, c] of Object.entries(scoring.criteria)) {
-    out2.push(`- \`${name}\` (${c.label}): ${Object.entries(c.describe).map(([b, d]) => `\`${b}\` = ${d}`).join("; ")}; \`unknown\``);
+    out2.push(`- \`${name}\` (${c.label}): ${Object.entries(c.describe).map(([b, d]) => `\`${b}\` = ${d}`).join("; ")}; \`unknown\`. Usually from: ${c.usually_from.join(", ")}`);
   }
   out2.push(`- \`${scoring.ai_overlay.applies_fact}\`: ${Object.keys(scoring.ai_overlay.applies_bands).map((b) => `\`${b}\``).join(", ")}. "yes" only when the proposed solution uses an LLM.`);
   out2.push("", "AI overlay checks, only when ai_applies is yes. Each is `pass`, `fail` or `unknown`:", "");
@@ -16983,9 +16985,37 @@ function factsFor(item, fw) {
   return facts;
 }
 function needsAcceptance(i) {
-  return i.superseded_by == null && i.type !== "exploratory";
+  return i.superseded_by == null && i.type !== "exploratory" && !i.light_pass;
 }
-function statusOf(session, fw) {
+function needsBands(i) {
+  return i.superseded_by == null && !i.light_pass && i.type !== "exploratory";
+}
+function said(signal, text) {
+  if (/^an? /.test(signal)) return false;
+  const esc = normalize(signal).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^a-z0-9])${esc}([^a-z0-9]|$)`).test(text);
+}
+function structureHints(session, fw, transcript) {
+  const live = session.items.filter((i) => !i.superseded_by);
+  if (live.length === 0) return [];
+  const text = normalize(transcript.filter((t) => t.role === "user").map((t) => t.text).join("\n"));
+  const hints = [];
+  const primary = live[0];
+  for (const [mod, def] of Object.entries(fw.router.modifiers)) {
+    if (live.some((i) => i.modifiers.includes(mod))) continue;
+    const heard = def.signals.filter((sig) => said(sig, text));
+    if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}: if it's part of ${primary.id}, add the \`${mod}\` modifier (set it in that item's \`modifiers\`) and cover its areas.`);
+  }
+  if (primary.type !== "manual_process" && primary.type !== "exploratory" && !live.some((i) => i.type === "manual_process")) {
+    const heard = fw.router.types.manual_process.signals.filter((sig) => said(sig, text));
+    if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}: if that's manual work they do today that ${primary.id} would replace, add it as one \`manual_process\` item with spawned_from "${primary.id}", and supersede it by ${primary.id} (router.supersede) once they say it would go away. It needs only a light pass (how often, how long), not a full interview. Don't add any other items for it.`);
+  }
+  if (live.some((i) => i.type === "exploratory") && live.length < 4) {
+    hints.push("This is an exploratory intake: for each concrete example the user gives, add its own item with spawned_from the exploratory item and the type that fits the example (usually manual_process; never exploratory), and ask only one or two things about it (the last time it happened, roughly what it costs a week). Don't interview any one example in depth; aim for three or more.");
+  }
+  return hints;
+}
+function statusOf(session, fw, transcript = []) {
   const rb = session.session.reflect_back;
   const core = Object.entries(session.core).map(([key, e]) => ({
     area: `core.${key}`,
@@ -16998,17 +17028,22 @@ function statusOf(session, fw) {
     const areas = modules.flatMap((m) => fw.modules[m]?.areas ?? []);
     const asked = (id) => id.startsWith("core.") ? !!(item.core_overrides[id.slice(5)] ?? session.core[id.slice(5)])?.updated_at : !!item.coverage[id]?.updated_at;
     const probeable = areas.map((a) => [a.id, item.coverage[a.id]]).filter(([, e]) => e?.updated_at && (e.status === "assumed" || e.status === "unknown") && e.probe_count === 0).map(([id]) => id);
+    const light = item.spawned_from != null;
+    const factsMissing = factsFor(item, fw).filter((f) => !item.facts[f]);
     return {
       id: item.id,
       title: item.title,
       type: item.type,
       modifiers: item.modifiers,
       superseded_by: item.superseded_by,
+      light_pass: light,
+      preview_quadrant: factsMissing.length === 0 ? scoreItem(item, fw).quadrant ?? null : null,
+      has_mitigation: !!item.prose.mitigation,
       unasked: areas.filter((a) => !asked(a.id)).map((a) => a.id),
-      always_ask_pending: areas.filter((a) => a.always_ask && !asked(a.id)).map((a) => a.id),
-      critical_unasked: criticalAreas(item, fw).filter((id) => !asked(id)),
+      always_ask_pending: light ? [] : areas.filter((a) => a.always_ask && !asked(a.id)).map((a) => a.id),
+      critical_unasked: light ? [] : criticalAreas(item, fw).filter((id) => !asked(id)),
       probe_available: probeable,
-      facts_missing: factsFor(item, fw).filter((f) => !item.facts[f]),
+      facts_missing: factsMissing,
       acceptance: {
         criteria: item.acceptance.filter((a) => a.kind === "criterion").length,
         error_cases: item.acceptance.filter((a) => a.kind === "error_case").length
@@ -17023,30 +17058,41 @@ function statusOf(session, fw) {
   });
   const interviewComplete = items.length > 0 && items.every((i) => i.critical_unasked.length === 0 && i.always_ask_pending.length === 0);
   const writeUpComplete = items.every(
-    (i) => (i.superseded_by != null || i.facts_missing.length === 0) && (!needsAcceptance(i) || i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)
+    (i) => (!needsBands(i) || i.facts_missing.length === 0) && (!needsAcceptance(i) || i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)
   );
   const reflect = !rb ? "none" : rb.confirmed ? "confirmed" : "proposed";
+  const hints = reflect === "none" ? structureHints(session, fw, transcript) : [];
   return {
     reflect_back: reflect,
     core,
     items,
     interview_complete: interviewComplete,
     ready_for_reflect_back: interviewComplete && writeUpComplete,
-    next_step: nextStep(reflect, interviewComplete, items)
+    next_step: nextStep(reflect, interviewComplete, items, hints),
+    hints
   };
 }
-function nextStep(reflect, interviewComplete, items) {
+function nextStep(reflect, interviewComplete, items, hints) {
   if (reflect === "confirmed") return "The intake is complete. Thank the user briefly.";
-  if (reflect === "proposed") return "You've played back a summary. Record whether the user confirmed it or what they corrected.";
+  if (reflect === "proposed") {
+    const review = items.filter((i) => i.preview_quadrant === "review" && !i.has_mitigation && !i.superseded_by);
+    return [
+      "You've played back a summary. Record whether the user confirmed it or what they corrected.",
+      ...review.length ? [`${review.map((i) => i.id).join(", ")} would score in the Review quadrant, which can't reach Go without a written mitigation: add a one-line \`mitigation\` prose for it from what the user said would reduce the risk (their fallback or review step), or ask them if they haven't said.`] : []
+    ].join(" ");
+  }
   if (items.length === 0) return "Create the first item from the user's opening statement and ask your first question.";
+  const check2 = hints.length ? ` Also check: ${hints.join(" ")}` : "";
   if (!interviewComplete) {
     const open = items.flatMap((i) => [...i.critical_unasked, ...i.always_ask_pending]);
-    return `Keep interviewing. Still to ask (in whatever order follows the conversation): ${[...new Set(open)].join(", ")}. Record every answer the user gives as you go.`;
+    return `Keep interviewing. Still to ask (in whatever order follows the conversation): ${[...new Set(open)].join(", ")}. Record every answer the user gives as you go.${check2}`;
   }
   return [
+    ...hints.length ? [`First check: ${hints.join(" ")} If one applies, add it and ask about it instead of writing up. Otherwise:`] : [],
     "Every needed area has been asked, so stop asking questions now. In this one turn:",
-    "add a band for every fact listed in each item's facts_missing, picked from what the user already said (use `unknown` where they didn't say), in `facts` only, never in `updates`; a band's quote is optional, so leave it null unless you copy the user's exact words;",
-    "write acceptance criteria (at least one criterion and one error case) and guardrails (at least a kill criterion and a fallback) for each item that might be built, from what you heard;",
+    `add a band for every fact listed in facts_missing for ${items.filter(needsBands).map((i) => i.id).join(", ") || "no item"} (skip the other items), picked from what the user already said (use \`unknown\` where they didn't say), in \`facts\` only, never in \`updates\`; a band's quote is optional, so leave it null unless you copy the user's exact words;`,
+    `write acceptance criteria (at least one criterion and one error case) and guardrails (at least a kill criterion and a fallback) for ${items.filter(needsAcceptance).map((i) => i.id).join(", ") || "no item"}, from what you heard;`,
+    "write a one-line `mitigation` prose for any item where the user described how a risk is handled (a fallback, someone checking);",
     "and propose the reflect-back."
   ].join(" ");
 }
@@ -17573,7 +17619,7 @@ function applyTurnCommand(dir, turnFile) {
   return out(0, {
     result: "applied",
     scored: result.confirmed,
-    ...result.confirmed ? { gates: result.session.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons, revisit_trigger: i.gate?.revisit_trigger })) } : { status: statusOf(result.session, fw) }
+    ...result.confirmed ? { gates: result.session.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons, revisit_trigger: i.gate?.revisit_trigger })) } : { status: statusOf(result.session, fw, transcript ?? []) }
   });
 }
 function renderCommand(dir, overwrite, keep) {
@@ -17670,7 +17716,7 @@ function main() {
     case "status": {
       const session = readSession(dir);
       if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
-      return out(0, { result: "status", session_id: session.session.id, status: statusOf(session, loadFramework(pluginRoot())) });
+      return out(0, { result: "status", session_id: session.session.id, status: statusOf(session, loadFramework(pluginRoot()), readTranscript(dir) ?? []) });
     }
     case "guide":
       process.stdout.write(guide(loadFramework(pluginRoot())));

@@ -110,7 +110,7 @@ describe("a good turn", () => {
     await handleTurn(request({}), h.deps);
     assert.deepEqual(
       { ...h.azureConfigs[0] },
-      { endpoint: "https://example.openai.azure.com", apiKey: "kit-key", deployment: "intake-kit-turn", model: "gpt-4.1-mini", maxCompletionTokens: 4000 },
+      { endpoint: "https://example.openai.azure.com", apiKey: "kit-key", deployment: "intake-kit-turn", model: "gpt-4.1-mini", maxCompletionTokens: 8000 },
     );
   });
 

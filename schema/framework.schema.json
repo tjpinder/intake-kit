@@ -160,11 +160,12 @@
           "additionalProperties": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["label", "bands", "describe"],
+            "required": ["label", "bands", "describe", "usually_from"],
             "properties": {
               "label": { "type": "string" },
               "bands": { "$ref": "#/$defs/band_scores" },
-              "describe": { "type": "object", "additionalProperties": { "type": "string" } }
+              "describe": { "type": "object", "additionalProperties": { "type": "string" } },
+              "usually_from": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "Coverage areas whose answers usually decide this band, shown in the guide." }
             }
           }
         },

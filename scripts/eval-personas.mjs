@@ -8,7 +8,7 @@
 // default claude-opus-5-5) for the parity report. Writes evals/results/<stamp>.json (full
 // transcripts) and docs/evals/persona-report.md.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { loadFramework } from "../src/lib/framework-fs.ts";
 import { createAzureProvider } from "../src/llm/azure.ts";
@@ -43,7 +43,7 @@ const wanted = values.personas?.split(",");
 const personas = loadPersonas().filter((p) => !wanted || wanted.includes(p.id));
 const simulator = createAzureSimulator(azure);
 
-const interviewers = [{ name: "azure-openai", model: azure.model, make: () => createAzureProvider({ ...azure, maxCompletionTokens: 4000 }) }];
+const interviewers = [{ name: "azure-openai", model: azure.model, make: () => createAzureProvider({ ...azure, maxCompletionTokens: 8000 }) }];
 const notRun = [];
 if (env.ANTHROPIC_API_KEY) interviewers.push({ name: "claude", model: claudeModel, make: () => createClaudeProvider({ apiKey: env.ANTHROPIC_API_KEY, model: claudeModel }) });
 else notRun.push("Claude as interviewer: no ANTHROPIC_API_KEY was set, so the parity comparison covers Azure OpenAI only.");
@@ -55,6 +55,10 @@ console.log(`${jobs.length} interviews (${personas.length} personas x ${runs} ru
 
 const records = [];
 let next = 0;
+// Each interview is appended here as it finishes, so a long run can be inspected mid-way.
+const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+mkdirSync("evals/results", { recursive: true });
+const progressFile = `evals/results/${stamp}.progress.jsonl`;
 async function worker() {
   while (next < jobs.length && spent < budget) {
     const { iv, persona, run } = jobs[next++];
@@ -64,6 +68,7 @@ async function worker() {
       shouldStop: () => spent >= budget,
     });
     records.push(record);
+    appendFileSync(progressFile, JSON.stringify(record) + "\n");
     const s = record.score;
     console.log(`${iv.name} ${persona.id} #${run}: ${record.completed ? "completed" : "incomplete"} in ${record.turns} turns, ` +
       `gate ${record.session.items[0]?.gate?.decision ?? "-"}, ${s.notes.length ? s.notes.join("; ") : "all checks passed"} ($${record.costUSD.toFixed(3)}, total $${spent.toFixed(2)})`);
@@ -72,8 +77,6 @@ async function worker() {
 await Promise.all(Array.from({ length: concurrency }, worker));
 if (next < jobs.length) notRun.push(`${jobs.length - next} interviews skipped: the $${budget} budget was reached.`);
 
-const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-mkdirSync("evals/results", { recursive: true });
 writeFileSync(`evals/results/${stamp}.json`, JSON.stringify({ stamp, azureModel: azure.model, spentUSD: spent, records }, null, 2));
 mkdirSync("docs/evals", { recursive: true });
 const order = (r) => interviewers.findIndex((i) => i.name === r.provider) * 1000 + personas.findIndex((p) => p.id === r.persona) * 10 + r.run;

@@ -1,0 +1,35 @@
+# A session partway through the interview: nothing scored or gated yet, no reflect-back.
+schema_version: 1
+framework_version: 0.1.0
+session:
+  id: 2026-10-10-91bc
+  started_at: 2026-10-10T09:15:00-04:00
+  mode: stakeholder
+  provider: azure-openai
+  reflect_back: null
+core:
+  users: { status: covered, value: AP clerk matches invoices; controller signs off, quotes: ["I match them, Dana signs off on anything over five grand"], probe_count: 0 }
+  outcome: { status: unknown, value: null, quotes: [], probe_count: 0 }
+  data: { status: assumed, value: Invoices arrive as PDFs by email, quotes: ["they mostly come in as PDFs I think"], probe_count: 1 }
+  systems: { status: unknown, value: null, quotes: [], probe_count: 0 }
+  constraints: { status: unknown, value: null, quotes: [], probe_count: 0 }
+  trust: { status: unknown, value: null, quotes: [], probe_count: 0 }
+items:
+  - id: item-1
+    title: Invoice-to-PO matching
+    type: manual_process
+    confidence: high
+    trigger_quote: "I match every invoice to the PO by hand"
+    modifiers: []
+    spawned_from: null
+    superseded_by: null
+    type_history:
+      - { from: null, to: manual_process, reason: opening, quote: "I match every invoice to the PO by hand", at: 2026-10-10T09:15:20-04:00 }
+    core_overrides: {}
+    coverage:
+      manual_process.walkthrough: { status: covered, value: "Open PDF, find PO number, look it up in the ERP, compare lines, flag mismatches", quotes: ["open it, find the PO, pull it up, check every line"], probe_count: 0 }
+    facts: {}
+    prose: {}
+    scoring: null
+    gate: null
+    open_questions: []

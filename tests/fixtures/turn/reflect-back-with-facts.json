@@ -1,0 +1,25 @@
+{
+  "reply": "Let me play that back. You want a daily view of short picks and location mismatches by shift and picker, ready by 7am, so shift leads can target retraining. Once it exists, the Monday Excel build goes away. Did I get that right?",
+  "updates": [],
+  "facts": [
+    { "item": "item-1", "fact": "rule_clarity", "band": "written", "evidence": ["data_report.definition"], "quote": "short picks and wrong-location scans, not the cancelled lines" },
+    { "item": "item-1", "fact": "access", "band": "api_or_db", "evidence": ["core.systems"], "quote": "we've got read access to the reporting copy" },
+    { "item": "item-1", "fact": "existing_asset", "band": "none", "evidence": ["data_report.existing"], "quote": "the dashboard only gives me the total for the building" }
+  ],
+  "router": {
+    "new_items": [],
+    "reclassify": null,
+    "add_modifiers": [],
+    "supersede": { "item": "item-2", "by": "item-1", "quote": "if I had that every morning I'd stop doing the Monday thing" }
+  },
+  "prose": [
+    { "item": "item-1", "field": "problem_statement", "text": "Shift leads choose retraining by guesswork because pick exceptions aren't visible by picker and shift." }
+  ],
+  "open_questions": [],
+  "reflect_back": {
+    "text": "You want a daily view of short picks and location mismatches by shift and picker, ready by 7am, so shift leads can target retraining. Once it exists, the Monday Excel build goes away.",
+    "status": "proposed",
+    "corrections": []
+  },
+  "next_target": { "item": null, "area": null, "is_probe": false }
+}

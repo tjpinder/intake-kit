@@ -438,6 +438,14 @@ Codex isn't installed on the build machine. Build the `.agents/skills/` mirror a
 - **Web UI:** built after the plugin is complete, with Azure OpenAI as the default provider and Claude as the alternative. Azure deployment details and the spend cap are decided then.
 - **Persona evals:** need Azure details for parity. Until then the harness runs on Claude only, and the parity report says Azure wasn't run.
 
+**Data contract decisions (step 1, Oct 10)**
+
+- **Scoring inputs are band picks, not numbers.** For each criterion, AI overlay check, adoption force and gate fact, the model picks a band name from the criteria table (for example `rule_clarity: written | mixed | judgment`, `ways_done: one | 2-7 | 8+`) and cites coverage IDs and a user quote. `scoring.yaml` maps bands to scores; code computes composites, quadrant and gate. Band picks appear in the reflect-back for the user to confirm or correct. The turn schema has no field that can carry a score or gate.
+- **Gate facts** the model reports as bands: `existing_asset`, `decision_depends`, `broken_cause`, `workaround_permanent`. Mitigation text for Review items is a prose field.
+- **Turn contract changes from the earlier example:** adds `facts`, `prose`, `open_questions`, `router.add_modifiers`, `router.supersede`, and `title` on new items; `reflect_back` (null, or `{text, status: proposed | confirmed | corrected, corrections}`) replaces `ready_for_reflect_back`; `next_target.is_probe` lets apply-turn enforce one probe per area.
+- **Two validation layers.** `schema/turn.schema.json` stays inside the strict structured-output subset (a test enforces this). Rules the subset can't express (ID formats, band names, grounding, probe limits) are enforced by apply-turn. `schema/session.schema.json` uses full JSON Schema 2020-12, including the status rules.
+- `session.provider` also allows `codex`.
+
 **Handoff file:** Claude Code copies this spec into the repo as `HANDOFF.md`.
 
 ## Testing

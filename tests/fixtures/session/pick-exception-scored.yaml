@@ -1,0 +1,143 @@
+# Worked-example session after the reflect-back is confirmed and code has scored and gated.
+# item-1 reaches Go; item-2 (the Monday Excel build) is superseded by item-1 and gated Don't build.
+# data_report.truth stays unknown, so it appears as an open question.
+schema_version: 1
+framework_version: 0.1.0
+session:
+  id: 2026-10-10-7f3a
+  started_at: 2026-10-10T14:02:00-04:00
+  mode: stakeholder
+  provider: claude
+  reflect_back:
+    text: >-
+      You want a daily view of short picks and location mismatches by shift and picker, so shift
+      leads can target retraining instead of guessing. Today you build a version of it in Excel every
+      Monday from a WMS export, which takes most of the morning. Once the daily view exists, the
+      Monday build goes away.
+    confirmed: true
+    corrections: []
+core:
+  users:
+    status: covered
+    value: Ops supervisor builds it; shift leads use it to plan retraining
+    quotes: ["I build it, the shift leads use it Tuesday"]
+    probe_count: 0
+    updated_at: 2026-10-10T14:06:00-04:00
+  outcome:
+    status: covered
+    value: "Baseline: about 4 hours every Monday building the sheet. Target: no manual build; exceptions visible by 7am daily"
+    quotes: ["it eats my whole Monday morning, call it four hours", "I want it there when I walk in at seven"]
+    probe_count: 1
+  data:
+    status: covered
+    value: WMS pick confirmations and exception codes; WMS is the system of record; no customer or pricing data
+    quotes: ["it all comes out of the WMS pick confirmations", "no customer info, just orders, locations and badge numbers"]
+    probe_count: 0
+  systems:
+    status: covered
+    value: WMS (read-only SQL access via reporting replica), Excel; no upgrades planned
+    quotes: ["we've got read access to the reporting copy", "nothing's changing on the WMS this year"]
+    probe_count: 0
+  constraints:
+    status: covered
+    value: Must be ready before the 7am shift huddle
+    quotes: ["I want it there when I walk in at seven"]
+    probe_count: 0
+  trust:
+    status: assumed
+    value: A wrong count would send the wrong picker to retraining; shift lead reviews before acting
+    quotes: ["if it's wrong I'd just look at the shift lead and ask"]
+    probe_count: 1
+items:
+  - id: item-1
+    title: Daily pick-exception report
+    type: data_report
+    confidence: high
+    trigger_quote: "I need a report of short picks by shift and picker"
+    modifiers: []
+    spawned_from: null
+    superseded_by: null
+    type_history:
+      - { from: null, to: data_report, reason: opening, quote: "I need a report of short picks by shift and picker", at: 2026-10-10T14:02:30-04:00 }
+    core_overrides: {}
+    coverage:
+      data_report.decision: { status: covered, value: Pick which pickers get retraining that week, quotes: ["so I know who to pull for retraining"], probe_count: 0 }
+      data_report.definition: { status: covered, value: "Short pick or location mismatch exception code on a confirmed pick; excludes cancelled lines", quotes: ["short picks and wrong-location scans, not the cancelled lines"], probe_count: 0 }
+      data_report.grain: { status: covered, value: "Per picker, per shift, daily", quotes: ["filter by shift and count by picker"], probe_count: 0 }
+      data_report.truth: { status: unknown, value: null, quotes: [], probe_count: 1 }
+      data_report.delivery: { status: covered, value: HTML page refreshed by 7am, quotes: ["I want it there when I walk in at seven"], probe_count: 0 }
+      data_report.existing: { status: covered, value: "No existing report covers picks by picker; the WMS dashboard shows totals only", quotes: ["the dashboard only gives me the total for the building"], probe_count: 0 }
+    facts:
+      rule_clarity: { band: written, evidence: [data_report.definition], quotes: ["short picks and wrong-location scans, not the cancelled lines"] }
+      input_digital: { band: fully, evidence: [core.data], quotes: ["it all comes out of the WMS pick confirmations"] }
+      input_structured: { band: "80+", evidence: [core.data], quotes: [] }
+      ways_done: { band: one, evidence: [data_report.definition], quotes: [] }
+      stability: { band: none, evidence: [core.systems], quotes: ["nothing's changing on the WMS this year"] }
+      documentation: { band: partial, evidence: [data_report.definition], quotes: [] }
+      steps_apps: { band: under_20, evidence: [core.systems], quotes: [] }
+      access: { band: api_or_db, evidence: [core.systems], quotes: ["we've got read access to the reporting copy"] }
+      value: { band: high, evidence: [core.outcome], quotes: ["it eats my whole Monday morning, call it four hours"] }
+      ai_applies: { band: "no", evidence: [data_report.definition], quotes: [] }
+      existing_asset: { band: none, evidence: [data_report.existing], quotes: ["the dashboard only gives me the total for the building"] }
+      decision_depends: { band: "yes", evidence: [data_report.decision], quotes: ["so I know who to pull for retraining"] }
+    prose:
+      problem_statement: Shift leads choose retraining by guesswork because pick exceptions aren't visible by picker and shift.
+      current_state: The ops supervisor exports WMS data and builds a weekly Excel summary every Monday, about four hours.
+      mvp: A daily HTML report of short picks and location mismatches by shift and picker, ready by 7am.
+      out_of_scope: Automatically assigning retraining; changing WMS exception codes.
+    scoring:
+      criteria:
+        rule_clarity: { score: 5, band: written, evidence: [data_report.definition] }
+        input_digital: { score: 5, band: fully, evidence: [core.data] }
+        input_structured: { score: 5, band: "80+", evidence: [core.data] }
+        ways_done: { score: 5, band: one, evidence: [data_report.definition] }
+        stability: { score: 5, band: none, evidence: [core.systems] }
+        documentation: { score: 3, band: partial, evidence: [data_report.definition] }
+        steps_apps: { score: 5, band: under_20, evidence: [core.systems] }
+        access: { score: 5, band: api_or_db, evidence: [core.systems] }
+        value: { score: 5, band: high, evidence: [core.outcome] }
+      automation_potential: 5.0
+      ease: 4.5
+      quadrant: prioritize
+      ai_overlay: { applies: false, checks: {} }
+      adoption: null
+      rules_version: 0.1.0
+    gate:
+      decision: go
+      reasons: ["Prioritize quadrant", "outcome, data, owner and error cost covered or confirmed-assumed", "reflect-back confirmed"]
+      revisit_trigger: null
+      rules_version: 0.1.0
+    open_questions:
+      - { area: data_report.truth, question: "When the WMS dashboard total and the pick-confirmation count disagree, which one is right?", who_can_answer: WMS admin, artifact_needed: "One day where the two numbers differ" }
+
+  - id: item-2
+    title: Monday Excel exception summary
+    type: manual_process
+    confidence: med
+    trigger_quote: "I build it in Excel every Monday"
+    modifiers: []
+    spawned_from: item-1
+    superseded_by: item-1
+    type_history:
+      - { from: null, to: manual_process, reason: spawned from item-1, quote: "I build it in Excel every Monday", at: 2026-10-10T14:05:10-04:00 }
+    core_overrides: {}
+    coverage:
+      manual_process.walkthrough: { status: covered, value: "Export pick confirmations, paste into the template, pivot by picker, email to shift leads", quotes: ["export, paste it in the template, pivot it, send it out"], probe_count: 0 }
+      manual_process.volume: { status: covered, value: "Weekly, about four hours", quotes: ["it eats my whole Monday morning, call it four hours"], probe_count: 0 }
+    facts:
+      existing_asset: { band: none, evidence: [manual_process.walkthrough], quotes: [] }
+    prose: {}
+    scoring:
+      criteria: {}
+      automation_potential: null
+      ease: null
+      quadrant: null
+      ai_overlay: { applies: false, checks: {} }
+      adoption: null
+      rules_version: 0.1.0
+    gate:
+      decision: dont_build
+      reasons: ["Superseded by item-1, which reaches Go"]
+      revisit_trigger: "item-1 is not built, or the daily report doesn't replace the Monday summary"
+      rules_version: 0.1.0
+    open_questions: []

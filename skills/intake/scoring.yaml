@@ -142,6 +142,8 @@ gates:
     modifiers: [migration]
     defer_with_critical_unknown: true
     composite_null: true
+    # The AI overlay applies but a check is unknown, or a check outside dont_build_on_fail failed.
+    ai_overlay_unresolved: true
   dont_build_quadrant:
     quadrant: [defer]
     # A Defer item whose solution uses an LLM and passes every AI overlay check becomes an

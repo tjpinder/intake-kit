@@ -69,6 +69,7 @@ export interface Scoring {
       modifiers: Modifier[];
       defer_with_critical_unknown: boolean;
       composite_null: boolean;
+      ai_overlay_unresolved: boolean;
     };
     dont_build_quadrant: { quadrant: string[]; defer_rescued_by_ai_overlay: boolean; ai_overlay_fail: boolean };
     go: {

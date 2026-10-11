@@ -261,14 +261,15 @@
             "gather_more": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["critical_unknown", "stability", "review_without_mitigation", "modifiers", "defer_with_critical_unknown", "composite_null"],
+              "required": ["critical_unknown", "stability", "review_without_mitigation", "modifiers", "defer_with_critical_unknown", "composite_null", "ai_overlay_unresolved"],
               "properties": {
                 "critical_unknown": { "type": "boolean" },
                 "stability": { "type": "array", "items": { "type": "string" } },
                 "review_without_mitigation": { "type": "boolean" },
                 "modifiers": { "type": "array", "items": { "$ref": "#/$defs/modifier" } },
                 "defer_with_critical_unknown": { "type": "boolean" },
-                "composite_null": { "type": "boolean" }
+                "composite_null": { "type": "boolean" },
+                "ai_overlay_unresolved": { "type": "boolean" }
               }
             },
             "dont_build_quadrant": {

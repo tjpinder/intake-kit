@@ -453,9 +453,17 @@ Codex isn't installed on the build machine. Build the `.agents/skills/` mirror a
 - **Critical areas** for Go: `core.users`, `core.outcome`, `core.data`, `core.trust`, plus any module area marked `critical: true` for that item's type.
 - **Unknown bands.** Every criterion has an `unknown` band that scores null. A composite needs at least `min_known_per_composite` (3) known criteria, otherwise it's null and the item goes to Gather more.
 - **`success_metric` gate fact** (`measurable_with_baseline | measurable_no_baseline | vague | unknown`) carries Go's "measurable success metric with baseline" requirement.
-- **AI rescue of Defer.** A Defer item whose solution uses an LLM and passes every AI overlay check is an AI candidate and can reach Go. Failing eval-ability or error cost is a definitive Don't build; other overlay failures or unknowns go to Gather more.
+- **AI rescue of Defer.** A Defer item whose solution uses an LLM and passes every AI overlay check is an AI candidate and can reach Go. Failing eval-ability or error cost is a Don't build at precedence step 4; any unknown check, or a failure of another check, is Gather more at step 3, so it wins when both apply.
 - **Gate precedence is fixed** in the scoring schema. Reordering it is a code change, not a tuning change.
 - **The loader validates all config at load time** and lists every problem, including cross-file ones: unique namespaced IDs, router and module agreement, feeds pointing at real sections, and fact names agreeing across `scoring.yaml` and both schemas. Config is read at runtime, not bundled, so tuning `scoring.yaml` needs no rebuild.
+
+**Scoring and gate behaviour (step 3, Oct 10)**
+
+- **Nothing is scored or gated until the reflect-back is confirmed.** Before that, `scoreAndGate` returns the session unchanged.
+- **Composites** are weighted means of the known criteria, rounded to 2 places. Levels compare (mean − 1) / 4, rounded to 6 places, with the thresholds, so a mean of exactly 3.6 is high.
+- **Reasons.** A gate lists the winning rule's reasons first, then every other rule that matched as `(also matched <decision>) <reason>`. A fall-through Gather more lists the unmet Go requirements.
+- **Revisit triggers** are generated for every Don't build, one clause per reason that matched.
+- **Supersession.** The replacing item is gated first, whatever the item order. Items in a supersession cycle ignore supersession and are gated on their own merits. A `superseded_by` naming a missing item is an error.
 
 **Handoff file:** Claude Code copies this spec into the repo as `HANDOFF.md`.
 

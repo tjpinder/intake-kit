@@ -105,7 +105,7 @@ items:
       rules_version: 0.1.0
     gate:
       decision: go
-      reasons: ["Prioritize quadrant", "outcome, data, owner and error cost covered or confirmed-assumed", "reflect-back confirmed"]
+      reasons: ["Prioritize quadrant", "Critical areas covered or confirmed-assumed", "Measurable success metric with a baseline", "Reflect-back confirmed"]
       revisit_trigger: null
       rules_version: 0.1.0
     open_questions:
@@ -129,7 +129,16 @@ items:
       existing_asset: { band: none, evidence: [manual_process.walkthrough], quotes: [] }
     prose: {}
     scoring:
-      criteria: {}
+      criteria:
+        rule_clarity: { score: null, band: unknown, evidence: [] }
+        input_digital: { score: null, band: unknown, evidence: [] }
+        input_structured: { score: null, band: unknown, evidence: [] }
+        ways_done: { score: null, band: unknown, evidence: [] }
+        stability: { score: null, band: unknown, evidence: [] }
+        documentation: { score: null, band: unknown, evidence: [] }
+        steps_apps: { score: null, band: unknown, evidence: [] }
+        access: { score: null, band: unknown, evidence: [] }
+        value: { score: null, band: unknown, evidence: [] }
       automation_potential: null
       ease: null
       quadrant: null
@@ -138,7 +147,10 @@ items:
       rules_version: 0.1.0
     gate:
       decision: dont_build
-      reasons: ["Superseded by item-1, which reaches Go"]
-      revisit_trigger: "item-1 is not built, or the daily report doesn't replace the Monday summary"
+      reasons:
+        - Superseded by item-1, which reaches Go
+        - (also matched gather_more) Too few known criteria to score automation potential
+        - (also matched gather_more) Too few known criteria to score ease
+      revisit_trigger: Revisit if item-1 isn't built, or doesn't replace this
       rules_version: 0.1.0
     open_questions: []

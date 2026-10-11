@@ -72,6 +72,7 @@ export function makeSession(items: Item[], opts: { confirmed?: boolean | null; c
       started_at: "2026-10-10T10:00:00-04:00",
       mode: "stakeholder",
       provider: "claude",
+      grounding: "transcript",
       reflect_back: confirmed === null ? null : { text: "Here's what I heard.", confirmed, corrections: [] },
     },
     core: {

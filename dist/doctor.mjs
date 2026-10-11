@@ -6,6 +6,8 @@
     process.exit(1);
   }
 }
+import { createRequire as __ikCreateRequire } from "node:module";
+const require = __ikCreateRequire(import.meta.url);
 
 // src/cli/doctor.ts
 import { readFileSync } from "node:fs";

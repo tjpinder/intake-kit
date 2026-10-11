@@ -21,7 +21,15 @@ for (const entry of entries) {
     platform: "node",
     format: "esm",
     target: "node22",
-    banner: { js: nodeVersionBanner() },
+    // yaml and ajv are CommonJS and call require() internally; an ESM bundle has no require,
+    // so give it one.
+    banner: {
+      js: [
+        nodeVersionBanner(),
+        'import { createRequire as __ikCreateRequire } from "node:module";',
+        "const require = __ikCreateRequire(import.meta.url);",
+      ].join("\n"),
+    },
     legalComments: "inline",
     logLevel: "warning",
   });

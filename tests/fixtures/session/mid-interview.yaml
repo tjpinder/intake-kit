@@ -6,6 +6,7 @@ session:
   started_at: 2026-10-10T09:15:00-04:00
   mode: stakeholder
   provider: azure-openai
+  grounding: transcript
   reflect_back: null
 core:
   users: { status: covered, value: AP clerk matches invoices; controller signs off, quotes: ["I match them, Dana signs off on anything over five grand"], probe_count: 0 }

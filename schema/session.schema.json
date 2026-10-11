@@ -12,12 +12,16 @@
     "session": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "started_at", "mode", "provider", "reflect_back"],
+      "required": ["id", "started_at", "mode", "provider", "grounding", "reflect_back"],
       "properties": {
         "id": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}-[0-9a-f]{4,}$" },
         "started_at": { "type": "string", "format": "date-time" },
         "mode": { "enum": ["stakeholder", "builder"] },
         "provider": { "enum": ["claude", "azure-openai", "openai", "codex"] },
+        "grounding": {
+          "enum": ["transcript", "unverified"],
+          "description": "transcript: every quote was checked against the user's recorded words. unverified: no transcript was available (e.g. Codex without the hook), so quotes weren't checked."
+        },
         "reflect_back": {
           "oneOf": [
             { "type": "null" },
@@ -28,7 +32,8 @@
               "properties": {
                 "text": { "type": "string", "minLength": 1 },
                 "confirmed": { "type": "boolean" },
-                "corrections": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+                "corrections": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+                "proposed_at": { "type": "string", "format": "date-time" }
               }
             }
           ]

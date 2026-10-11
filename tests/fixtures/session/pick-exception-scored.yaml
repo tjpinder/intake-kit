@@ -8,6 +8,7 @@ session:
   started_at: 2026-10-10T14:02:00-04:00
   mode: stakeholder
   provider: claude
+  grounding: transcript
   reflect_back:
     text: >-
       You want a daily view of short picks and location mismatches by shift and picker, so shift

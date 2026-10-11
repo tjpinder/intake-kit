@@ -72,7 +72,8 @@ export interface Session {
     started_at: string;
     mode: "stakeholder" | "builder";
     provider: "claude" | "azure-openai" | "openai" | "codex";
-    reflect_back: { text: string; confirmed: boolean; corrections: string[] } | null;
+    grounding: "transcript" | "unverified";
+    reflect_back: { text: string; confirmed: boolean; corrections: string[]; proposed_at?: string } | null;
   };
   core: Record<"users" | "outcome" | "data" | "systems" | "constraints" | "trust", CoverageEntry>;
   items: Item[];

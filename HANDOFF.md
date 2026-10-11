@@ -465,6 +465,18 @@ Codex isn't installed on the build machine. Build the `.agents/skills/` mirror a
 - **Revisit triggers** are generated for every Don't build, one clause per reason that matched.
 - **Supersession.** The replacing item is gated first, whatever the item order. Items in a supersession cycle ignore supersession and are gated on their own merits. A `superseded_by` naming a missing item is an error.
 
+**apply-turn and transcript decisions (step 4, Oct 10)**
+
+- **Files in the target repo.** `intake-answers.yaml` sits at the repo root and is meant to be committed. Local state lives in `.intake-kit/`, which gets its own `.gitignore` so only `checks.json` is ever committed: transcript, marker, run state, turn file, rejection log and archive stay local.
+- **How the skill passes a turn.** The model writes the turn JSON to `.intake-kit/turn.json` with its file tool, then runs `node dist/intake.mjs apply-turn`. No JSON goes through the shell, so it works the same in bash and PowerShell 5.1.
+- **All or nothing.** A turn is saved whole or not at all. Exit 2 means rejected; fix and retry once. A second rejection in a row exits 3: nothing from that turn is saved, the model says its reply and carries on, and re-captures the answers later. Every rejection is logged to `.intake-kit/rejections.jsonl`.
+- **Recording.** The prompt hook starts recording on the prompt that invokes the intake command (`/intake-kit:intake` or `/intake`), so the opening statement is captured. If no intake is active, it first archives any old transcript. Recording stops when the reflect-back is confirmed. The hook never blocks a prompt; on failure it exits 1, which shows a visible, non-blocking error.
+- **Reflect-back.** Proposing records `proposed_at`. Confirming or correcting needs a user message recorded after that time, so the model can't confirm its own reflect-back. Once confirmed, the session is scored and gated, and the intake accepts no more turns.
+- **Probes** are only allowed on an area that has already been answered (it has `updated_at`), and only once.
+- **Starting over never deletes.** `start` with an intake already in the file asks the user to resume (`--resume`) or start over (`--new`). `--new` moves the old session file and the earlier part of the transcript into `.intake-kit/archive/`.
+- **`session.grounding`** is `transcript` (quotes checked) or `unverified` (no transcript, e.g. Codex without the hook; quotes aren't checked and the session says so).
+- **Bundling.** Each bundled script defines `require` via `createRequire`, because `yaml` and `ajv` are CommonJS. The CLI tests run the built `dist/` scripts, and `npm test` builds first.
+
 **Handoff file:** Claude Code copies this spec into the repo as `HANDOFF.md`.
 
 ## Testing

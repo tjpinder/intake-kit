@@ -1,11 +1,9 @@
 // `node dist/doctor.mjs` — the first thing every skill runs. Prints one line the skill can
-// read: the kit version and Node version, or (via the bundle banner) why it can't run.
+// read: the kit version and Node version, or (via the bundle banner) why it can't run. The
+// version is stamped in at build time, so this works from the plugin and from the standalone
+// kit in .agents/ alike.
 
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+declare const __INTAKE_KIT_VERSION__: string | undefined;
+const version = typeof __INTAKE_KIT_VERSION__ === "string" ? __INTAKE_KIT_VERSION__ : "0.0.0-dev";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const manifest = JSON.parse(readFileSync(join(root, ".claude-plugin", "plugin.json"), "utf8")) as { version: string };
-
-console.log(`intake-kit ${manifest.version} ready (node ${process.versions.node})`);
+console.log(`intake-kit ${version} ready (node ${process.versions.node})`);

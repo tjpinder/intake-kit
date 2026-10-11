@@ -3,7 +3,7 @@
 // rebuild. Any problem throws with every issue listed, so a bad edit can't silently change
 // how the intake behaves.
 
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { Ajv2020 } from "ajv/dist/2020.js";
@@ -138,7 +138,8 @@ export function schemaFactNames(): { turn: string[]; session: string[] } {
  */
 export function loadFramework(root: string): Framework {
   const issues: string[] = [];
-  const intakeDir = join(root, "skills", "intake");
+  // The plugin keeps the framework beside its skill; the standalone kit keeps it in framework/.
+  const intakeDir = existsSync(join(root, "framework")) ? join(root, "framework") : join(root, "skills", "intake");
 
   const router = readYaml(join(intakeDir, "router.yaml")) as Router;
   check("router", router, "router.yaml", issues);

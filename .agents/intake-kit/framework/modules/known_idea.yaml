@@ -1,0 +1,67 @@
+# Known idea -> feasibility read + spec. Methods: The Mom Test, jobs-to-be-done.
+# A stated solution is a hypothesis: always walk back to current behavior before scoring.
+module: known_idea
+applies_to: known_idea
+methods: [The Mom Test (Rob Fitzpatrick), jobs-to-be-done]
+adoption_forces: [push, pull, anxiety, habit]
+
+areas:
+  - id: known_idea.current
+    must_capture: What happens today when this gets done, from the last real instance
+    probes:
+      - "What happens today when this gets done? Walk me through the last time."
+    critical: true
+    followup_conditions:
+      - when: the user keeps describing the proposed solution instead of today
+        ask: "Before the new version, walk me through the last time it got done."
+    feeds:
+      - { file: SPEC.md, section: current_state }
+
+  - id: known_idea.push
+    must_capture: The worst part of how it's done now
+    probes:
+      - "What's the worst part of how it's done now?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: SPEC.md, section: problem }
+      - { file: DECISIONS.md, section: adoption_risks }
+
+  - id: known_idea.pull
+    must_capture: What would be different on a normal day if it worked
+    probes:
+      - "If it worked perfectly, what would be different on a normal Tuesday?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: SPEC.md, section: success_metric }
+      - { file: DECISIONS.md, section: adoption_risks }
+
+  - id: known_idea.adoption
+    must_capture: What would stop people trusting it and what they'd keep doing the old way
+    probes:
+      - "What would make you not trust it? What would people keep doing the old way?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: DECISIONS.md, section: adoption_risks }
+      - { file: GUARDRAILS.md, section: review_points }
+
+  - id: known_idea.prior
+    must_capture: Previous attempts and what happened
+    probes:
+      - "Has anyone tried to solve this before? What happened?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: DECISIONS.md, section: gate }
+
+  - id: known_idea.existing
+    must_capture: Whether an existing WMS, ERP or BI feature already does something close
+    probes:
+      - "Does your WMS, ERP or BI tool already do something close to this?"
+    always_ask: true
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: DECISIONS.md, section: gate }

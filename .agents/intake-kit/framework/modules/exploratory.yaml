@@ -1,0 +1,42 @@
+# Exploratory -> ranked opportunity backlog. Methods: OpenAI opportunity zones, impact/effort.
+# Each concrete instance spawns its own item with a light pass on the shared core.
+module: exploratory
+applies_to: exploratory
+methods: [OpenAI forward-deployed opportunity zones, impact/effort ranking]
+adoption_forces: [push, pull, anxiety, habit]
+spawns_items: true
+self_serve_rule: items a user could handle with an off-the-shelf assistant go on the self-serve list, not the build backlog
+
+areas:
+  - id: exploratory.zones
+    must_capture: Repetitive work nobody values, waits on other teams' skills, places people get stuck
+    probes:
+      - "What's repetitive work nobody values?"
+      - "Where do you wait on another team's skills?"
+      - "Where do people get stuck not knowing what to do next?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: BACKLOG.md, section: items }
+
+  - id: exploratory.instances
+    must_capture: The most recent concrete example of each zone named
+    probes:
+      - "Give me the most recent example of each."
+    critical: true
+    followup_conditions:
+      - when: a zone is named without a concrete example
+        ask: "When was the last time that happened? Walk me through it."
+        spawns: item
+    feeds:
+      - { file: BACKLOG.md, section: items }
+
+  - id: exploratory.value
+    must_capture: Rough weekly cost in time or money of each instance
+    probes:
+      - "Roughly how much time or money does that cost a week?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: BACKLOG.md, section: items }
+      - { file: BACKLOG.md, section: self_serve }

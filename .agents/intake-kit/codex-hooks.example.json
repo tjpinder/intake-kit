@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .agents/intake-kit/dist/hook-prompt.mjs",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -136,7 +136,7 @@ function sectionRenderers(session: Session, fw: Framework, file: string, checks:
       return text ? [`> ${text}`, ...(lines.length ? ["", ...lines] : [])] : lines;
     });
   const prose = (field: keyof Item["prose"]): SectionFn => (items) => perItem(items, (i) => (i.prose[field] ? [`> ${i.prose[field]}`] : []));
-  const notYet = "_Not set up yet. Run `/intake-kit:guardrails` to choose these._";
+  const notYet = "_Not set up yet. Run the intake-kit guardrails command (`/intake-kit:guardrails` in Claude Code, `$intake-guardrails` in Codex) to choose these._";
 
   switch (file) {
     case "SPEC.md":

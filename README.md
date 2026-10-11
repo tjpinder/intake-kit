@@ -4,7 +4,7 @@ Turn a vague ops request into a build-ready spec in 30 minutes.
 
 intake-kit is a Claude Code plugin. It runs a guided intake interview, scores what it hears, gates each item (Go, Gather more, Don't build, Fix not build), and writes a spec pack with guardrails derived from what the user actually said.
 
-> **Status:** in development. All three commands work in Claude Code. Codex packaging, the worked example and the docs site are still to come. See [HANDOFF.md](HANDOFF.md) for the full spec.
+> **Status:** in development. All three commands work in Claude Code. The Codex packaging is built but not yet tested in Codex. The worked example and the docs site are still to come. See [HANDOFF.md](HANDOFF.md) for the full spec.
 
 ## Prerequisites
 
@@ -31,6 +31,10 @@ Or, on older Claude Code versions, inside a session:
 | `/intake-kit:intake` | Runs the guided intake and renders the spec pack |
 | `/intake-kit:guardrails` | Writes GUARDRAILS.md, `.intake-kit/checks.json` and a CI workflow from the intake |
 | `/intake-kit:audit` | Runs the kit's checks and writes `audits/intake-kit-audit.md` |
+
+## Codex
+
+Copy the `.agents/` folder into a repo (or into `~/.agents/`) and Codex finds `$intake`, `$intake-guardrails` and `$intake-audit`. Node 22 or later is required. See [AGENTS.md](AGENTS.md) for details, including the optional prompt hook that turns on quote checking. **Not yet tested in Codex itself.**
 
 ## Guardrail checks
 

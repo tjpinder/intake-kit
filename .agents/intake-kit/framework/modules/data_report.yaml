@@ -1,0 +1,68 @@
+# Data / report -> metric spec, or a pointer to an existing asset. No decision means don't build.
+module: data_report
+applies_to: data_report
+methods: [decision-first metric definition]
+
+areas:
+  - id: data_report.decision
+    must_capture: What the user will do differently when they see the number
+    probes:
+      - "What will you do differently when you see this?"
+    always_ask: true
+    critical: true
+    followup_conditions:
+      - when: the answer is "it would be good to know" or similar, with no action
+        ask: "Tell me about the last time you wished you'd had this number. What would you have done?"
+    feeds:
+      - { file: SPEC.md, section: problem }
+      - { file: DECISIONS.md, section: gate }
+
+  - id: data_report.definition
+    must_capture: Exactly how the thing is counted, what's in and what's out
+    probes:
+      - "How exactly do you count one? What's in and what's out?"
+    critical: true
+    followup_conditions: []
+    feeds:
+      - { file: SPEC.md, section: mvp }
+      - { file: ACCEPTANCE.md, section: criteria }
+
+  - id: data_report.grain
+    must_capture: The level of detail and the time window
+    probes:
+      - "Per order, line, person, shift or zone? Over what window?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: SPEC.md, section: mvp }
+      - { file: ACCEPTANCE.md, section: criteria }
+
+  - id: data_report.truth
+    must_capture: Which system's number wins when sources disagree
+    probes:
+      - "Which system's number do you trust when they disagree?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: SPEC.md, section: data }
+      - { file: ACCEPTANCE.md, section: error_cases }
+
+  - id: data_report.delivery
+    must_capture: How fresh it must be and where it should appear
+    probes:
+      - "How fresh does it need to be, and where do you want to see it?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: SPEC.md, section: mvp }
+      - { file: ACCEPTANCE.md, section: criteria }
+
+  - id: data_report.existing
+    must_capture: Any existing report that's close, and what's wrong with it
+    probes:
+      - "Is there a report today that's close? What's wrong with it?"
+    always_ask: true
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: DECISIONS.md, section: gate }

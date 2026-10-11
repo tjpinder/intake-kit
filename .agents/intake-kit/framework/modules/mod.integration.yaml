@@ -1,0 +1,51 @@
+# Integration modifier: attaches to any type when data moves between systems.
+module: mod.integration
+applies_to: modifier
+
+areas:
+  - id: mod.integration.systems
+    must_capture: The system on each side
+    probes:
+      - "What's on each end: where does it start and where does it land?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: SPEC.md, section: systems }
+
+  - id: mod.integration.trigger
+    must_capture: What starts a transfer
+    probes:
+      - "What kicks off a transfer: a schedule, an event, someone pressing a button?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: SPEC.md, section: mvp }
+
+  - id: mod.integration.payload
+    must_capture: Payload format and a real example
+    probes:
+      - "What format does it travel in? Can we see one real message?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: SPEC.md, section: data }
+      - { file: ACCEPTANCE.md, section: criteria }
+
+  - id: mod.integration.error_handling
+    must_capture: What happens when a transfer fails and who finds out
+    probes:
+      - "When one fails today, what happens and who finds out?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: ACCEPTANCE.md, section: error_cases }
+      - { file: GUARDRAILS.md, section: fallback }
+
+  - id: mod.integration.owners
+    must_capture: Who owns each end
+    probes:
+      - "Who owns each end, and who do you call when it breaks?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: SPEC.md, section: users }

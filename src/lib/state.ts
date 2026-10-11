@@ -103,11 +103,15 @@ export function writeRunState(dir: string, state: RunState): void {
   writeFileSync(paths(dir).state, JSON.stringify(state, null, 2) + "\n");
 }
 
-/** The plugin root: the nearest ancestor of this file holding .claude-plugin/plugin.json. Works from src/ and dist/. */
+/**
+ * The kit root: the nearest ancestor of this file holding .claude-plugin/plugin.json (the
+ * Claude Code plugin) or kit.json (the standalone kit in .agents/intake-kit/ for Codex).
+ * Works from src/ and dist/.
+ */
 export function pluginRoot(from: string = fileURLToPath(import.meta.url)): string {
   let dir = dirname(from);
   for (;;) {
-    if (existsSync(join(dir, ".claude-plugin", "plugin.json"))) return dir;
+    if (existsSync(join(dir, ".claude-plugin", "plugin.json")) || existsSync(join(dir, "kit.json"))) return dir;
     const parent = dirname(dir);
     if (parent === dir) throw new Error(`intake-kit: can't find the plugin root above ${from}`);
     dir = parent;

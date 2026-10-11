@@ -9,7 +9,8 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { appendTranscript, archive, ensureStateDir, fileStamp, paths } from "../lib/state.ts";
 
-const INTAKE_COMMAND = /^\s*\/(intake-kit:)?intake(\s|$)/;
+// /intake-kit:intake or /intake in Claude Code; $intake in Codex.
+const INTAKE_COMMAND = /^\s*(\/(intake-kit:)?intake|\$intake)(\s|$)/;
 
 interface PromptPayload { prompt?: unknown; cwd?: unknown }
 

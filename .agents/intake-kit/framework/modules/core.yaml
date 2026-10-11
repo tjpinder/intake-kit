@@ -1,0 +1,93 @@
+# Shared core: applies to every item, captured once per session. An item overrides an area
+# only when its answer differs (core_overrides in the session file).
+module: core
+applies_to: all
+
+areas:
+  - id: core.users
+    must_capture: Who does the work, who uses the output, who owns the process, who signs off
+    probes:
+      - "Who touches this, first person to last?"
+      - "Who can say yes to changing it?"
+    critical: true
+    followup_conditions:
+      - when: no owner or approver has been named
+        ask: "Who can say yes to changing it?"
+    feeds:
+      - { file: SPEC.md, section: users }
+      - { file: DECISIONS.md, section: assumptions }
+
+  - id: core.outcome
+    must_capture: Baseline, target, how it's measured, what we won't claim
+    probes:
+      - "How do you know today whether it went well?"
+      - "What number would tell you this worked?"
+      - "What's it costing now, in hours, errors or chargebacks?"
+    critical: true
+    followup_conditions:
+      - when: a target is given with no baseline
+        ask: "What's it costing now, in hours, errors or chargebacks?"
+      - when: success is described without a number
+        ask: "What number would tell you this worked?"
+    feeds:
+      - { file: SPEC.md, section: success_metric }
+      - { file: ACCEPTANCE.md, section: criteria }
+
+  - id: core.data
+    must_capture: Sources, system of record, how structured, quality issues, sensitivity, real examples
+    probes:
+      - "Where does that live, and which copy do you trust?"
+      - "Show me one real example."
+      - "Any customer, employee, pricing or personal data in it?"
+    critical: true
+    followup_conditions:
+      - when: sensitivity hasn't been stated
+        ask: "Any customer, employee, pricing or personal data in it?"
+    feeds:
+      - { file: SPEC.md, section: data }
+      - { file: GUARDRAILS.md, section: data_handling }
+    guardrail: flagged_paths
+
+  - id: core.systems
+    must_capture: Apps touched, access method, changes expected in 6 months
+    probes:
+      - "Which screens or systems do you open?"
+      - "Any upgrades planned in the next six months?"
+    critical: false
+    followup_conditions:
+      - when: systems are named but access method isn't
+        ask: "How do you get at it today: a screen, an export, a database?"
+    feeds:
+      - { file: SPEC.md, section: systems }
+      - { file: CLAUDE.md, section: stack }
+
+  - id: core.constraints
+    must_capture: Policy, compliance, SLAs, timing windows, approvals
+    probes:
+      - "Is anyone outside your team requiring this?"
+      - "When does it have to be done each day?"
+    critical: false
+    followup_conditions:
+      - when: an outside requirement is mentioned
+        ask: "Who set that requirement, and where is it written down?"
+    feeds:
+      - { file: SPEC.md, section: constraints }
+
+  - id: core.trust
+    must_capture: Cost of a wrong output, who catches errors, required review, fallback, what would make them switch it off
+    probes:
+      - "When this goes wrong today, who catches it?"
+      - "Worst outcome if an automated version got one wrong?"
+      - "Would you approve its output, or let it act alone?"
+      - "If it stopped working, what would you do?"
+      - "What would make you switch it off?"
+    critical: true
+    followup_conditions:
+      - when: no manual fallback has been described
+        ask: "If it stopped working, what would you do?"
+    feeds:
+      - { file: ACCEPTANCE.md, section: error_cases }
+      - { file: GUARDRAILS.md, section: kill_criteria }
+      - { file: GUARDRAILS.md, section: fallback }
+      - { file: GUARDRAILS.md, section: review_points }
+    guardrail: kill_criteria

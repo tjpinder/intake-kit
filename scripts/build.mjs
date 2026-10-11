@@ -5,6 +5,7 @@ import { build } from "esbuild";
 import { readdirSync, readFileSync, rmSync, mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { nodeVersionBanner } from "../src/lib/node-check.ts";
+import { buildCodex, OUT as CODEX_OUT } from "./build-codex.mjs";
 
 const entries = readdirSync("src/cli")
   .filter((f) => f.endsWith(".ts"))
@@ -37,3 +38,6 @@ for (const entry of entries) {
 }
 
 console.log(`built ${entries.length} script(s) into dist/`);
+
+buildCodex();
+console.log(`built the Codex packaging into ${CODEX_OUT}/`);

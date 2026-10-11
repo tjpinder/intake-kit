@@ -422,7 +422,7 @@ The kit has no dependency on TIF or `@startvest/integrity-cli`. Its checks are i
 
 **Codex packaging**
 
-Codex isn't installed on the build machine. Build the `.agents/skills/` mirror and `AGENTS.md`, but mark the Codex check unverified until it's tested on a machine with Codex.
+Codex isn't installed on the build machine. Build the `.agents/skills/` mirror and `AGENTS.md`, but mark the Codex check unverified until it's tested on a machine with Codex. (Built in step 8; see "Codex packaging decisions" below.)
 
 **Decisions added after the second review (Oct 10)**
 
@@ -506,6 +506,15 @@ Codex isn't installed on the build machine. Build the `.agents/skills/` mirror a
 - **Hooks remind, never block.** SessionEnd runs the checks in the background and writes `.intake-kit/last-audit.json`. SessionStart turns any failures into a `systemMessage` and context. PostToolUse on `Edit|Write` reminds when a flagged path is edited. All are silent in repos without an intake.
 - **Render ledger.** `.intake-kit/rendered.json` records what intake-kit wrote, or found already matching, for each file. A file still matching is refreshed silently, so `/guardrails` updates an untouched GUARDRAILS.md without asking. `render --keep <file>` records that the user kept their own file over a proposed version; they aren't asked again until the proposed content changes.
 - **This repo's CI** (`.github/workflows/ci.yml`) runs the typecheck and all tests, checks `dist/` is committed and current, and dogfoods the checks on the rendered worked example (`scripts/dogfood.mjs`), which Week 2's `examples/` replaces. A hygiene test fails on any reference to TIF or the integrity CLI outside HANDOFF.md and `docs/`, and on common secret formats.
+
+**Codex packaging decisions (step 8, Oct 11)**
+
+- **Checked against the Codex docs (learn.chatgpt.com/docs/build-skills, developers.openai.com/plugins/build/plugins), Oct 11.** Codex reads skills from `.agents/skills/` (repo, walking up to the root) and `~/.agents/skills/`, and only `name` and `description` from frontmatter. Neither page documents path substitution or `!` command injection in skills. Codex plugins can read Claude-style manifests and set `CLAUDE_PLUGIN_ROOT` for hooks, but because the Claude skills depend on substitution and injection, installing the Claude plugin into Codex isn't supported.
+- **A self-contained drop-in.** `.agents/intake-kit/` holds `kit.json` (marks the kit root), `dist/`, `framework/` (router, modules, scoring) and `templates/`. Three skills, `$intake`, `$intake-guardrails` and `$intake-audit`, tell the model to find the kit two folders up from the skill and run the Node check and `guide` themselves. Users copy `.agents/` into a repo or `~/.agents/`.
+- **Generated, never hand-edited.** `scripts/build-codex.mjs` (run by `npm run build`) rewrites the Claude skills. Every rewrite must match exactly, so a skill edit that breaks one fails the build. A test checks the committed `.agents/` matches a fresh build byte for byte, and another runs a full intake, render and check from a copied `.agents/` with nothing from the plugin around.
+- **Grounding in Codex** defaults to `--grounding unverified`, recorded in the session file. `.agents/intake-kit/codex-hooks.example.json` is an optional `.codex/hooks.json` entry for the prompt hook, which recognises `$intake` as well as `/intake`. Untested in Codex.
+- **Version stamping.** `doctor.mjs` and `check.mjs` report the version stamped in at build time. That fixed a crash the standalone-kit test found: `doctor.mjs` used to read `.claude-plugin/plugin.json`, which the Codex kit doesn't have.
+- **Status: untested in Codex.** Before relying on it, run `$intake` once in a real Codex session and record the result here.
 
 **Handoff file:** Claude Code copies this spec into the repo as `HANDOFF.md`.
 

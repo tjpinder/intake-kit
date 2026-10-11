@@ -7423,7 +7423,7 @@ function appendTranscript(dir, entry) {
 }
 
 // src/cli/hook-prompt.ts
-var INTAKE_COMMAND = /^\s*\/(intake-kit:)?intake(\s|$)/;
+var INTAKE_COMMAND = /^\s*(\/(intake-kit:)?intake|\$intake)(\s|$)/;
 function main() {
   const raw = readFileSync2(0, "utf8");
   const payload = JSON.parse(raw);

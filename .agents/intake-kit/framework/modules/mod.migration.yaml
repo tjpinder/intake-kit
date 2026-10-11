@@ -1,0 +1,42 @@
+# Migration modifier. Items carrying it route to Gather more discovery.
+module: mod.migration
+applies_to: modifier
+effects: { gate: gather_more }
+
+areas:
+  - id: mod.migration.parity
+    must_capture: What "the same as before" means
+    probes:
+      - "How will you know the new one does everything the old one did?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: ACCEPTANCE.md, section: criteria }
+
+  - id: mod.migration.reconciliation
+    must_capture: How old and new results are compared
+    probes:
+      - "How would you compare old and new results side by side?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: ACCEPTANCE.md, section: criteria }
+
+  - id: mod.migration.cutover
+    must_capture: The cutover plan and window
+    probes:
+      - "When could you switch over, and what has to be frozen while you do?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: SPEC.md, section: constraints }
+
+  - id: mod.migration.rollback
+    must_capture: How to go back if it fails
+    probes:
+      - "If the new one fails after cutover, how do you go back?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: GUARDRAILS.md, section: fallback }
+      - { file: GUARDRAILS.md, section: kill_criteria }

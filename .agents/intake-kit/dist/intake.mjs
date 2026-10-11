@@ -15955,6 +15955,18 @@ var session_schema_default = {
               }
             }
           ]
+        },
+        last_target: {
+          description: "The area the last applied turn asked about. If the next turn doesn't record it, the user's reply is captured as an assumed answer.",
+          oneOf: [
+            { type: "null" },
+            {
+              type: "object",
+              additionalProperties: false,
+              required: ["item", "area"],
+              properties: { item: { type: ["string", "null"] }, area: { type: "string" } }
+            }
+          ]
         }
       }
     },
@@ -16912,10 +16924,27 @@ function applyTurn(original, turnData, ctx) {
       confirmedNow = true;
     }
   }
+  const asked = original.session.last_target;
   const lastUser = ctx.transcript?.filter((e) => e.role === "user").at(-1);
-  if (original.items.length > 0 && !original.session.reflect_back && !rb && !turn.next_target.is_probe && [turn.updates, turn.facts, turn.router.new_items, turn.router.add_modifiers, turn.prose, turn.acceptance, turn.guardrails, turn.open_questions].every((a) => a.length === 0) && !turn.router.reclassify && !turn.router.supersede && lastUser && lastUser.text.trim().split(/\s+/).length >= 6) {
-    fail("/updates", "The user's latest message answers your last question, but `updates` is empty. Record their answer under the area you asked about (with their words as the quote; use status `unknown` if they said they don't know) before asking anything else.");
+  if (asked && lastUser && !original.session.reflect_back && fw.areas.has(asked.area) && !turn.updates.some((u) => u.area === asked.area) && lastUser.text.trim().split(/\s+/).length >= 4) {
+    let target = null;
+    let key = asked.area;
+    if (asked.area.startsWith("core.")) {
+      key = asked.area.slice(5);
+      const item = asked.item == null ? null : items.get(asked.item);
+      const shared = session.core[key];
+      target = !item || !shared?.updated_at ? session.core : item.core_overrides;
+    } else {
+      const item = asked.item == null ? void 0 : items.get(asked.item);
+      const module = asked.area.startsWith("mod.") ? asked.area.split(".").slice(0, 2).join(".") : asked.area.split(".")[0];
+      if (item && (module === item.type || item.modifiers.some((m) => `mod.${m}` === module))) target = item.coverage;
+    }
+    if (target && !target[key]?.updated_at) {
+      target[key] = { status: "assumed", value: lastUser.text.trim(), quotes: [lastUser.text.trim()], probe_count: target[key]?.probe_count ?? 0, updated_at: now2 };
+      warnings.push(`${asked.area} recorded from the user's reply: the turn didn't record the answer to the question it asked`);
+    }
   }
+  session.session.last_target = turn.next_target.area ? { item: turn.next_target.item, area: turn.next_target.area } : null;
   if (!turn.reply.trim()) fail("/reply", "the reply to the user can't be empty");
   if (rejections.length) return reject(rejections);
   session.items = [...items.values()];
@@ -16999,7 +17028,7 @@ function said(signal, text) {
   const esc = normalize(signal).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(^|[^a-z0-9])${esc}([^a-z0-9]|$)`).test(text);
 }
-function structureHints(session, fw, transcript) {
+function structureHints(session, fw, transcript, opts = {}) {
   const live = session.items.filter((i) => !i.superseded_by);
   if (live.length === 0) return [];
   const text = normalize(transcript.filter((t) => t.role === "user").map((t) => t.text).join("\n"));
@@ -17010,7 +17039,7 @@ function structureHints(session, fw, transcript) {
     const heard = def.signals.filter((sig) => said(sig, text));
     if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}: if it's part of ${primary.id}, add the \`${mod}\` modifier (set it in that item's \`modifiers\`) and cover its areas.`);
   }
-  if (primary.type !== "manual_process" && primary.type !== "exploratory" && !live.some((i) => i.type === "manual_process")) {
+  if (opts.primaryInterviewed && primary.type !== "manual_process" && primary.type !== "exploratory" && !live.some((i) => i.type === "manual_process")) {
     const heard = fw.router.types.manual_process.signals.filter((sig) => said(sig, text));
     if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}: if that's manual work they do today that ${primary.id} would replace, add it as one \`manual_process\` item with spawned_from "${primary.id}", and supersede it by ${primary.id} (router.supersede) once they say it would go away. It needs only a light pass (how often, how long), not a full interview. Don't add any other items for it.`);
   }
@@ -17065,7 +17094,9 @@ function statusOf(session, fw, transcript = []) {
     (i) => (!needsBands(i) || i.facts_missing.length === 0) && (!needsAcceptance(i) || i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)
   );
   const reflect = !rb ? "none" : rb.confirmed ? "confirmed" : "proposed";
-  const hints = reflect === "none" ? structureHints(session, fw, transcript) : [];
+  const primary = items.find((i) => !i.superseded_by);
+  const primaryInterviewed = !!primary && primary.critical_unasked.length === 0 && primary.always_ask_pending.length === 0;
+  const hints = reflect === "none" ? structureHints(session, fw, transcript, { primaryInterviewed }) : [];
   return {
     reflect_back: reflect,
     core,

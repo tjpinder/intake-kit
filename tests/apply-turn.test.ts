@@ -507,16 +507,45 @@ describe("re-adding a modifier (from the persona evals)", () => {
   });
 });
 
-describe("a turn that records nothing (from the persona evals)", () => {
-  test("is rejected when the user's latest message was a real answer", () => {
-    const t = emptyTurn();
-    t.next_target = { item: null, area: "core.outcome", is_probe: false };
-    const transcript = [{ role: "user" as const, text: "Baseline is about 50 short picks a day across all shifts.", at: T0 }];
-    expectRejected(run(t, { transcript }), "/updates", "`updates` is empty");
+describe("answer capture (from the persona evals)", () => {
+  const ANSWER = "Baseline is about 50 short picks a day across all shifts.";
+  const asked = (area: string, item: string | null = null): Session => {
+    const session = freshSession();
+    session.session.last_target = { item, area };
+    return session;
+  };
+  const said = [{ role: "user" as const, text: ANSWER, at: T0 }];
+
+  test("an answer the turn didn't record is stored as the user's words, assumed, under the area asked", () => {
+    const r = run(emptyTurn(), { session: asked("core.outcome"), transcript: said });
+    assert.equal(r.applied, true);
+    assert.deepEqual(r.session.core.outcome, { status: "assumed", value: ANSWER, quotes: [ANSWER], probe_count: 0, updated_at: NOW });
+    assert.match(r.warnings.join(" "), /core\.outcome recorded from the user's reply/);
   });
 
-  test("a short acknowledgement or a probe needs nothing recorded", () => {
+  test("an item's module area is captured on that item", () => {
+    const r = run(emptyTurn(), { session: asked("data_report.decision", "item-1"), transcript: said });
+    assert.equal(r.session.items[0].coverage["data_report.decision"].status, "assumed");
+  });
+
+  test("the model's own record wins, and an area already answered is never overwritten", () => {
+    const t = emptyTurn();
+    t.updates = [{ item: null, area: "core.outcome", status: "covered", value: "Fewer short picks", quote: "50 short picks a day" }];
+    assert.equal(run(t, { session: asked("core.outcome"), transcript: said }).session.core.outcome.status, "covered");
+    const answered = asked("core.outcome");
+    answered.core.outcome = { status: "covered", value: "earlier", quotes: ["count by picker"], probe_count: 0, updated_at: T0 };
+    assert.equal(run(emptyTurn(), { session: answered, transcript: said }).session.core.outcome.value, "earlier");
+  });
+
+  test("a short reply, or no transcript, captures nothing", () => {
     const short = [{ role: "user" as const, text: "ok, go on", at: T0 }];
-    assert.equal(run(emptyTurn(), { transcript: short }).applied, true);
+    assert.equal(run(emptyTurn(), { session: asked("core.outcome"), transcript: short }).session.core.outcome.status, "unknown");
+    assert.equal(run(emptyTurn(), { session: asked("core.outcome"), transcript: null }).session.core.outcome.status, "unknown");
+  });
+
+  test("each applied turn remembers what it asked", () => {
+    const t = emptyTurn();
+    t.next_target = { item: null, area: "core.trust", is_probe: false };
+    assert.deepEqual(run(t).session.session.last_target, { item: null, area: "core.trust" });
   });
 });

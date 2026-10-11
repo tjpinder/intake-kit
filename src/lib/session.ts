@@ -90,6 +90,8 @@ export interface Session {
     provider: "claude" | "azure-openai" | "openai" | "codex";
     grounding: "transcript" | "unverified";
     reflect_back: { text: string; confirmed: boolean; corrections: string[]; proposed_at?: string } | null;
+    /** The area the last applied turn asked about, so an answer the model fails to record can be captured. */
+    last_target?: { item: string | null; area: string } | null;
   };
   core: Record<"users" | "outcome" | "data" | "systems" | "constraints" | "trust", CoverageEntry>;
   items: Item[];

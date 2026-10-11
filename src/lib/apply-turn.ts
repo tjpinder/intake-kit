@@ -321,18 +321,32 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
     }
   }
 
-  // An answer the model doesn't record is lost: status still shows the area unasked and the
-  // interviewer asks it again, forever. Found in the persona evals, where gpt-4.1-mini sent empty
-  // updates for every core question. Short replies ("ok", "sure") are exempt.
+  // 6b. Answer capture. The last applied turn named the area it asked about. If this turn doesn't
+  // record that area and the user gave a real answer, the user's exact words are stored as an
+  // assumed answer, which the reflect-back then asks them to confirm. Found in the persona evals:
+  // with two or more items, gpt-4.1-mini often heard an answer, recorded nothing and asked again,
+  // forever. Only an area with no answer yet is filled; the model's own record always wins.
+  const asked = original.session.last_target;
   const lastUser = ctx.transcript?.filter((e) => e.role === "user").at(-1);
-  if (
-    original.items.length > 0 && !original.session.reflect_back && !rb && !turn.next_target.is_probe &&
-    [turn.updates, turn.facts, turn.router.new_items, turn.router.add_modifiers, turn.prose, turn.acceptance, turn.guardrails, turn.open_questions].every((a) => a.length === 0) &&
-    !turn.router.reclassify && !turn.router.supersede &&
-    lastUser && lastUser.text.trim().split(/\s+/).length >= 6
-  ) {
-    fail("/updates", "The user's latest message answers your last question, but `updates` is empty. Record their answer under the area you asked about (with their words as the quote; use status `unknown` if they said they don't know) before asking anything else.");
+  if (asked && lastUser && !original.session.reflect_back && fw.areas.has(asked.area) && !turn.updates.some((u) => u.area === asked.area) && lastUser.text.trim().split(/\s+/).length >= 4) {
+    let target: Record<string, CoverageEntry> | null = null;
+    let key = asked.area;
+    if (asked.area.startsWith("core.")) {
+      key = asked.area.slice(5);
+      const item = asked.item == null ? null : items.get(asked.item);
+      const shared = session.core[key as (typeof CORE_AREAS)[number]];
+      target = !item || !shared?.updated_at ? session.core : item.core_overrides;
+    } else {
+      const item = asked.item == null ? undefined : items.get(asked.item);
+      const module = asked.area.startsWith("mod.") ? asked.area.split(".").slice(0, 2).join(".") : asked.area.split(".")[0];
+      if (item && (module === item.type || item.modifiers.some((m) => `mod.${m}` === module))) target = item.coverage;
+    }
+    if (target && !target[key]?.updated_at) {
+      target[key] = { status: "assumed", value: lastUser.text.trim(), quotes: [lastUser.text.trim()], probe_count: target[key]?.probe_count ?? 0, updated_at: now };
+      warnings.push(`${asked.area} recorded from the user's reply: the turn didn't record the answer to the question it asked`);
+    }
   }
+  session.session.last_target = turn.next_target.area ? { item: turn.next_target.item, area: turn.next_target.area } : null;
 
   if (!turn.reply.trim()) fail("/reply", "the reply to the user can't be empty");
 

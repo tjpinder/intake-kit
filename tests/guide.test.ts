@@ -23,10 +23,12 @@ describe("status hints and light passes (from the persona evals)", () => {
   });
   const said = (...texts: string[]) => texts.map((text, i) => ({ role: "user" as const, text, at: `t${i}` }));
 
-  test("a manual workaround the user mentions, with no item for it, is hinted", () => {
+  test("a manual workaround is hinted only once the primary item's own interview is done", () => {
     const s = base();
     s.items = [item("item-1", "data_report")];
-    const hints = structureHints(s, fwH, said("Today I paste it into Excel by hand every Monday."));
+    const t = said("Today I paste it into Excel by hand every Monday.");
+    assert.ok(!structureHints(s, fwH, t).some((h) => h.includes("manual_process")), "not while still interviewing");
+    const hints = structureHints(s, fwH, t, { primaryInterviewed: true });
     assert.ok(hints.some((h) => h.includes('"by hand"') && h.includes("`manual_process` item")));
   });
 
@@ -57,8 +59,8 @@ describe("status hints and light passes (from the persona evals)", () => {
 
   test("hints are passed on in next_step while interviewing", () => {
     const s = base();
-    s.items = [item("item-1", "data_report")];
-    assert.match(statusOf(s, fwH, said("I do it by hand.")).next_step, /Also check: .*by hand/);
+    s.items = [item("item-1", "broken")];
+    assert.match(statusOf(s, fwH, said("The EDI feed broke.")).next_step, /Also check: .*"EDI"/);
   });
 });
 

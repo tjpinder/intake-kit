@@ -132,7 +132,7 @@ function said(signal: string, text: string): boolean {
  * signal with no item carrying that modifier, or a type signal with no item of that type. These
  * are prompts to check, not rules: the interviewer decides whether it's really a separate pain.
  */
-export function structureHints(session: Session, fw: Framework, transcript: TranscriptEntry[]): string[] {
+export function structureHints(session: Session, fw: Framework, transcript: TranscriptEntry[], opts: { primaryInterviewed?: boolean } = {}): string[] {
   const live = session.items.filter((i) => !i.superseded_by);
   if (live.length === 0) return [];
   const text = normalize(transcript.filter((t) => t.role === "user").map((t) => t.text).join("\n"));
@@ -145,8 +145,10 @@ export function structureHints(session: Session, fw: Framework, transcript: Tran
   }
   // Only one type hint: manual work done today that the primary item would replace (the spec's
   // worked example: the Monday spreadsheet goes away once the report exists). Hinting every type
-  // made the model spawn items for every signal phrase and run out of turns.
-  if (primary.type !== "manual_process" && primary.type !== "exploratory" && !live.some((i) => i.type === "manual_process")) {
+  // made the model spawn items for every signal phrase and run out of turns. It waits until the
+  // primary item's own interview is done: a second item early on put the whole interview in the
+  // multi-item state where gpt-4.1-mini stopped recording answers (persona evals, rounds 2-3).
+  if (opts.primaryInterviewed && primary.type !== "manual_process" && primary.type !== "exploratory" && !live.some((i) => i.type === "manual_process")) {
     const heard = fw.router.types.manual_process.signals.filter((sig) => said(sig, text));
     if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}: if that's manual work they do today that ${primary.id} would replace, add it as one \`manual_process\` item with spawned_from "${primary.id}", and supersede it by ${primary.id} (router.supersede) once they say it would go away. It needs only a light pass (how often, how long), not a full interview. Don't add any other items for it.`);
   }
@@ -211,7 +213,9 @@ export function statusOf(session: Session, fw: Framework, transcript: Transcript
       (!needsAcceptance(i) || (i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)),
   );
   const reflect = !rb ? "none" : rb.confirmed ? "confirmed" : "proposed";
-  const hints = reflect === "none" ? structureHints(session, fw, transcript) : [];
+  const primary = items.find((i) => !i.superseded_by);
+  const primaryInterviewed = !!primary && primary.critical_unasked.length === 0 && primary.always_ask_pending.length === 0;
+  const hints = reflect === "none" ? structureHints(session, fw, transcript, { primaryInterviewed }) : [];
   return {
     reflect_back: reflect,
     core,

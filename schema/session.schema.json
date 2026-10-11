@@ -37,6 +37,18 @@
               }
             }
           ]
+        },
+        "last_target": {
+          "description": "The area the last applied turn asked about. If the next turn doesn't record it, the user's reply is captured as an assumed answer.",
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["item", "area"],
+              "properties": { "item": { "type": ["string", "null"] }, "area": { "type": "string" } }
+            }
+          ]
         }
       }
     },

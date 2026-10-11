@@ -2,20 +2,14 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative } from "node:path";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 
-const SKIP_DIRS = new Set([".git", "node_modules"]);
-
-function files(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    if (SKIP_DIRS.has(name)) return [];
-    return statSync(path).isDirectory() ? files(path) : [path];
-  });
-}
-
-const repoFiles = files(".").map((f) => relative(".", f).replace(/\\/g, "/"));
+// What could be published: tracked files plus new files git doesn't ignore. Ignored local
+// files (private notes, intake state) are out of scope.
+const repoFiles = execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], { encoding: "utf8" })
+  .split("\n")
+  .filter((f) => f && existsSync(f));
 
 test("no code, config, dependency or workflow references TIF or the integrity CLI", () => {
   // HANDOFF.md records the decision to decouple, and the docs may credit TIF as an influence.

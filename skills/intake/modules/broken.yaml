@@ -1,0 +1,72 @@
+# Broken -> diagnostic brief. Methods: ITIL problem management, blameless postmortems, branching 5 Whys.
+module: broken
+applies_to: broken
+methods: [ITIL 4 problem management, Google SRE blameless postmortems, branching 5 Whys]
+
+areas:
+  - id: broken.symptom
+    must_capture: What exactly is seen, and whether it affects everything or some cases
+    probes:
+      - "What exactly do you see: an error, missing records, wrong numbers? All orders or some?"
+    critical: true
+    followup_conditions:
+      - when: the symptom is described as "it's broken" with no observable detail
+        ask: "Show me the last one it happened to. What did you see?"
+    feeds:
+      - { file: DIAGNOSTIC_BRIEF.md, section: symptom }
+
+  - id: broken.timeline
+    must_capture: When it last worked and what changed around then
+    probes:
+      - "When did it last work? Did anything change then: a release, a new customer, a setting, a person?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: DIAGNOSTIC_BRIEF.md, section: timeline }
+
+  - id: broken.impact
+    must_capture: Volume affected and any SLA or chargeback impact
+    probes:
+      - "How many orders or hours a day? Any SLA or chargeback impact?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: DIAGNOSTIC_BRIEF.md, section: impact }
+
+  - id: broken.workaround
+    must_capture: What's being done in the meantime
+    probes:
+      - "What are you doing in the meantime?"
+    always_ask: true
+    critical: false
+    followup_conditions:
+      - when: the workaround is manual and recurring
+        ask: "Walk me through the last time you did that workaround."
+        spawns: manual_process
+    feeds:
+      - { file: DIAGNOSTIC_BRIEF.md, section: workaround }
+
+  - id: broken.cause
+    must_capture: The process or system condition behind it, reached by asking why repeatedly and branching where an answer has more than one cause
+    probes:
+      - "Why did that happen?"
+    critical: true
+    followup_conditions:
+      - when: an answer has more than one cause
+        ask: "Let's take those one at a time. Why did the first one happen?"
+      - when: the chain stops at a person ("someone made a mistake")
+        ask: "What about the setup made that mistake easy to make?"
+    stop_at: a process or system condition, never a person
+    feeds:
+      - { file: DIAGNOSTIC_BRIEF.md, section: cause }
+      - { file: DIAGNOSTIC_BRIEF.md, section: fix_ticket }
+
+  - id: broken.recurrence
+    must_capture: Whether it has happened before and whether it's documented
+    probes:
+      - "Has this happened before? Is it written down anywhere?"
+    critical: false
+    followup_conditions: []
+    feeds:
+      - { file: DIAGNOSTIC_BRIEF.md, section: recurrence }
+      - { file: DIAGNOSTIC_BRIEF.md, section: known_error }

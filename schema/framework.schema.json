@@ -1,0 +1,309 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tjpinder/intake-kit/schema/framework.schema.json",
+  "title": "Intake framework config: router.yaml, modules/*.yaml, scoring.yaml",
+  "description": "Validated at load time, so a bad edit fails loudly instead of silently changing behaviour. Cross-file rules (IDs unique, feeds point at real sections, fact lists agree with the turn schema) are checked in code.",
+  "$defs": {
+    "semver": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "item_type": { "enum": ["broken", "manual_process", "known_idea", "exploratory", "data_report"] },
+    "modifier": { "enum": ["integration", "compliance", "migration"] },
+    "phrases": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+    "effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "risk_tier": { "enum": ["high"] },
+        "gate": { "enum": ["gather_more"] }
+      }
+    },
+
+    "router": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["framework_version", "types", "modifiers", "rules"],
+      "properties": {
+        "framework_version": { "$ref": "#/$defs/semver" },
+        "types": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/item_type" },
+          "minProperties": 5,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "signals", "low_confidence_probe", "output", "module"],
+            "properties": {
+              "label": { "type": "string" },
+              "signals": { "$ref": "#/$defs/phrases" },
+              "low_confidence_probe": { "type": "string", "minLength": 1 },
+              "output": { "enum": ["diagnostic_brief", "process_map", "feasibility_spec", "opportunity_backlog", "metric_spec"] },
+              "module": { "type": "string" }
+            }
+          }
+        },
+        "modifiers": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/modifier" },
+          "minProperties": 3,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "signals", "module"],
+            "properties": {
+              "label": { "type": "string" },
+              "signals": { "$ref": "#/$defs/phrases" },
+              "module": { "type": "string" },
+              "effects": { "$ref": "#/$defs/effects" }
+            }
+          }
+        },
+        "rules": {
+          "type": "object",
+          "required": ["reclassify_min_signals"],
+          "properties": {
+            "reclassify_min_signals": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module", "applies_to", "areas"],
+      "properties": {
+        "module": { "type": "string", "pattern": "^(core|broken|manual_process|known_idea|exploratory|data_report|mod\\.(integration|compliance|migration))$" },
+        "applies_to": { "enum": ["all", "modifier", "broken", "manual_process", "known_idea", "exploratory", "data_report"] },
+        "methods": { "type": "array", "items": { "type": "string" } },
+        "effects": { "$ref": "#/$defs/effects" },
+        "step_tags": { "type": "array", "items": { "type": "string" } },
+        "candidates": { "type": "string" },
+        "adoption_forces": { "type": "array", "items": { "enum": ["push", "pull", "anxiety", "habit"] } },
+        "spawns_items": { "type": "boolean" },
+        "self_serve_rule": { "type": "string" },
+        "areas": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "must_capture", "probes", "critical", "followup_conditions", "feeds"],
+            "properties": {
+              "id": { "type": "string" },
+              "must_capture": { "type": "string", "minLength": 1 },
+              "probes": { "$ref": "#/$defs/phrases" },
+              "always_ask": { "type": "boolean" },
+              "critical": { "type": "boolean" },
+              "stop_at": { "type": "string" },
+              "followup_conditions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["when", "ask"],
+                  "properties": {
+                    "when": { "type": "string", "minLength": 1 },
+                    "ask": { "type": "string", "minLength": 1 },
+                    "spawns": { "enum": ["item", "broken", "manual_process", "known_idea", "exploratory", "data_report"] }
+                  }
+                }
+              },
+              "feeds": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["file", "section"],
+                  "properties": {
+                    "file": { "type": "string", "pattern": "^[A-Z_]+\\.md$" },
+                    "section": { "type": "string", "pattern": "^[a-z_]+$" }
+                  }
+                }
+              },
+              "guardrail": { "enum": ["traceability", "eval_gate", "kill_criteria", "flagged_paths", "open_assumptions"] }
+            }
+          }
+        }
+      }
+    },
+
+    "band_scores": {
+      "type": "object",
+      "required": ["unknown"],
+      "minProperties": 2,
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9_+-]*$" },
+      "additionalProperties": { "oneOf": [{ "type": "integer", "minimum": 1, "maximum": 5 }, { "type": "null" }] },
+      "properties": { "unknown": { "type": "null" } }
+    },
+    "band_list": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "contains": { "const": "unknown" },
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_+-]*$" }
+    },
+    "weights": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "type": "number", "exclusiveMinimum": 0 }
+    },
+
+    "scoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rules_version", "min_known_per_composite", "criteria", "composites", "thresholds", "quadrants", "ai_overlay", "adoption", "gate_facts", "gates"],
+      "properties": {
+        "rules_version": { "$ref": "#/$defs/semver" },
+        "min_known_per_composite": { "type": "integer", "minimum": 1 },
+        "criteria": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "bands", "describe"],
+            "properties": {
+              "label": { "type": "string" },
+              "bands": { "$ref": "#/$defs/band_scores" },
+              "describe": { "type": "object", "additionalProperties": { "type": "string" } }
+            }
+          }
+        },
+        "composites": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["automation_potential", "ease"],
+          "properties": {
+            "automation_potential": { "type": "object", "additionalProperties": false, "required": ["criteria"], "properties": { "criteria": { "$ref": "#/$defs/weights" } } },
+            "ease": { "type": "object", "additionalProperties": false, "required": ["criteria"], "properties": { "criteria": { "$ref": "#/$defs/weights" } } }
+          }
+        },
+        "thresholds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["high_min_pct", "low_below_pct"],
+          "properties": {
+            "high_min_pct": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+            "low_below_pct": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 }
+          }
+        },
+        "quadrants": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["prioritize", "review", "defer"],
+          "properties": { "prioritize": { "type": "string" }, "review": { "type": "string" }, "defer": { "type": "string" } }
+        },
+        "ai_overlay": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["applies_fact", "applies_bands", "checks", "check_bands", "dont_build_on_fail"],
+          "properties": {
+            "applies_fact": { "const": "ai_applies" },
+            "applies_bands": { "type": "object", "required": ["unknown"], "properties": { "unknown": { "const": false } }, "additionalProperties": { "type": "boolean" } },
+            "checks": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["label", "passes_when", "basis"],
+                "properties": { "label": { "type": "string" }, "passes_when": { "type": "string" }, "basis": { "type": "string" } }
+              }
+            },
+            "check_bands": { "const": ["pass", "fail", "unknown"] },
+            "dont_build_on_fail": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "adoption": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["applies_to", "forces", "bands", "risk_when"],
+          "properties": {
+            "applies_to": { "type": "array", "items": { "$ref": "#/$defs/item_type" } },
+            "forces": { "const": ["push", "pull", "anxiety", "habit"] },
+            "bands": { "$ref": "#/$defs/band_list" },
+            "risk_when": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } }
+          }
+        },
+        "gate_facts": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/band_list" }
+        },
+        "gates": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["go_requires_core", "precedence", "fix_not_build", "dont_build_definitive", "gather_more", "dont_build_quadrant", "go", "fallthrough"],
+          "properties": {
+            "go_requires_core": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^core\\.[a-z_]+$" } },
+            "precedence": {
+              "const": ["fix_not_build", "dont_build_definitive", "gather_more", "dont_build_quadrant", "go"],
+              "description": "Fixed for v1. The order is part of the gate logic; reordering it is a code change, not a tuning change."
+            },
+            "fix_not_build": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["applies_to", "when_cause", "when_workaround_permanent"],
+              "properties": {
+                "applies_to": { "type": "array", "items": { "$ref": "#/$defs/item_type" } },
+                "when_cause": { "type": "array", "items": { "type": "string" } },
+                "when_workaround_permanent": { "type": "array", "items": { "type": "string" } }
+              }
+            },
+            "dont_build_definitive": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["existing_asset", "decision_depends", "value", "superseded_by_go_item"],
+              "properties": {
+                "existing_asset": { "type": "array", "items": { "type": "string" } },
+                "decision_depends": { "type": "array", "items": { "type": "string" } },
+                "value": { "type": "array", "items": { "type": "string" } },
+                "superseded_by_go_item": { "type": "boolean" }
+              }
+            },
+            "gather_more": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["critical_unknown", "stability", "review_without_mitigation", "modifiers", "defer_with_critical_unknown", "composite_null"],
+              "properties": {
+                "critical_unknown": { "type": "boolean" },
+                "stability": { "type": "array", "items": { "type": "string" } },
+                "review_without_mitigation": { "type": "boolean" },
+                "modifiers": { "type": "array", "items": { "$ref": "#/$defs/modifier" } },
+                "defer_with_critical_unknown": { "type": "boolean" },
+                "composite_null": { "type": "boolean" }
+              }
+            },
+            "dont_build_quadrant": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["quadrant", "defer_rescued_by_ai_overlay", "ai_overlay_fail"],
+              "properties": {
+                "quadrant": { "type": "array", "items": { "enum": ["prioritize", "review", "defer"] } },
+                "defer_rescued_by_ai_overlay": { "type": "boolean" },
+                "ai_overlay_fail": { "type": "boolean" }
+              }
+            },
+            "go": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["success_metric", "quadrants", "review_needs_mitigation", "ai_candidate_from_defer", "ai_overlay_must_pass", "reflect_back_confirmed"],
+              "properties": {
+                "success_metric": { "type": "array", "items": { "type": "string" } },
+                "quadrants": { "type": "array", "items": { "enum": ["prioritize", "review", "defer"] } },
+                "review_needs_mitigation": { "type": "boolean" },
+                "ai_candidate_from_defer": { "type": "boolean" },
+                "ai_overlay_must_pass": { "type": "boolean" },
+                "reflect_back_confirmed": { "type": "boolean" }
+              }
+            },
+            "fallthrough": { "const": "gather_more" }
+          }
+        }
+      }
+    },
+
+    "sections": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Z_]+\\.md$" },
+      "additionalProperties": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z_]+$" } }
+    }
+  }
+}

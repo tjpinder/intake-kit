@@ -1,0 +1,160 @@
+# Scoring and gates. The model picks a band per fact; this file maps bands to scores, and code
+# computes composites, quadrant and gate from it. Tune weights and thresholds here; no skill
+# or code edits needed.
+#
+# Criteria are adapted from UiPath Automation Hub and Blue Prism's Process Assessment Tool.
+# The weights and thresholds are ours ("adapted"), not the vendors'. UiPath doesn't publish
+# its feasibility cutoff.
+rules_version: 0.1.0
+
+# A band named `unknown` scores null. A composite needs at least this many known criteria,
+# otherwise it's null and the item routes to Gather more.
+min_known_per_composite: 3
+
+criteria:
+  rule_clarity:
+    label: Rule clarity
+    bands: { written: 5, mixed: 3, judgment: 1, unknown: null }
+    describe: { written: Rules can be written down, mixed: Mixed, judgment: Pure judgment }
+  input_digital:
+    label: Input digital
+    bands: { fully: 5, partly: 3, paper_or_phone: 1, unknown: null }
+    describe: { fully: Fully digital, partly: Partly, paper_or_phone: Paper or phone }
+  input_structured:
+    label: Input structured
+    bands: { "80+": 5, "40-80": 3, under_40: 1, unknown: null }
+    describe: { "80+": 80% or more structured, "40-80": 40-80% structured, under_40: Under 40% structured }
+  ways_done:
+    label: Ways it's done
+    bands: { one: 5, "2-7": 3, "8+": 1, unknown: null }
+    describe: { one: One way, "2-7": 2-7 ways, "8+": 8 or more ways }
+  stability:
+    label: Stable for 6 months
+    bands: { none: 5, some: 3, major: 1, unknown: null }
+    describe: { none: No change coming, some: Some change coming, major: Major change coming }
+  documentation:
+    label: Documentation and test data
+    bands: { sop_and_examples: 5, partial: 3, none: 1, unknown: null }
+    describe: { sop_and_examples: SOP plus real examples, partial: Partial, none: None }
+  steps_apps:
+    label: Steps and apps
+    bands: { under_20: 5, "20-100": 3, over_100: 1, unknown: null }
+    describe: { under_20: "Under 20 steps, 1-2 apps", "20-100": 20-100 steps, over_100: "Over 100 steps, many apps" }
+  access:
+    label: Access
+    bands: { api_or_db: 5, ui_only: 3, none: 1, unknown: null }
+    describe: { api_or_db: API or direct DB read, ui_only: UI only, none: "No UI or API access, remote desktop only" }
+  value:
+    label: Value
+    bands: { high: 5, moderate: 3, trivial: 1, unknown: null }
+    describe: { high: High, moderate: Moderate, trivial: Trivial }
+
+# Value is in neither composite. It feeds the gates only (trivial value -> Don't build).
+composites:
+  automation_potential:
+    criteria: { rule_clarity: 1, input_digital: 1, input_structured: 1, ways_done: 1 }
+  ease:
+    criteria: { stability: 1, documentation: 1, steps_apps: 1, access: 1 }
+
+# Composites are weighted means on 1-5, rescaled with (mean - 1) / 4 and compared with
+# UiPath's bands: 65% and up is high (mean >= 3.6), under 35% is low (mean < 2.4).
+thresholds:
+  high_min_pct: 0.65
+  low_below_pct: 0.35
+
+quadrants:
+  prioritize: both composites high
+  defer: both low, or one low and the other not high
+  review: everything else, including medium/medium
+
+# AI overlay: applies when the item's proposed solution uses an LLM. Every check must pass.
+ai_overlay:
+  applies_fact: ai_applies
+  applies_bands: { "yes": true, "no": false, unknown: false }
+  checks:
+    eval_ability:
+      label: Eval-ability
+      passes_when: Real labeled examples can be gathered from users, and a correct answer can be judged
+      basis: OpenAI FDE eval-driven development
+    error_cost:
+      label: Error cost
+      passes_when: Cost of a wrong output is documented and within stated tolerance
+      basis: NIST AI RMF MAP 3.2, 1.5
+    human_review:
+      label: Human review
+      passes_when: A review point is defined (approve, sample, exceptions only), or autonomy is justified
+      basis: NIST AI RMF MAP 3.5
+    simpler_option:
+      label: Simpler option ruled out
+      passes_when: SQL, config, a fixed rule or a single LLM call won't do it
+      basis: Anthropic "Building effective agents"; NIST AI RMF MANAGE 2.1
+    fallback:
+      label: Fallback and kill
+      passes_when: Manual fallback exists; shutdown criteria stated
+      basis: NIST AI 600-1
+    sensitive_data:
+      label: Sensitive data
+      passes_when: Classified, with access and egress limits known
+      basis: NIST AI 600-1
+  check_bands: [pass, fail, unknown]
+  # A failure on these is a definitive Don't build; other failures or unknowns go to Gather more.
+  dont_build_on_fail: [eval_ability, error_cost]
+
+# Adoption forces, rated for known_idea and exploratory items.
+adoption:
+  applies_to: [known_idea, exploratory]
+  forces: [push, pull, anxiety, habit]
+  bands: [low, med, high, unknown]
+  risk_when: { push: [low], habit: [high] }
+
+# Facts the gates read directly.
+gate_facts:
+  existing_asset: [covers, partial, none, unknown]
+  decision_depends: ["yes", "no", unknown]
+  broken_cause: [config, data, vendor, training, code, unknown]
+  workaround_permanent: ["yes", "no", unknown]
+  success_metric: [measurable_with_baseline, measurable_no_baseline, vague, unknown]
+
+gates:
+  # Areas that must be covered or confirmed-assumed for Go. Module areas marked
+  # `critical: true` are added to this list for items of that type.
+  go_requires_core: [core.users, core.outcome, core.data, core.trust]
+  # Evaluated in order; first match wins. Every matching reason is still recorded.
+  precedence:
+    - fix_not_build
+    - dont_build_definitive
+    - gather_more
+    - dont_build_quadrant
+    - go
+  fix_not_build:
+    applies_to: [broken]
+    when_cause: [config, data, vendor, training]
+    when_workaround_permanent: ["yes"]
+  dont_build_definitive:
+    existing_asset: [covers]
+    decision_depends: ["no"]
+    value: [trivial]
+    superseded_by_go_item: true
+  gather_more:
+    critical_unknown: true
+    stability: [major]
+    review_without_mitigation: true
+    modifiers: [migration]
+    defer_with_critical_unknown: true
+    composite_null: true
+  dont_build_quadrant:
+    quadrant: [defer]
+    # A Defer item whose solution uses an LLM and passes every AI overlay check becomes an
+    # AI candidate instead: low rule clarity or structure is where an LLM can help.
+    defer_rescued_by_ai_overlay: true
+    ai_overlay_fail: true
+  go:
+    success_metric: [measurable_with_baseline]
+    quadrants: [prioritize, review]
+    review_needs_mitigation: true
+    ai_candidate_from_defer: true
+    ai_overlay_must_pass: true
+    reflect_back_confirmed: true
+  # Anything that matches none of the above but doesn't meet every Go requirement falls
+  # through to Gather more, with the unmet requirements as its reasons.
+  fallthrough: gather_more

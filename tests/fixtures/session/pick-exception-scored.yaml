@@ -80,6 +80,7 @@ items:
       ai_applies: { band: "no", evidence: [data_report.definition], quotes: [] }
       existing_asset: { band: none, evidence: [data_report.existing], quotes: ["the dashboard only gives me the total for the building"] }
       decision_depends: { band: "yes", evidence: [data_report.decision], quotes: ["so I know who to pull for retraining"] }
+      success_metric: { band: measurable_with_baseline, evidence: [core.outcome], quotes: ["it eats my whole Monday morning, call it four hours"] }
     prose:
       problem_statement: Shift leads choose retraining by guesswork because pick exceptions aren't visible by picker and shift.
       current_state: The ops supervisor exports WMS data and builds a weekly Excel summary every Monday, about four hours.

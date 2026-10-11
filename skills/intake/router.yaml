@@ -1,0 +1,61 @@
+# Router: classifies each pain the user describes into one entry type, attaches modifiers,
+# and names the coverage modules that apply. The model reads this; code checks the IDs.
+framework_version: 0.1.0
+
+types:
+  broken:
+    label: Broken
+    signals: ["isn't working", "stopped", "errors", "failing", "broke", "a system name plus a failure verb"]
+    low_confidence_probe: "Did this used to work? When did you first notice?"
+    output: diagnostic_brief
+    module: broken
+  manual_process:
+    label: Manual process
+    signals: ["by hand", "every morning I", "copy/paste", "takes hours", "manually", "spreadsheet I build"]
+    low_confidence_probe: "Walk me through the last time, start to finish."
+    output: process_map
+    module: manual_process
+  known_idea:
+    label: Known idea
+    signals: ["can we automate", "could AI do", "a named solution", "we should build", "what if we had a bot"]
+    low_confidence_probe: "What happens today when this gets done?"
+    output: feasibility_spec
+    module: known_idea
+  exploratory:
+    label: Exploratory
+    signals: ["where could AI help", "no specific process", "what should we automate", "ideas for AI"]
+    low_confidence_probe: "What work does nobody value but someone has to do?"
+    output: opportunity_backlog
+    module: exploratory
+  data_report:
+    label: Data / report
+    signals: ["I need a report of", "how many", "a metric noun", "dashboard", "a view of"]
+    low_confidence_probe: "What will you do differently when you see this number?"
+    output: metric_spec
+    module: data_report
+
+modifiers:
+  integration:
+    label: Integration
+    signals: ["sync", "feed", "EDI", "API", "interface", "integrating"]
+    module: mod.integration
+  compliance:
+    label: Compliance / audit
+    signals: ["audit", "regulator", "customer requirement", "SOX", "retention"]
+    module: mod.compliance
+    effects: { risk_tier: high }
+  migration:
+    label: Migration
+    signals: ["moving from", "migrating", "replacing", "cutover"]
+    module: mod.migration
+    effects: { gate: gather_more }
+
+rules:
+  record: [type, confidence, trigger_quote]
+  confidence: [high, med, low]
+  reclassify_min_signals: 2
+  reclassify_also_when: "the user's story contradicts the label"
+  carry_over_on_reclassify: [core]
+  one_item_per_pain: true
+  idea_first_walks_back_to_current: true
+  log_reclassifications_to: DECISIONS.md

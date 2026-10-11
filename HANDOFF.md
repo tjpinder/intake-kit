@@ -446,6 +446,17 @@ Codex isn't installed on the build machine. Build the `.agents/skills/` mirror a
 - **Two validation layers.** `schema/turn.schema.json` stays inside the strict structured-output subset (a test enforces this). Rules the subset can't express (ID formats, band names, grounding, probe limits) are enforced by apply-turn. `schema/session.schema.json` uses full JSON Schema 2020-12, including the status rules.
 - `session.provider` also allows `codex`.
 
+**Framework config decisions (step 2, Oct 10)**
+
+- **Module entries** hold `id`, `must_capture`, `probes`, `critical`, `followup_conditions` (`when` / `ask`, optional `spawns`), `feeds` (file and section) and optional `always_ask`, `stop_at` and `guardrail`. `guardrail` names one of the kit's own checks (traceability, eval_gate, kill_criteria, flagged_paths, open_assumptions), replacing the TIF layer field.
+- **`templates/sections.yaml`** lists every output file and its sections. Every `feeds` entry must point at one, and each template (step 6) must render all of them.
+- **Critical areas** for Go: `core.users`, `core.outcome`, `core.data`, `core.trust`, plus any module area marked `critical: true` for that item's type.
+- **Unknown bands.** Every criterion has an `unknown` band that scores null. A composite needs at least `min_known_per_composite` (3) known criteria, otherwise it's null and the item goes to Gather more.
+- **`success_metric` gate fact** (`measurable_with_baseline | measurable_no_baseline | vague | unknown`) carries Go's "measurable success metric with baseline" requirement.
+- **AI rescue of Defer.** A Defer item whose solution uses an LLM and passes every AI overlay check is an AI candidate and can reach Go. Failing eval-ability or error cost is a definitive Don't build; other overlay failures or unknowns go to Gather more.
+- **Gate precedence is fixed** in the scoring schema. Reordering it is a code change, not a tuning change.
+- **The loader validates all config at load time** and lists every problem, including cross-file ones: unique namespaced IDs, router and module agreement, feeds pointing at real sections, and fact names agreeing across `scoring.yaml` and both schemas. Config is read at runtime, not bundled, so tuning `scoring.yaml` needs no rebuild.
+
 **Handoff file:** Claude Code copies this spec into the repo as `HANDOFF.md`.
 
 ## Testing

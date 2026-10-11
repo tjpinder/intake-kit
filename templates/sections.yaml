@@ -1,0 +1,12 @@
+# Every output file and the sections it must contain. Module `feeds` entries must point here,
+# and each template (step 6) must render every section listed for its file.
+SPEC.md: [open_questions, problem, users, current_state, success_metric, mvp, out_of_scope, data, systems, constraints]
+ACCEPTANCE.md: [criteria, error_cases]
+CLAUDE.md: [stack, commands, never_do, pointers]
+GUARDRAILS.md: [kill_criteria, fallback, review_points, data_handling, flagged_paths, ci_checks]
+DECISIONS.md: [gate, reclassifications, assumptions, adoption_risks]
+FIRST_PROMPT.md: [prompt]
+DISCOVERY_BRIEF.md: [open_questions]
+DIAGNOSTIC_BRIEF.md: [symptom, timeline, impact, workaround, cause, recurrence, fix_ticket, known_error]
+PROCESS_MAP.md: [steps, candidates]
+BACKLOG.md: [items, self_serve]

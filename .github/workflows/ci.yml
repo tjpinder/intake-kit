@@ -25,5 +25,9 @@ jobs:
         run: git diff --exit-code -- dist/
       - name: The web API bundles
         run: npm run build:api
+      - name: The web app typechecks and builds
+        run: |
+          npm run typecheck:web
+          npm run build:web
       - name: Dogfood the guardrail checks on the worked example
         run: node scripts/dogfood.mjs

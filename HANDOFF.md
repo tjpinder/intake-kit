@@ -535,6 +535,16 @@ Codex isn't installed on the build machine. Build the `.agents/skills/` mirror a
 - **Azure wrapper** (`api/`): Functions v4 programming model, ESM, bundled by `scripts/build-api.mjs` into `api/dist/index.js` with the framework YAML and SKILL.md inlined; `@azure/functions-core` stays external (the host provides it). Counters live in Azure Table storage with ETag-based increments. `staticwebapp.config.json` must set `platform.apiRuntime` to `node:22`. App settings: `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_MODEL`, `AZURE_STORAGE_CONNECTION_STRING`, `IP_HASH_SALT` (16+ characters), `TURNSTILE_SECRET_KEY`, `TURNSTILE_SITE_KEY`, and optionally the cap overrides.
 - **Not yet run on Azure.** The handler and store are tested in-process; the first deploy (phase 5) is the first time the bundle meets the Functions host.
 
+**Web UI decisions (web phase 4, Oct 11)**
+
+- **Layout.** Chat on the left, live coverage on the right (the same `statusOf` the interviewer sees: each area covered, assumed, unknown or not asked, critical ones starred, plus ratings, acceptance checks and guardrails per item). After the reflect-back is confirmed, a review screen shows each item's gate with its reasons and revisit trigger, and the spec pack as tabs with a one-click zip (`intake-answers.yaml` plus every rendered file). Below 860 px the sidebar stacks under the chat.
+- **Offline sample.** "Watch a sample intake" replays the worked example in the browser through the same `applyTurn`, with no API calls or cost; `/?sample` opens straight into it, for demos. A saved sample is never restored on reload, since a replay can't resume half-way; a real unfinished intake is.
+- **State stays in the browser.** The intake lives in `localStorage` on the visitor's device; a bring-your-own key lives in `sessionStorage` (this tab only) and is sent in a header with each message. The server stores neither.
+- **Errors keep the visitor's words.** A failed turn puts their message back in the box and explains what happened: rate limit (with the wait), budget used up (with a link to use their own key), or a rejected key (with a link to the key settings).
+- **Local development.** `npm run dev:web` serves the UI and runs the real API handler in the Vite dev server with in-memory counters. Put `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY` in `.env.local` (gitignored) for live interviews locally.
+- **Security headers** in `web/public/staticwebapp.config.json`: a CSP limited to the app and Cloudflare Turnstile, no framing, no referrer. The CSP allows `'unsafe-eval'` because ajv compiles its validators at runtime in the browser; precompiling them with ajv's standalone mode would remove that, and is a reasonable follow-up.
+- **Verified** in headless Edge at 1400 px and with phone emulation at 390 px (no horizontal overflow), including a bring-your-own-key turn against the real Claude API with an invalid key (401 shown plainly, message restored). Not yet verified: a live interview on the kit's Azure model (needs the deployment), and Turnstile (needs keys).
+
 **Handoff file:** Claude Code copies this spec into the repo as `HANDOFF.md`.
 
 ## Testing

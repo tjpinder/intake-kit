@@ -22,6 +22,7 @@
     "validate:plugin": "claude plugin validate ."
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "0.128.0",
     "@types/node": "22.20.5",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",

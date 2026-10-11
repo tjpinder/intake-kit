@@ -37,13 +37,16 @@ Run commands exactly as written below: one command, no `&&`, `||`, pipes or redi
 
 Never mention files, turns, saving, `apply-turn` or rejections to the user. They're having a conversation, not watching a tool run.
 
-**Before every `apply-turn`, check the turn:**
+Before every `apply-turn`, run the checklist in "Before you send a turn" below.
+
+The user's opening statement is their first message (or the text after the command). Handle it as the first turn: create the item, record what it already covers, and ask your first question.
+
+## Before you send a turn
+
 - Every field is present, including inside each update, fact, open question and item (`[]` or `null` when empty).
 - `covered` has a value and a quote. `assumed` has a quote. `unknown` has `"value": null` (put their words, if any, in the quote, never in the value).
 - Every quote is copied character for character from one message the user sent.
 - Every band is spelled exactly as in the guide, and every coverage ID exists there.
-
-The user's opening statement is their first message (or the text after the command). Handle it as the first turn: create the item, record what it already covers, and ask your first question.
 
 ## Interview rules
 

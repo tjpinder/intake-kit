@@ -23,5 +23,11 @@ export { validateSession, validateTurn, sessionSchema, turnSchema } from "./lib/
 export { CHECK_IDS, CHECK_LABELS, DEFAULT_CONFIG } from "./lib/check-meta.ts";
 export type { ChecksConfig, CheckId } from "./lib/check-meta.ts";
 
+export { buildSystemPrompt, buildContext, buildHistory, buildRequest, sessionSnapshot, SHARED_SECTIONS } from "./llm/prompt.ts";
+export { runTurn, FALLBACK_REPLY } from "./llm/turn-loop.ts";
+export type { TurnInput, TurnOutcome } from "./llm/turn-loop.ts";
+export { ProviderError } from "./llm/types.ts";
+export type { Provider, ProviderResult, TurnRequest, ChatMessage, Usage } from "./llm/types.ts";
+
 export { coverageFor } from "./lib/session.ts";
 export type { Session, Item, CoverageEntry, Gate, Scoring, Acceptance, Guardrail } from "./lib/session.ts";

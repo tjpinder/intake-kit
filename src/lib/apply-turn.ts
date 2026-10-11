@@ -163,7 +163,11 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
     const by = needItem("/router/supersede/by", sup.by);
     if (item && by) {
       if (item.id === by.id) fail("/router/supersede/by", "an item can't supersede itself");
-      else item.superseded_by = by.id;
+      else if (by.spawned_from === item.id) {
+        // Found in the persona evals: the model marked the broken integration as superseded by
+        // its own manual workaround. A follow-on is replaced by the item it came from, never the reverse.
+        fail("/router/supersede", `${by.id} was spawned from ${item.id} as its follow-on, so it can't replace it. If building or fixing ${item.id} makes ${by.id} go away, send { "item": "${by.id}", "by": "${item.id}" }.`);
+      } else item.superseded_by = by.id;
     }
     grounded("/router/supersede/quote", sup.quote);
   }
@@ -325,7 +329,9 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
   // record that area and the user gave a real answer, the user's exact words are stored as an
   // assumed answer, which the reflect-back then asks them to confirm. Found in the persona evals:
   // with two or more items, gpt-4.1-mini often heard an answer, recorded nothing and asked again,
-  // forever. Only an area with no answer yet is filled; the model's own record always wins.
+  // forever. Only an area with no answer yet is filled, or one marked unknown on an earlier turn
+  // (the model sometimes marks the area it's about to ask as unknown before asking it); this
+  // turn's own record of the area always wins.
   const asked = original.session.last_target;
   const lastUser = ctx.transcript?.filter((e) => e.role === "user").at(-1);
   if (asked && lastUser && !original.session.reflect_back && fw.areas.has(asked.area) && !turn.updates.some((u) => u.area === asked.area) && lastUser.text.trim().split(/\s+/).length >= 4) {
@@ -341,7 +347,7 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
       const module = asked.area.startsWith("mod.") ? asked.area.split(".").slice(0, 2).join(".") : asked.area.split(".")[0];
       if (item && (module === item.type || item.modifiers.some((m) => `mod.${m}` === module))) target = item.coverage;
     }
-    if (target && !target[key]?.updated_at) {
+    if (target && (!target[key]?.updated_at || target[key].status === "unknown")) {
       target[key] = { status: "assumed", value: lastUser.text.trim(), quotes: [lastUser.text.trim()], probe_count: target[key]?.probe_count ?? 0, updated_at: now };
       warnings.push(`${asked.area} recorded from the user's reply: the turn didn't record the answer to the question it asked`);
     }

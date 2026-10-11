@@ -543,9 +543,37 @@ describe("answer capture (from the persona evals)", () => {
     assert.equal(run(emptyTurn(), { session: asked("core.outcome"), transcript: null }).session.core.outcome.status, "unknown");
   });
 
+  test("an area marked unknown before it was asked is filled by the user's answer", () => {
+    // Found in the persona evals: the model marked core.outcome unknown, then asked it; the
+    // answer was lost because capture only filled empty areas.
+    const session = asked("core.outcome");
+    session.core.outcome = { status: "unknown", value: null, quotes: [], probe_count: 0, updated_at: T0 };
+    const r = run(emptyTurn(), { session, transcript: said });
+    assert.equal(r.session.core.outcome.status, "assumed");
+    assert.equal(r.session.core.outcome.value, ANSWER);
+  });
+
   test("each applied turn remembers what it asked", () => {
     const t = emptyTurn();
     t.next_target = { item: null, area: "core.trust", is_probe: false };
     assert.deepEqual(run(t).session.session.last_target, { item: null, area: "core.trust" });
+  });
+});
+
+describe("supersede direction (from the persona evals)", () => {
+  test("a follow-on can't supersede the item it was spawned from", () => {
+    const t = emptyTurn();
+    t.router.new_items = [{ id: "item-2", type: "manual_process", confidence: "high", title: "Keying orders by hand", trigger_quote: "count by picker", spawned_from: "item-1" }];
+    t.router.supersede = { item: "item-1", by: "item-2", quote: "count by picker" };
+    expectRejected(run(t), "/router/supersede", 'send { "item": "item-2", "by": "item-1" }');
+  });
+
+  test("the right direction is accepted", () => {
+    const t = emptyTurn();
+    t.router.new_items = [{ id: "item-2", type: "manual_process", confidence: "high", title: "Keying orders by hand", trigger_quote: "count by picker", spawned_from: "item-1" }];
+    t.router.supersede = { item: "item-2", by: "item-1", quote: "count by picker" };
+    const r = run(t);
+    assert.equal(r.applied, true);
+    assert.equal(r.session.items[1].superseded_by, "item-1");
   });
 });

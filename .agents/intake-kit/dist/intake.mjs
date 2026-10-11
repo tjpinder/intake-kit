@@ -16789,7 +16789,9 @@ function applyTurn(original, turnData, ctx) {
     const by = needItem("/router/supersede/by", sup.by);
     if (item && by) {
       if (item.id === by.id) fail("/router/supersede/by", "an item can't supersede itself");
-      else item.superseded_by = by.id;
+      else if (by.spawned_from === item.id) {
+        fail("/router/supersede", `${by.id} was spawned from ${item.id} as its follow-on, so it can't replace it. If building or fixing ${item.id} makes ${by.id} go away, send { "item": "${by.id}", "by": "${item.id}" }.`);
+      } else item.superseded_by = by.id;
     }
     grounded("/router/supersede/quote", sup.quote);
   }
@@ -16939,7 +16941,7 @@ function applyTurn(original, turnData, ctx) {
       const module = asked.area.startsWith("mod.") ? asked.area.split(".").slice(0, 2).join(".") : asked.area.split(".")[0];
       if (item && (module === item.type || item.modifiers.some((m) => `mod.${m}` === module))) target = item.coverage;
     }
-    if (target && !target[key]?.updated_at) {
+    if (target && (!target[key]?.updated_at || target[key].status === "unknown")) {
       target[key] = { status: "assumed", value: lastUser.text.trim(), quotes: [lastUser.text.trim()], probe_count: target[key]?.probe_count ?? 0, updated_at: now2 };
       warnings.push(`${asked.area} recorded from the user's reply: the turn didn't record the answer to the question it asked`);
     }

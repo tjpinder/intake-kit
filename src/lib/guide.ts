@@ -233,7 +233,7 @@ function nextStep(reflect: Status["reflect_back"], interviewComplete: boolean, i
   if (reflect === "proposed") {
     const review = items.filter((i) => i.preview_quadrant === "review" && !i.has_mitigation && !i.superseded_by);
     return [
-      "You've played back a summary. Record whether the user confirmed it or what they corrected.",
+      "You've played back a summary. If the user's latest message agrees with it (yes, that's right, that captures it), send `reflect_back` with status \"confirmed\" and the same text; don't propose it again. If they corrected something, send status \"corrected\" with the corrections listed.",
       ...(review.length
         ? [`${review.map((i) => i.id).join(", ")} would score in the Review quadrant, which can't reach Go without a written mitigation: add a one-line \`mitigation\` prose for it from what the user said would reduce the risk (their fallback or review step), or ask them if they haven't said.`]
         : []),

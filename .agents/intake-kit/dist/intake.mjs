@@ -16912,6 +16912,10 @@ function applyTurn(original, turnData, ctx) {
       confirmedNow = true;
     }
   }
+  const lastUser = ctx.transcript?.filter((e) => e.role === "user").at(-1);
+  if (original.items.length > 0 && !original.session.reflect_back && !rb && !turn.next_target.is_probe && [turn.updates, turn.facts, turn.router.new_items, turn.router.add_modifiers, turn.prose, turn.acceptance, turn.guardrails, turn.open_questions].every((a) => a.length === 0) && !turn.router.reclassify && !turn.router.supersede && lastUser && lastUser.text.trim().split(/\s+/).length >= 6) {
+    fail("/updates", "The user's latest message answers your last question, but `updates` is empty. Record their answer under the area you asked about (with their words as the quote; use status `unknown` if they said they don't know) before asking anything else.");
+  }
   if (!turn.reply.trim()) fail("/reply", "the reply to the user can't be empty");
   if (rejections.length) return reject(rejections);
   session.items = [...items.values()];
@@ -17077,7 +17081,7 @@ function nextStep(reflect, interviewComplete, items, hints) {
   if (reflect === "proposed") {
     const review = items.filter((i) => i.preview_quadrant === "review" && !i.has_mitigation && !i.superseded_by);
     return [
-      "You've played back a summary. Record whether the user confirmed it or what they corrected.",
+      `You've played back a summary. If the user's latest message agrees with it (yes, that's right, that captures it), send \`reflect_back\` with status "confirmed" and the same text; don't propose it again. If they corrected something, send status "corrected" with the corrections listed.`,
       ...review.length ? [`${review.map((i) => i.id).join(", ")} would score in the Review quadrant, which can't reach Go without a written mitigation: add a one-line \`mitigation\` prose for it from what the user said would reduce the risk (their fallback or review step), or ask them if they haven't said.`] : []
     ].join(" ");
   }

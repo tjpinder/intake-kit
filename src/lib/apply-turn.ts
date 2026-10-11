@@ -321,6 +321,19 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
     }
   }
 
+  // An answer the model doesn't record is lost: status still shows the area unasked and the
+  // interviewer asks it again, forever. Found in the persona evals, where gpt-4.1-mini sent empty
+  // updates for every core question. Short replies ("ok", "sure") are exempt.
+  const lastUser = ctx.transcript?.filter((e) => e.role === "user").at(-1);
+  if (
+    original.items.length > 0 && !original.session.reflect_back && !rb && !turn.next_target.is_probe &&
+    [turn.updates, turn.facts, turn.router.new_items, turn.router.add_modifiers, turn.prose, turn.acceptance, turn.guardrails, turn.open_questions].every((a) => a.length === 0) &&
+    !turn.router.reclassify && !turn.router.supersede &&
+    lastUser && lastUser.text.trim().split(/\s+/).length >= 6
+  ) {
+    fail("/updates", "The user's latest message answers your last question, but `updates` is empty. Record their answer under the area you asked about (with their words as the quote; use status `unknown` if they said they don't know) before asking anything else.");
+  }
+
   if (!turn.reply.trim()) fail("/reply", "the reply to the user can't be empty");
 
   if (rejections.length) return reject(rejections);

@@ -506,3 +506,17 @@ describe("re-adding a modifier (from the persona evals)", () => {
     assert.match(second.warnings[0], /already has the integration modifier/);
   });
 });
+
+describe("a turn that records nothing (from the persona evals)", () => {
+  test("is rejected when the user's latest message was a real answer", () => {
+    const t = emptyTurn();
+    t.next_target = { item: null, area: "core.outcome", is_probe: false };
+    const transcript = [{ role: "user" as const, text: "Baseline is about 50 short picks a day across all shifts.", at: T0 }];
+    expectRejected(run(t, { transcript }), "/updates", "`updates` is empty");
+  });
+
+  test("a short acknowledgement or a probe needs nothing recorded", () => {
+    const short = [{ role: "user" as const, text: "ok, go on", at: T0 }];
+    assert.equal(run(emptyTurn(), { transcript: short }).applied, true);
+  });
+});

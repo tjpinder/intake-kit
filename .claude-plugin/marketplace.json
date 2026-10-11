@@ -1,0 +1,14 @@
+{
+  "name": "intake-kit",
+  "description": "The intake-kit plugin: plain-language intake to build-ready spec pack.",
+  "owner": {
+    "name": "Tom Pinder"
+  },
+  "plugins": [
+    {
+      "name": "intake-kit",
+      "source": "./",
+      "description": "Turn a plain-language intake interview into a build-ready spec pack, with guardrails derived from what the user said."
+    }
+  ]
+}

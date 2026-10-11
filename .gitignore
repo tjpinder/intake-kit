@@ -1,0 +1,6 @@
+node_modules/
+
+# Local intake state. Transcripts hold the user's exact words and stay on this machine.
+.intake-kit/transcript.jsonl
+.intake-kit/active
+.intake-kit/last-audit.json

@@ -79,6 +79,17 @@ Pick the band whose description in the guide matches what the user actually said
 
 Also capture, as `prose`, a one-line `problem_statement`, `current_state`, `mvp` and `out_of_scope` for each item once you understand it, and a `mitigation` when the user describes how they'd reduce a risk. Write prose in plain words, close to how the user put it.
 
+Before the reflect-back, write acceptance criteria for every item that might be built (not superseded or exploratory ones): at least one `criterion` and one `error_case`, each in Given/When/Then form, built only from what the user said. `evidence` lists the coverage IDs it rests on; each must already have an answer in the user's words. Don't invent thresholds or behaviour they didn't describe. `status.items[].acceptance` shows the counts.
+
+Write guardrails for the same items, also from the user's words only, each citing its evidence:
+
+- `kill_criterion`: what would make them stop using it or switch it off. Required.
+- `fallback`: what they'd do if it stopped working. Required.
+- `review_point`: who checks its output, and when, before anyone acts on it.
+- `data_rule`: how the data must be handled (read-only, sensitive fields, where it may go).
+
+If the user can't say what would make them switch it off, ask "What would make you switch it off?" once. If they still can't, don't write one: the missing kill criterion becomes a visible gap, which is the right outcome. `status.items[].guardrails` shows the counts.
+
 Add an `open_question` for anything left `unknown` that matters: what to ask, who could answer it, and what artifact would settle it.
 
 ## Reflect-back
@@ -89,7 +100,15 @@ When `status.ready_for_reflect_back` is true, or the user wants to wrap up:
 2. On their answer: `confirmed` if they agree. `corrected` (with each correction listed) if they change anything; fix the affected updates and facts in the same turn, then propose again.
 3. Once confirmed, `apply-turn` scores and gates every item and returns `gates`. Tell the user the outcome for each item in a sentence or two, using the reasons it returned, and the revisit trigger for anything not going ahead. "Don't build" and "fix, not build" are good outcomes when they're right; say so plainly.
 
-Spec pack rendering isn't built yet. After reporting the gates, tell the user the answers are saved in `intake-answers.yaml` and stop.
+## Render the spec pack
+
+Right after reporting the gates, run `node "${CLAUDE_PLUGIN_ROOT}/dist/intake.mjs" render`.
+
+- Exit 0: list the files it wrote, one line each on what's in them. Items that reached Go get SPEC, ACCEPTANCE, CLAUDE, GUARDRAILS and FIRST_PROMPT; every intake gets DECISIONS; other outcomes get a discovery brief, a diagnostic brief, a process map or a backlog.
+- Exit 5: some files already exist and would change. They have **not** been touched. For each one marked `needs_confirmation`, show the user what would change (the `diff`; summarise it if it's long) and ask whether to replace it. Run `render --overwrite <file>` for each file they approve, in one command (`--overwrite A.md --overwrite B.md`). Never overwrite a file they haven't said yes to; `CLAUDE.md` in particular is often their own.
+- Exit 4: tell the user what the message says.
+
+Finish with what to do next: open `FIRST_PROMPT.md` to start the build in a fresh session, give each assumption in `DECISIONS.md` an owner, and get answers to the open questions at the top of `SPEC.md`. If nothing reached Go, point them to the brief or decision record instead.
 
 ## Turn format
 
@@ -112,6 +131,14 @@ Every field is required, every time. Use `[]` and `null` for empty.
     "supersede": null
   },
   "prose": [ { "item": "item-1", "field": "problem_statement", "text": "Retraining is chosen by guesswork." } ],
+  "acceptance": [
+    { "item": "item-1", "kind": "criterion", "given": "a shift with short picks", "when": "the report runs at 6am", "then": "each picker's short picks for that shift are counted", "evidence": ["data_report.definition", "data_report.grain"] },
+    { "item": "item-1", "kind": "error_case", "given": "the WMS export is missing", "when": "the report runs", "then": "it says the data is missing instead of showing zeros", "evidence": ["core.trust"] }
+  ],
+  "guardrails": [
+    { "item": "item-1", "kind": "kill_criterion", "text": "Stop using it for retraining if a count doesn't match the WMS.", "evidence": ["core.trust"] },
+    { "item": "item-1", "kind": "fallback", "text": "Go back to the Monday spreadsheet.", "evidence": ["core.trust"] }
+  ],
   "open_questions": [
     { "item": "item-1", "area": "data_report.truth", "question": "Which count is right when the dashboard and the export disagree?", "who_can_answer": "WMS admin", "artifact_needed": "One day where the two differ" }
   ],

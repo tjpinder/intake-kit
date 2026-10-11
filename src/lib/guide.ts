@@ -84,6 +84,10 @@ export interface ItemStatus {
   /** Answered vaguely (assumed or unknown) with their one probe still unused. */
   probe_available: string[];
   facts_missing: string[];
+  /** Acceptance lines captured so far. Items that may be built need at least one of each. */
+  acceptance: { criteria: number; error_cases: number };
+  /** Guardrail statements captured so far. Items that may be built need a kill criterion and a fallback. */
+  guardrails: { kill_criterion: number; fallback: number; review_point: number; data_rule: number };
 }
 
 export interface Status {
@@ -91,6 +95,11 @@ export interface Status {
   core: Array<{ area: string; status: string; asked: boolean; probe_available: boolean }>;
   items: ItemStatus[];
   ready_for_reflect_back: boolean;
+}
+
+/** Items that could be built need acceptance criteria and guardrails; superseded and exploratory ones don't. */
+function needsAcceptance(i: ItemStatus): boolean {
+  return i.superseded_by == null && i.type !== "exploratory";
 }
 
 export function statusOf(session: Session, fw: Framework): Status {
@@ -121,6 +130,16 @@ export function statusOf(session: Session, fw: Framework): Status {
       critical_unasked: criticalAreas(item, fw).filter((id) => !asked(id)),
       probe_available: probeable,
       facts_missing: factsFor(item, fw).filter((f) => !item.facts[f]),
+      acceptance: {
+        criteria: item.acceptance.filter((a) => a.kind === "criterion").length,
+        error_cases: item.acceptance.filter((a) => a.kind === "error_case").length,
+      },
+      guardrails: {
+        kill_criterion: item.guardrails.filter((g) => g.kind === "kill_criterion").length,
+        fallback: item.guardrails.filter((g) => g.kind === "fallback").length,
+        review_point: item.guardrails.filter((g) => g.kind === "review_point").length,
+        data_rule: item.guardrails.filter((g) => g.kind === "data_rule").length,
+      },
     };
   });
 
@@ -129,6 +148,16 @@ export function statusOf(session: Session, fw: Framework): Status {
     core,
     items,
     ready_for_reflect_back:
-      items.length > 0 && items.every((i) => i.critical_unasked.length === 0 && i.always_ask_pending.length === 0 && i.facts_missing.length === 0),
+      items.length > 0 &&
+      items.every(
+        (i) =>
+          i.critical_unasked.length === 0 &&
+          i.always_ask_pending.length === 0 &&
+          // A superseded item needs no band picks: if its replacement doesn't reach Go, it's
+          // gated on its unknowns, which honestly lands it in Gather more.
+          (i.superseded_by != null || i.facts_missing.length === 0) &&
+          (!needsAcceptance(i) ||
+            (i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)),
+      ),
   };
 }

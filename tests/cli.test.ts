@@ -48,6 +48,8 @@ function base(overrides: object = {}) {
     facts: [],
     router: { new_items: [], reclassify: null, add_modifiers: [], supersede: null },
     prose: [],
+    acceptance: [],
+    guardrails: [],
     open_questions: [],
     reflect_back: null,
     next_target: { item: null, area: null, is_probe: false },

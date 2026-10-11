@@ -1,14 +1,37 @@
 {
   "reply": "Tell me about the last time the dashboard total and your count didn't match. Which one turned out to be right?",
   "updates": [
-    { "item": "item-1", "area": "data_report.truth", "status": "unknown", "value": null, "quote": null }
+    {
+      "item": "item-1",
+      "area": "data_report.truth",
+      "status": "unknown",
+      "value": null,
+      "quote": null
+    }
   ],
   "facts": [],
-  "router": { "new_items": [], "reclassify": null, "add_modifiers": [], "supersede": null },
+  "router": {
+    "new_items": [],
+    "reclassify": null,
+    "add_modifiers": [],
+    "supersede": null
+  },
   "prose": [],
+  "acceptance": [],
+  "guardrails": [],
   "open_questions": [
-    { "item": "item-1", "area": "data_report.truth", "question": "When the WMS dashboard total and the pick-confirmation count disagree, which one is right?", "who_can_answer": "WMS admin", "artifact_needed": "One day where the two numbers differ" }
+    {
+      "item": "item-1",
+      "area": "data_report.truth",
+      "question": "When the WMS dashboard total and the pick-confirmation count disagree, which one is right?",
+      "who_can_answer": "WMS admin",
+      "artifact_needed": "One day where the two numbers differ"
+    }
   ],
   "reflect_back": null,
-  "next_target": { "item": "item-1", "area": "data_report.truth", "is_probe": true }
+  "next_target": {
+    "item": "item-1",
+    "area": "data_report.truth",
+    "is_probe": true
+  }
 }

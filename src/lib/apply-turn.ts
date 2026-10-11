@@ -43,6 +43,8 @@ interface Turn {
     supersede: { item: string; by: string; quote: string } | null;
   };
   prose: Array<{ item: string | null; field: keyof Item["prose"]; text: string }>;
+  acceptance: Array<{ item: string; kind: "criterion" | "error_case"; given: string; when: string; then: string; evidence: string[] }>;
+  guardrails: Array<{ item: string; kind: Item["guardrails"][number]["kind"]; text: string; evidence: string[] }>;
   open_questions: Array<{ item: string | null; area: string; question: string; who_can_answer: string | null; artifact_needed: string | null }>;
   reflect_back: { text: string; status: "proposed" | "confirmed" | "corrected"; corrections: string[] } | null;
   next_target: { item: string | null; area: string | null; is_probe: boolean };
@@ -117,6 +119,8 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
       coverage: {},
       facts: {},
       prose: {},
+      acceptance: [],
+      guardrails: [],
       scoring: null,
       gate: null,
       open_questions: [],
@@ -208,6 +212,37 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
     if (!p.text.trim()) fail(`/prose/${i}/text`, "prose can't be empty");
     if (item) item.prose[p.field] = p.text;
   });
+
+  // Acceptance criteria and guardrail statements: the model drafts them; each must cite areas
+  // that fit the item. Quotes are checked below, once every update in this turn is applied.
+  const cited: Array<[string, Item, string]> = [];
+  const citeEvidence = (path: string, item: Item | undefined, evidence: string[]) => {
+    if (evidence.length === 0) fail(`${path}/evidence`, "cite at least one coverage ID");
+    evidence.forEach((ev, j) => {
+      if (!knownArea(`${path}/evidence/${j}`, ev) || !item) return;
+      if (ev.startsWith("core.") || areaFits(`${path}/evidence/${j}`, item, ev)) cited.push([`${path}/evidence/${j}`, item, ev]);
+    });
+  };
+  turn.acceptance.forEach((a, i) => {
+    const path = `/acceptance/${i}`;
+    const item = needItem(`${path}/item`, a.item);
+    for (const field of ["given", "when", "then"] as const) if (!a[field].trim()) fail(`${path}/${field}`, `"${field}" can't be empty`);
+    citeEvidence(path, item, a.evidence);
+    if (item && !item.acceptance.some((x) => x.kind === a.kind && x.given === a.given && x.when === a.when && x.then === a.then)) {
+      item.acceptance.push({ kind: a.kind, given: a.given, when: a.when, then: a.then, evidence: a.evidence });
+    }
+  });
+  turn.guardrails.forEach((g, i) => {
+    const path = `/guardrails/${i}`;
+    const item = needItem(`${path}/item`, g.item);
+    if (!g.text.trim()) fail(`${path}/text`, "a guardrail can't be empty");
+    citeEvidence(path, item, g.evidence);
+    if (item && !item.guardrails.some((x) => x.kind === g.kind && x.text === g.text)) item.guardrails.push({ kind: g.kind, text: g.text, evidence: g.evidence });
+  });
+  for (const [path, item, ev] of cited) {
+    const entry = ev.startsWith("core.") ? (item.core_overrides[ev.slice(5)] ?? session.core[ev.slice(5) as (typeof CORE_AREAS)[number]]) : item.coverage[ev];
+    if (!entry?.quotes.length) fail(path, `${ev} has no answer in the user's words yet, so nothing can cite it`);
+  }
 
   turn.open_questions.forEach((q, i) => {
     const path = `/open_questions/${i}`;

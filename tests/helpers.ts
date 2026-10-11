@@ -56,6 +56,8 @@ export function makeItem(id: string, opts: ItemOptions = {}): Item {
     coverage,
     facts: Object.fromEntries(Object.entries(bands).map(([fact, band]) => [fact, { band, evidence: [], quotes: [] }])),
     prose: opts.mitigation ? { mitigation: opts.mitigation } : {},
+    acceptance: [],
+    guardrails: [],
     scoring: null,
     gate: null,
     open_questions: [],

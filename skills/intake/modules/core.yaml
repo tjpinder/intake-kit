@@ -72,15 +72,15 @@ areas:
         ask: "Who set that requirement, and where is it written down?"
     feeds:
       - { file: SPEC.md, section: constraints }
-      - { file: CLAUDE.md, section: never_do }
 
   - id: core.trust
-    must_capture: Cost of a wrong output, who catches errors, required review, fallback
+    must_capture: Cost of a wrong output, who catches errors, required review, fallback, what would make them switch it off
     probes:
       - "When this goes wrong today, who catches it?"
       - "Worst outcome if an automated version got one wrong?"
       - "Would you approve its output, or let it act alone?"
       - "If it stopped working, what would you do?"
+      - "What would make you switch it off?"
     critical: true
     followup_conditions:
       - when: no manual fallback has been described

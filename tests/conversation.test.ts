@@ -66,6 +66,12 @@ for (const file of readdirSync("tests/fixtures/conversations").filter((f) => f.e
       assert.deepEqual(beforeReflect.items.find((i) => i.id === "item-1")?.critical_unasked, []);
     });
 
+    test("ready for the reflect-back once item-1 has acceptance and guardrails; superseded item-2 needs no band picks", () => {
+      const atProposal = statuses.at(-1)!;
+      assert.equal(atProposal.ready_for_reflect_back, true);
+      assert.ok(atProposal.items.find((i) => i.id === "item-2")!.facts_missing.length > 0);
+    });
+
     test("the session is valid and gated as expected", () => {
       const s: Session = parseYaml(readFileSync(join(dir, "intake-answers.yaml"), "utf8"));
       assert.deepEqual(validateSession(s).errors, []);
@@ -74,6 +80,21 @@ for (const file of readdirSync("tests/fixtures/conversations").filter((f) => f.e
       assert.equal(s.items[0].coverage["data_report.truth"].status, "unknown");
       assert.equal(s.items[0].open_questions.length, 1);
       assert.equal(s.core.trust.probe_count, 1);
+    });
+
+    test("the confirmed session renders its spec pack, every requirement cited", () => {
+      const r = node("intake.mjs", ["render", "--dir", dir]);
+      assert.equal(r.status, 0, r.stdout);
+      const files = JSON.parse(r.stdout).files.map((f: { file: string }) => f.file).sort();
+      assert.deepEqual(files, ["ACCEPTANCE.md", "CLAUDE.md", "DECISIONS.md", "FIRST_PROMPT.md", "GUARDRAILS.md", "PROCESS_MAP.md", "SPEC.md"]);
+      for (const file of ["SPEC.md", "ACCEPTANCE.md"]) {
+        let section = "";
+        for (const line of readFileSync(join(dir, file), "utf8").split("\n")) {
+          if (line.startsWith("## ")) section = line.slice(3);
+          if (line.startsWith("- ") && section !== "Open questions") assert.match(line, /\[[a-z0-9_.]+\] ".+"$/, `${file}: ${line}`);
+        }
+      }
+      assert.match(readFileSync(join(dir, "GUARDRAILS.md"), "utf8"), /## Kill criteria\n\n- Stop using the report/);
     });
 
     test("grounding: every stored quote is in a single recorded user message", () => {
@@ -104,7 +125,7 @@ describe("status", () => {
     const s = empty();
     s.items.push({
       id: "item-1", title: "x", type: "broken", confidence: "high", trigger_quote: "q", modifiers: ["integration"], spawned_from: null, superseded_by: null,
-      type_history: [], core_overrides: {}, coverage: {}, facts: {}, prose: {}, scoring: null, gate: null, open_questions: [],
+      type_history: [], core_overrides: {}, coverage: {}, facts: {}, prose: {}, acceptance: [], guardrails: [], scoring: null, gate: null, open_questions: [],
     });
     const st = statusOf(s, fw).items[0];
     assert.ok(st.unasked.includes("broken.symptom") && st.unasked.includes("mod.integration.payload"));

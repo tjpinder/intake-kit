@@ -5,7 +5,7 @@
   "description": "What the model returns every turn. Written to the strict structured-output subset shared by Azure OpenAI and the Claude API: every property required, additionalProperties false, nullable fields as type unions, no dynamic keys, no pattern/length/count keywords. Rules this subset can't express (ID formats, band names, quote grounding, one probe per area) are enforced by apply-turn against scoring.yaml and the transcript. There is deliberately no field for scores, composites, quadrants or gates.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["reply", "updates", "facts", "router", "prose", "open_questions", "reflect_back", "next_target"],
+  "required": ["reply", "updates", "facts", "router", "prose", "acceptance", "guardrails", "open_questions", "reflect_back", "next_target"],
   "properties": {
     "reply": {
       "type": "string",
@@ -26,6 +26,16 @@
       "type": "array",
       "description": "Prose the spec pack needs that isn't a single coverage answer. Captured into the session file before rendering.",
       "items": { "$ref": "#/$defs/prose" }
+    },
+    "acceptance": {
+      "type": "array",
+      "description": "Acceptance criteria and error cases in Given/When/Then form. Each cites the coverage IDs it rests on; code attaches the user's quote when rendering.",
+      "items": { "$ref": "#/$defs/acceptance" }
+    },
+    "guardrails": {
+      "type": "array",
+      "description": "Guardrail statements drawn from what the user said about trust, data and risk. Each cites the coverage IDs it rests on.",
+      "items": { "$ref": "#/$defs/guardrail" }
     },
     "open_questions": {
       "type": "array",
@@ -133,6 +143,30 @@
         "item": { "type": ["string", "null"] },
         "field": { "type": "string", "enum": ["problem_statement", "current_state", "mvp", "out_of_scope", "mitigation"] },
         "text": { "type": "string" }
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item", "kind", "given", "when", "then", "evidence"],
+      "properties": {
+        "item": { "type": "string" },
+        "kind": { "type": "string", "enum": ["criterion", "error_case"] },
+        "given": { "type": "string" },
+        "when": { "type": "string" },
+        "then": { "type": "string" },
+        "evidence": { "type": "array", "items": { "type": "string" }, "description": "Coverage IDs with a recorded answer and quote." }
+      }
+    },
+    "guardrail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item", "kind", "text", "evidence"],
+      "properties": {
+        "item": { "type": "string" },
+        "kind": { "type": "string", "enum": ["kill_criterion", "fallback", "review_point", "data_rule"] },
+        "text": { "type": "string" },
+        "evidence": { "type": "array", "items": { "type": "string" } }
       }
     },
     "open_question": {

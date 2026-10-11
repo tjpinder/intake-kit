@@ -109,7 +109,7 @@
     "item": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "title", "type", "confidence", "trigger_quote", "modifiers", "spawned_from", "superseded_by", "type_history", "core_overrides", "coverage", "facts", "prose", "scoring", "gate", "open_questions"],
+      "required": ["id", "title", "type", "confidence", "trigger_quote", "modifiers", "spawned_from", "superseded_by", "type_history", "core_overrides", "coverage", "facts", "prose", "acceptance", "guardrails", "scoring", "gate", "open_questions"],
       "properties": {
         "id": { "$ref": "#/$defs/item_id" },
         "title": { "type": "string", "minLength": 1 },
@@ -166,6 +166,34 @@
             "mvp": { "type": "string", "minLength": 1 },
             "out_of_scope": { "type": "string", "minLength": 1 },
             "mitigation": { "type": "string", "minLength": 1 }
+          }
+        },
+        "acceptance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "given", "when", "then", "evidence"],
+            "properties": {
+              "kind": { "enum": ["criterion", "error_case"] },
+              "given": { "type": "string", "minLength": 1 },
+              "when": { "type": "string", "minLength": 1 },
+              "then": { "type": "string", "minLength": 1 },
+              "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/coverage_id" } }
+            }
+          }
+        },
+        "guardrails": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "text", "evidence"],
+            "properties": {
+              "kind": { "enum": ["kill_criterion", "fallback", "review_point", "data_rule"] },
+              "text": { "type": "string", "minLength": 1 },
+              "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/coverage_id" } }
+            }
           }
         },
         "scoring": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/scoring" }], "description": "Written by code only. Null until the reflect-back is confirmed." },

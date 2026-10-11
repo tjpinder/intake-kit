@@ -485,6 +485,19 @@ Codex isn't installed on the build machine. Build the `.agents/skills/` mirror a
 - **Session file** is written without YAML anchors or aliases.
 - **Rendering** isn't built yet (step 6). After gating, the skill reports each item's outcome and stops.
 
+**Rendering decisions (step 6, Oct 11)**
+
+- **Model drafts, code checks and renders, for acceptance and guardrails too.** The turn gains `acceptance` (`criterion` or `error_case`, in Given/When/Then form) and `guardrails` (`kill_criterion`, `fallback`, `review_point`, `data_rule`). Each cites the coverage IDs it rests on, and `apply-turn` rejects any whose evidence has no answer in the user's words. Code attaches the quotes when rendering. This replaced rendering one trust answer three times under Kill criteria, Fallback and Review points, which hid the fact that no kill criterion had been stated.
+- **`core.trust`** now also captures, and probes for, what would make the user switch it off.
+- **Readiness** for the reflect-back needs at least one criterion, one error case, one kill criterion and one fallback for every item that could be built (not superseded, not exploratory). Superseded items need no band picks.
+- **Citation rule.** Every bullet in SPEC.md and ACCEPTANCE.md ends with `[coverage.id] "the user's words"` (several joined by ` · `). Open-question bullets cite the area only. Interviewer-written summaries render as blockquotes, never bullets. Tests check every citation against the session's recorded quotes.
+- **Placement.** Module `feeds` decide which section each answer lands in. Templates in `templates/` hold all fixed wording; a test checks their `{{section:…}}` placeholders match `sections.yaml` both ways.
+- **Which files.** Go items get SPEC, ACCEPTANCE, CLAUDE, GUARDRAILS and FIRST_PROMPT. Every intake gets DECISIONS. Gather-more items get DISCOVERY_BRIEF, broken items DIAGNOSTIC_BRIEF, manual-process items PROCESS_MAP, and exploratory sessions BACKLOG. With several Go items, each gets its own subsection.
+- **Open questions** list the model's questions, plus "Still unknown" for answered-unknown areas and "Not yet asked" for unasked critical areas.
+- **Assumptions** render in DECISIONS.md with `Owner: _unassigned_`, so the open-assumptions check (step 7) fails until someone owns each one.
+- **Never overwrite unasked.** `render` writes new files and skips identical ones (CRLF-only differences count as identical). A file that exists and would change is staged in `.intake-kit/render/` with a line diff, and the command exits 5. Only `render --overwrite <file>` replaces it, and the skill asks the user first. Verified live: a hand-written CLAUDE.md was shown, kept on "no", and left byte-for-byte unchanged.
+- **Golden files** for the worked example live in `tests/golden/pick-exception/`. After an intended change, regenerate them with `npm run golden:update` and review the diff before committing.
+
 **Handoff file:** Claude Code copies this spec into the repo as `HANDOFF.md`.
 
 ## Testing

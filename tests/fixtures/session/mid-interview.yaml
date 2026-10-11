@@ -31,6 +31,8 @@ items:
       manual_process.walkthrough: { status: covered, value: "Open PDF, find PO number, look it up in the ERP, compare lines, flag mismatches", quotes: ["open it, find the PO, pull it up, check every line"], probe_count: 0 }
     facts: {}
     prose: {}
+    acceptance: []
+    guardrails: []
     scoring: null
     gate: null
     open_questions: []

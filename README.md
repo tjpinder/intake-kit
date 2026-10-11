@@ -4,7 +4,7 @@ Turn a vague ops request into a build-ready spec in 30 minutes.
 
 intake-kit is a Claude Code plugin. It runs a guided intake interview, scores what it hears, gates each item (Go, Gather more, Don't build, Fix not build), and writes a spec pack with guardrails derived from what the user actually said.
 
-> **Status:** in development. `/intake-kit:intake` runs the full interview and gates each item; spec pack rendering, `/guardrails` and `/audit` aren't built yet. See [HANDOFF.md](HANDOFF.md) for the full spec.
+> **Status:** in development. `/intake-kit:intake` runs the full interview, gates each item and renders the spec pack; `/guardrails` and `/audit` aren't built yet. See [HANDOFF.md](HANDOFF.md) for the full spec.
 
 ## Prerequisites
 

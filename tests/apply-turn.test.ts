@@ -26,6 +26,8 @@ function emptyTurn(): any {
     facts: [],
     router: { new_items: [], reclassify: null, add_modifiers: [], supersede: null },
     prose: [],
+    acceptance: [],
+    guardrails: [],
     open_questions: [],
     reflect_back: null,
     next_target: { item: null, area: null, is_probe: false },
@@ -401,5 +403,58 @@ describe("all or nothing", () => {
     const t = emptyTurn();
     t.reply = " ";
     expectRejected(run(t), "/reply", "can't be empty");
+  });
+});
+
+describe("acceptance criteria and guardrail statements", () => {
+  function answered(): Session {
+    const s = freshSession();
+    s.core.trust = { status: "covered", value: "Shift lead checks", quotes: ["the shift leads use it Tuesday"], probe_count: 0, updated_at: T0 };
+    return s;
+  }
+  const crit = (o: object = {}) => ({ item: "item-1", kind: "criterion", given: "a shift", when: "the report runs", then: "counts appear", evidence: ["core.trust"], ...o });
+  const rail = (o: object = {}) => ({ item: "item-1", kind: "kill_criterion", text: "Stop if counts are wrong", evidence: ["core.trust"], ...o });
+
+  test("both are stored when their evidence has the user's words", () => {
+    const t = emptyTurn();
+    t.acceptance = [crit()];
+    t.guardrails = [rail()];
+    const r = run(t, { session: answered() });
+    assert.deepEqual(r.rejections, []);
+    assert.equal(r.session.items[0].acceptance.length, 1);
+    assert.deepEqual(r.session.items[0].guardrails, [{ kind: "kill_criterion", text: "Stop if counts are wrong", evidence: ["core.trust"] }]);
+  });
+
+  test("evidence with no quote yet is rejected", () => {
+    const t = emptyTurn();
+    t.acceptance = [crit()];
+    t.guardrails = [rail()];
+    const r = run(t);
+    expectRejected(r, "/acceptance/0/evidence/0", "no answer in the user's words");
+    expectRejected(r, "/guardrails/0/evidence/0", "no answer in the user's words");
+  });
+
+  test("evidence answered in the same turn counts", () => {
+    const t = emptyTurn();
+    t.updates = [{ item: null, area: "core.trust", status: "covered", value: "Lead checks", quote: "the shift leads use it Tuesday" }];
+    t.guardrails = [rail()];
+    assert.deepEqual(run(t).rejections, []);
+  });
+
+  test("no evidence, empty text, or an area from another type", () => {
+    const t = emptyTurn();
+    t.acceptance = [crit({ evidence: [], then: " " })];
+    t.guardrails = [rail({ text: "", evidence: ["broken.cause"] })];
+    const r = run(t, { session: answered() });
+    expectRejected(r, "/acceptance/0/evidence", "at least one coverage ID");
+    expectRejected(r, "/acceptance/0/then", "can't be empty");
+    expectRejected(r, "/guardrails/0/text", "can't be empty");
+    expectRejected(r, "/guardrails/0/evidence/0", "doesn't apply to item-1");
+  });
+
+  test("repeating the same line doesn't duplicate it", () => {
+    const t = emptyTurn();
+    t.acceptance = [crit(), crit()];
+    assert.equal(run(t, { session: answered() }).session.items[0].acceptance.length, 1);
   });
 });

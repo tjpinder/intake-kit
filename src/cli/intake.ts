@@ -2,19 +2,25 @@
 //
 //   start [--mode stakeholder|builder] [--provider claude|codex] [--grounding transcript|unverified] [--new | --resume]
 //   apply-turn [--turn <file>]          (default: .intake-kit/turn.json)
+//   render [--overwrite <file>]...      write the spec pack and briefs; existing files that would
+//                                       change are staged with a diff, never overwritten unasked
 //   status                              what's still open, as returned after every turn
 //   guide                               the router, areas and bands, as markdown for the skill
 //
 // Options: --dir <repo> (default: current directory). Output is one JSON object on stdout.
 // Exit codes: 0 done, 2 turn rejected (retry once), 3 rejected again (don't retry),
-// 4 needs a decision from the user, 1 unexpected error.
+// 4 needs a decision from the user, 5 rendered but some files need the user's OK to overwrite,
+// 1 unexpected error.
 
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
 import { loadFramework } from "../lib/framework.ts";
 import { applyTurn } from "../lib/apply-turn.ts";
 import { guide, statusOf } from "../lib/guide.ts";
+import { renderAll } from "../lib/render.ts";
+import { lineDiff } from "../lib/diff.ts";
 import {
   archive, archiveText, ensureStateDir, paths, pluginRoot, readRunState, readSession, readTranscript,
   writeRunState, writeSession, writeTranscript,
@@ -144,6 +150,48 @@ function applyTurnCommand(dir: string, turnFile: string) {
   });
 }
 
+function renderCommand(dir: string, overwrite: string[]) {
+  const session = readSession(dir);
+  if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
+  if (!session.session.reflect_back?.confirmed) {
+    return out(4, { result: "not_ready", message: "Nothing is rendered until the reflect-back is confirmed and the items are gated." });
+  }
+  const root = pluginRoot();
+  const rendered = renderAll(session, loadFramework(root), join(root, "templates"));
+  const unknownOverwrite = overwrite.filter((f) => !rendered.has(f));
+  if (unknownOverwrite.length) return out(4, { result: "bad_option", message: `--overwrite names files this intake doesn't render: ${unknownOverwrite.join(", ")}` });
+
+  const staged = join(paths(dir).stateDir, "render");
+  const files: Array<{ file: string; status: "written" | "unchanged" | "overwritten" | "needs_confirmation"; diff?: string; staged?: string }> = [];
+  for (const [file, content] of rendered) {
+    const target = join(dir, file);
+    if (!existsSync(target)) {
+      writeFileSync(target, content);
+      files.push({ file, status: "written" });
+      continue;
+    }
+    const current = readFileSync(target, "utf8").replace(/\r\n/g, "\n");
+    if (current === content) files.push({ file, status: "unchanged" });
+    else if (overwrite.includes(file)) {
+      writeFileSync(target, content);
+      files.push({ file, status: "overwritten" });
+    } else {
+      const stagedFile = join(staged, file);
+      mkdirSync(dirname(stagedFile), { recursive: true });
+      writeFileSync(stagedFile, content);
+      files.push({ file, status: "needs_confirmation", diff: lineDiff(current, content), staged: stagedFile });
+    }
+  }
+  const pending = files.filter((f) => f.status === "needs_confirmation").map((f) => f.file);
+  return out(pending.length ? 5 : 0, {
+    result: pending.length ? "needs_confirmation" : "rendered",
+    files,
+    ...(pending.length
+      ? { message: `These files already exist and would change: ${pending.join(", ")}. Show the user each diff and ask before overwriting any of them; then run render --overwrite <file> for each one they approve.` }
+      : {}),
+  });
+}
+
 function main() {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
@@ -155,6 +203,7 @@ function main() {
       grounding: { type: "string", default: "transcript" },
       new: { type: "boolean", default: false },
       resume: { type: "boolean", default: false },
+      overwrite: { type: "string", multiple: true, default: [] },
     },
   });
   const dir = values.dir ?? process.cwd();
@@ -173,6 +222,8 @@ function main() {
       return start(dir, { mode: values.mode!, provider: values.provider!, grounding: values.grounding!, new: values.new!, resume: values.resume! });
     case "apply-turn":
       return applyTurnCommand(dir, values.turn ?? paths(dir).turn);
+    case "render":
+      return renderCommand(dir, values.overwrite as string[]);
     case "status": {
       const session = readSession(dir);
       if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
@@ -182,7 +233,7 @@ function main() {
       process.stdout.write(guide(loadFramework(pluginRoot())));
       return;
     default:
-      return out(4, { result: "bad_command", message: "usage: intake.mjs start | apply-turn | status | guide  (see the header of src/cli/intake.ts)" });
+      return out(4, { result: "bad_command", message: "usage: intake.mjs start | apply-turn | render | status | guide  (see the header of src/cli/intake.ts)" });
   }
 }
 

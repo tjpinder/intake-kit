@@ -87,6 +87,15 @@ items:
       current_state: The ops supervisor exports WMS data and builds a weekly Excel summary every Monday, about four hours.
       mvp: A daily HTML report of short picks and location mismatches by shift and picker, ready by 7am.
       out_of_scope: Automatically assigning retraining; changing WMS exception codes.
+    acceptance:
+      - { kind: criterion, given: a shift with short picks and wrong-location scans, when: the daily report runs, then: "each picker's exceptions for that shift are counted, excluding cancelled lines", evidence: [data_report.definition, data_report.grain] }
+      - { kind: criterion, given: a normal working day, when: the supervisor arrives at 7am, then: the report is already there, evidence: [data_report.delivery] }
+      - { kind: error_case, given: a count looks wrong to a shift lead, when: they check it before acting, then: they can trace each number back to the WMS pick confirmations, evidence: [core.trust, core.data] }
+    guardrails:
+      - { kind: kill_criterion, text: "Stop using the report for retraining decisions if a shift lead finds a count that doesn't match the WMS.", evidence: [core.trust] }
+      - { kind: fallback, text: Shift leads check any count they doubt with the supervisor before acting., evidence: [core.trust] }
+      - { kind: review_point, text: A shift lead reviews each picker's numbers before anyone is pulled for retraining., evidence: [core.trust, core.users] }
+      - { kind: data_rule, text: "Read only from the WMS reporting copy; never write to the WMS.", evidence: [core.systems] }
     scoring:
       criteria:
         rule_clarity: { score: 5, band: written, evidence: [data_report.definition] }
@@ -129,6 +138,8 @@ items:
     facts:
       existing_asset: { band: none, evidence: [manual_process.walkthrough], quotes: [] }
     prose: {}
+    acceptance: []
+    guardrails: []
     scoring:
       criteria:
         rule_clarity: { score: null, band: unknown, evidence: [] }

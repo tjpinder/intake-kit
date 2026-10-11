@@ -45,6 +45,20 @@ export interface Gate {
   rules_version: string;
 }
 
+export interface Acceptance {
+  kind: "criterion" | "error_case";
+  given: string;
+  when: string;
+  then: string;
+  evidence: string[];
+}
+
+export interface Guardrail {
+  kind: "kill_criterion" | "fallback" | "review_point" | "data_rule";
+  text: string;
+  evidence: string[];
+}
+
 export interface Item {
   id: string;
   title: string;
@@ -59,6 +73,8 @@ export interface Item {
   coverage: Record<string, CoverageEntry>;
   facts: Record<string, FactEntry>;
   prose: Partial<Record<"problem_statement" | "current_state" | "mvp" | "out_of_scope" | "mitigation", string>>;
+  acceptance: Acceptance[];
+  guardrails: Guardrail[];
   scoring: Scoring | null;
   gate: Gate | null;
   open_questions: Array<{ area: string; question: string; who_can_answer: string | null; artifact_needed: string | null }>;

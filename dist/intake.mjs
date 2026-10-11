@@ -15365,7 +15365,8 @@ var require_dist2 = __commonJS({
 });
 
 // src/cli/intake.ts
-import { existsSync as existsSync2, readFileSync as readFileSync3, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
+import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync4, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
+import { dirname as dirname2, join as join4 } from "node:path";
 import { randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
 
@@ -15690,7 +15691,7 @@ var turn_schema_default = {
   description: "What the model returns every turn. Written to the strict structured-output subset shared by Azure OpenAI and the Claude API: every property required, additionalProperties false, nullable fields as type unions, no dynamic keys, no pattern/length/count keywords. Rules this subset can't express (ID formats, band names, quote grounding, one probe per area) are enforced by apply-turn against scoring.yaml and the transcript. There is deliberately no field for scores, composites, quadrants or gates.",
   type: "object",
   additionalProperties: false,
-  required: ["reply", "updates", "facts", "router", "prose", "open_questions", "reflect_back", "next_target"],
+  required: ["reply", "updates", "facts", "router", "prose", "acceptance", "guardrails", "open_questions", "reflect_back", "next_target"],
   properties: {
     reply: {
       type: "string",
@@ -15711,6 +15712,16 @@ var turn_schema_default = {
       type: "array",
       description: "Prose the spec pack needs that isn't a single coverage answer. Captured into the session file before rendering.",
       items: { $ref: "#/$defs/prose" }
+    },
+    acceptance: {
+      type: "array",
+      description: "Acceptance criteria and error cases in Given/When/Then form. Each cites the coverage IDs it rests on; code attaches the user's quote when rendering.",
+      items: { $ref: "#/$defs/acceptance" }
+    },
+    guardrails: {
+      type: "array",
+      description: "Guardrail statements drawn from what the user said about trust, data and risk. Each cites the coverage IDs it rests on.",
+      items: { $ref: "#/$defs/guardrail" }
     },
     open_questions: {
       type: "array",
@@ -15839,6 +15850,30 @@ var turn_schema_default = {
         item: { type: ["string", "null"] },
         field: { type: "string", enum: ["problem_statement", "current_state", "mvp", "out_of_scope", "mitigation"] },
         text: { type: "string" }
+      }
+    },
+    acceptance: {
+      type: "object",
+      additionalProperties: false,
+      required: ["item", "kind", "given", "when", "then", "evidence"],
+      properties: {
+        item: { type: "string" },
+        kind: { type: "string", enum: ["criterion", "error_case"] },
+        given: { type: "string" },
+        when: { type: "string" },
+        then: { type: "string" },
+        evidence: { type: "array", items: { type: "string" }, description: "Coverage IDs with a recorded answer and quote." }
+      }
+    },
+    guardrail: {
+      type: "object",
+      additionalProperties: false,
+      required: ["item", "kind", "text", "evidence"],
+      properties: {
+        item: { type: "string" },
+        kind: { type: "string", enum: ["kill_criterion", "fallback", "review_point", "data_rule"] },
+        text: { type: "string" },
+        evidence: { type: "array", items: { type: "string" } }
       }
     },
     open_question: {
@@ -15986,7 +16021,7 @@ var session_schema_default = {
     item: {
       type: "object",
       additionalProperties: false,
-      required: ["id", "title", "type", "confidence", "trigger_quote", "modifiers", "spawned_from", "superseded_by", "type_history", "core_overrides", "coverage", "facts", "prose", "scoring", "gate", "open_questions"],
+      required: ["id", "title", "type", "confidence", "trigger_quote", "modifiers", "spawned_from", "superseded_by", "type_history", "core_overrides", "coverage", "facts", "prose", "acceptance", "guardrails", "scoring", "gate", "open_questions"],
       properties: {
         id: { $ref: "#/$defs/item_id" },
         title: { type: "string", minLength: 1 },
@@ -16064,6 +16099,34 @@ var session_schema_default = {
             mvp: { type: "string", minLength: 1 },
             out_of_scope: { type: "string", minLength: 1 },
             mitigation: { type: "string", minLength: 1 }
+          }
+        },
+        acceptance: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["kind", "given", "when", "then", "evidence"],
+            properties: {
+              kind: { enum: ["criterion", "error_case"] },
+              given: { type: "string", minLength: 1 },
+              when: { type: "string", minLength: 1 },
+              then: { type: "string", minLength: 1 },
+              evidence: { type: "array", minItems: 1, items: { $ref: "#/$defs/coverage_id" } }
+            }
+          }
+        },
+        guardrails: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: ["kind", "text", "evidence"],
+            properties: {
+              kind: { enum: ["kill_criterion", "fallback", "review_point", "data_rule"] },
+              text: { type: "string", minLength: 1 },
+              evidence: { type: "array", minItems: 1, items: { $ref: "#/$defs/coverage_id" } }
+            }
           }
         },
         scoring: { oneOf: [{ type: "null" }, { $ref: "#/$defs/scoring" }], description: "Written by code only. Null until the reflect-back is confirmed." },
@@ -16375,6 +16438,10 @@ function scoreItem(item, fw) {
 function aiOverlayPasses(scoring) {
   return scoring.ai_overlay.applies && Object.values(scoring.ai_overlay.checks).every((c) => c === "pass");
 }
+function adoptionRisks(scoring, fw) {
+  if (!scoring.adoption) return [];
+  return Object.entries(fw.scoring.adoption.risk_when).filter(([force, bands]) => bands.includes(scoring.adoption[force])).map(([force]) => force);
+}
 
 // src/lib/session.ts
 function coverageFor(session, item, areaId) {
@@ -16641,6 +16708,8 @@ function applyTurn(original, turnData, ctx) {
       coverage: {},
       facts: {},
       prose: {},
+      acceptance: [],
+      guardrails: [],
       scoring: null,
       gate: null,
       open_questions: []
@@ -16720,6 +16789,34 @@ function applyTurn(original, turnData, ctx) {
     if (!p.text.trim()) fail(`/prose/${i}/text`, "prose can't be empty");
     if (item) item.prose[p.field] = p.text;
   });
+  const cited = [];
+  const citeEvidence = (path, item, evidence) => {
+    if (evidence.length === 0) fail(`${path}/evidence`, "cite at least one coverage ID");
+    evidence.forEach((ev, j) => {
+      if (!knownArea(`${path}/evidence/${j}`, ev) || !item) return;
+      if (ev.startsWith("core.") || areaFits(`${path}/evidence/${j}`, item, ev)) cited.push([`${path}/evidence/${j}`, item, ev]);
+    });
+  };
+  turn.acceptance.forEach((a, i) => {
+    const path = `/acceptance/${i}`;
+    const item = needItem(`${path}/item`, a.item);
+    for (const field of ["given", "when", "then"]) if (!a[field].trim()) fail(`${path}/${field}`, `"${field}" can't be empty`);
+    citeEvidence(path, item, a.evidence);
+    if (item && !item.acceptance.some((x) => x.kind === a.kind && x.given === a.given && x.when === a.when && x.then === a.then)) {
+      item.acceptance.push({ kind: a.kind, given: a.given, when: a.when, then: a.then, evidence: a.evidence });
+    }
+  });
+  turn.guardrails.forEach((g, i) => {
+    const path = `/guardrails/${i}`;
+    const item = needItem(`${path}/item`, g.item);
+    if (!g.text.trim()) fail(`${path}/text`, "a guardrail can't be empty");
+    citeEvidence(path, item, g.evidence);
+    if (item && !item.guardrails.some((x) => x.kind === g.kind && x.text === g.text)) item.guardrails.push({ kind: g.kind, text: g.text, evidence: g.evidence });
+  });
+  for (const [path, item, ev] of cited) {
+    const entry = ev.startsWith("core.") ? item.core_overrides[ev.slice(5)] ?? session.core[ev.slice(5)] : item.coverage[ev];
+    if (!entry?.quotes.length) fail(path, `${ev} has no answer in the user's words yet, so nothing can cite it`);
+  }
   turn.open_questions.forEach((q, i) => {
     const path = `/open_questions/${i}`;
     const item = needItem(`${path}/item`, q.item);
@@ -16845,6 +16942,9 @@ function factsFor(item, fw) {
   if (item.facts[s.ai_overlay.applies_fact]?.band === "yes") facts.push(...Object.keys(s.ai_overlay.checks));
   return facts;
 }
+function needsAcceptance(i) {
+  return i.superseded_by == null && i.type !== "exploratory";
+}
 function statusOf(session, fw) {
   const rb = session.session.reflect_back;
   const core = Object.entries(session.core).map(([key, e]) => ({
@@ -16868,35 +16968,346 @@ function statusOf(session, fw) {
       always_ask_pending: areas.filter((a) => a.always_ask && !asked(a.id)).map((a) => a.id),
       critical_unasked: criticalAreas(item, fw).filter((id) => !asked(id)),
       probe_available: probeable,
-      facts_missing: factsFor(item, fw).filter((f) => !item.facts[f])
+      facts_missing: factsFor(item, fw).filter((f) => !item.facts[f]),
+      acceptance: {
+        criteria: item.acceptance.filter((a) => a.kind === "criterion").length,
+        error_cases: item.acceptance.filter((a) => a.kind === "error_case").length
+      },
+      guardrails: {
+        kill_criterion: item.guardrails.filter((g) => g.kind === "kill_criterion").length,
+        fallback: item.guardrails.filter((g) => g.kind === "fallback").length,
+        review_point: item.guardrails.filter((g) => g.kind === "review_point").length,
+        data_rule: item.guardrails.filter((g) => g.kind === "data_rule").length
+      }
     };
   });
   return {
     reflect_back: !rb ? "none" : rb.confirmed ? "confirmed" : "proposed",
     core,
     items,
-    ready_for_reflect_back: items.length > 0 && items.every((i) => i.critical_unasked.length === 0 && i.always_ask_pending.length === 0 && i.facts_missing.length === 0)
+    ready_for_reflect_back: items.length > 0 && items.every(
+      (i) => i.critical_unasked.length === 0 && i.always_ask_pending.length === 0 && // A superseded item needs no band picks: if its replacement doesn't reach Go, it's
+      // gated on its unknowns, which honestly lands it in Gather more.
+      (i.superseded_by != null || i.facts_missing.length === 0) && (!needsAcceptance(i) || i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)
+    )
   };
+}
+
+// src/lib/render.ts
+import { readFileSync as readFileSync2 } from "node:fs";
+import { join as join2 } from "node:path";
+var RenderError = class extends Error {
+};
+var NOTHING = "_Nothing recorded._";
+var DECISION_LABEL = { go: "Go", gather_more: "Gather more discovery", dont_build: "Don't build", fix_not_build: "Fix, not build" };
+function citation(entry, id) {
+  const quote = entry?.quotes[0];
+  return quote ? `[${id}] "${quote}"` : null;
+}
+function areasOf(item, fw) {
+  return ["core", item.type, ...item.modifiers.map((m) => `mod.${m}`)].flatMap((m) => fw.modules[m]?.areas ?? []);
+}
+function fedLines(session, item, fw, file, section) {
+  const lines = [];
+  for (const area of areasOf(item, fw)) {
+    if (!area.feeds.some((f) => f.file === file && f.section === section)) continue;
+    const entry = coverageFor(session, item, area.id);
+    if (!entry || entry.status !== "covered" && entry.status !== "assumed" || !entry.value) continue;
+    const cite = citation(entry, area.id);
+    if (!cite) continue;
+    lines.push(`- ${entry.value}${entry.status === "assumed" ? " _(assumed)_" : ""} ${cite}`);
+  }
+  return lines;
+}
+function perItem(items, body) {
+  const blocks = items.map((item) => {
+    const lines = body(item);
+    const content = lines.length ? lines.join("\n") : NOTHING;
+    return items.length > 1 ? `### ${item.title} (\`${item.id}\`)
+
+${content}` : content;
+  });
+  return blocks.join("\n\n");
+}
+function openQuestionLines(session, item, fw, files) {
+  const lines = item.open_questions.map((q) => {
+    const who = q.who_can_answer ? ` Who can answer: ${q.who_can_answer}.` : "";
+    const artifact = q.artifact_needed ? ` What would settle it: ${q.artifact_needed}.` : "";
+    return `- ${q.question}${who}${artifact} [${q.area}]`;
+  });
+  const asked = new Set(item.open_questions.map((q) => q.area));
+  for (const area of areasOf(item, fw)) {
+    if (asked.has(area.id) || !area.feeds.some((f) => files.includes(f.file))) continue;
+    const entry = coverageFor(session, item, area.id);
+    const neverAsked = !entry || entry.status === "unknown" && !entry.updated_at && entry.quotes.length === 0 && entry.probe_count === 0;
+    if (neverAsked) {
+      if (area.critical) lines.push(`- Not yet asked: ${area.must_capture}. [${area.id}]`);
+    } else if (entry.status === "unknown") {
+      lines.push(`- Still unknown: ${area.must_capture}. [${area.id}]`);
+    }
+  }
+  return lines;
+}
+function acceptanceLines(session, item, kind) {
+  return item.acceptance.filter((a) => a.kind === kind).map((a) => {
+    const cites = a.evidence.map((id) => citation(coverageFor(session, item, id), id));
+    if (cites.some((c) => c === null)) throw new RenderError(`${item.id}: an acceptance line cites ${a.evidence.join(", ")}, which has no quote to cite`);
+    return `- [ ] **Given** ${a.given}, **when** ${a.when}, **then** ${a.then}. ${cites.join(" \xB7 ")}`;
+  });
+}
+function guardrailLines(session, item, kind) {
+  return item.guardrails.filter((g) => g.kind === kind).map((g) => {
+    const cites = g.evidence.map((id) => citation(coverageFor(session, item, id), id));
+    if (cites.some((c) => c === null)) throw new RenderError(`${item.id}: a guardrail cites ${g.evidence.join(", ")}, which has no quote to cite`);
+    return `- ${g.text} ${cites.join(" \xB7 ")}`;
+  });
+}
+function gateBlock(item) {
+  const g = item.gate;
+  const s = item.scoring;
+  const lines = [`### ${item.title} (\`${item.id}\`): ${DECISION_LABEL[g.decision]}`, "", ...g.reasons.map((r) => `- ${r}`)];
+  const scores = s.automation_potential != null && s.ease != null ? `Automation potential ${s.automation_potential}, ease ${s.ease} (${s.quadrant}).` : "Not enough known criteria to place it in a quadrant.";
+  lines.push("", `Scores: ${scores}${s.ai_overlay.applies ? ` AI overlay: ${Object.entries(s.ai_overlay.checks).map(([c, r]) => `${c} ${r}`).join(", ")}.` : ""}`);
+  if (g.revisit_trigger) lines.push("", `${g.revisit_trigger}.`);
+  return lines;
+}
+function scope(session) {
+  const items = session.items;
+  const go = items.filter((i) => i.gate?.decision === "go");
+  return {
+    "SPEC.md": go,
+    "ACCEPTANCE.md": go,
+    "CLAUDE.md": go,
+    "GUARDRAILS.md": go,
+    "FIRST_PROMPT.md": go,
+    "DECISIONS.md": items,
+    "DISCOVERY_BRIEF.md": items.filter((i) => i.gate?.decision === "gather_more"),
+    "DIAGNOSTIC_BRIEF.md": items.filter((i) => i.type === "broken"),
+    "PROCESS_MAP.md": items.filter((i) => i.type === "manual_process"),
+    "BACKLOG.md": items.some((i) => i.type === "exploratory") ? items : []
+  };
+}
+function sectionRenderers(session, fw, file) {
+  const fed = (section) => (items) => perItem(items, (i) => fedLines(session, i, fw, file, section));
+  const withSummary = (section, field) => (items) => perItem(items, (i) => {
+    const lines = fedLines(session, i, fw, file, section);
+    const text = i.prose[field];
+    return text ? [`> ${text}`, ...lines.length ? ["", ...lines] : []] : lines;
+  });
+  const prose = (field) => (items) => perItem(items, (i) => i.prose[field] ? [`> ${i.prose[field]}`] : []);
+  const notYet = () => "_Not set up yet. Run `/intake-kit:guardrails` to choose these._";
+  switch (file) {
+    case "SPEC.md":
+      return {
+        open_questions: (items) => perItem(items, (i) => openQuestionLines(session, i, fw, ["SPEC.md", "ACCEPTANCE.md"])),
+        problem: withSummary("problem", "problem_statement"),
+        users: fed("users"),
+        current_state: withSummary("current_state", "current_state"),
+        success_metric: fed("success_metric"),
+        mvp: withSummary("mvp", "mvp"),
+        out_of_scope: prose("out_of_scope"),
+        data: fed("data"),
+        systems: fed("systems"),
+        constraints: fed("constraints")
+      };
+    case "ACCEPTANCE.md":
+      return {
+        criteria: (items) => perItem(items, (i) => acceptanceLines(session, i, "criterion")),
+        error_cases: (items) => perItem(items, (i) => acceptanceLines(session, i, "error_case"))
+      };
+    case "CLAUDE.md":
+      return {
+        pointers: () => ["- `SPEC.md`: what we're building and why", "- `ACCEPTANCE.md`: what done means; write tests from it", "- `GUARDRAILS.md`: kill criteria, fallback, review points, data handling", "- `DECISIONS.md`: gate decisions and open assumptions", "- `intake-answers.yaml`: the source every file above is rendered from"].join("\n"),
+        stack: fed("stack"),
+        commands: () => "_None yet. Add build, test and run commands here as soon as they exist._",
+        never_do: (items) => [
+          "- Don't break a constraint in SPEC.md or a guardrail in GUARDRAILS.md.",
+          ...items.flatMap((i) => guardrailLines(session, i, "data_rule"))
+        ].join("\n")
+      };
+    case "GUARDRAILS.md":
+      return {
+        kill_criteria: (items) => perItem(items, (i) => guardrailLines(session, i, "kill_criterion")),
+        fallback: (items) => perItem(items, (i) => guardrailLines(session, i, "fallback")),
+        review_points: (items) => perItem(items, (i) => [...guardrailLines(session, i, "review_point"), ...i.prose.mitigation ? [`> Mitigation agreed in the intake: ${i.prose.mitigation}`] : []]),
+        data_handling: (items) => perItem(items, (i) => guardrailLines(session, i, "data_rule")),
+        flagged_paths: notYet,
+        ci_checks: notYet
+      };
+    case "FIRST_PROMPT.md":
+      return {
+        prompt: (items) => {
+          const first = items.flatMap((i) => i.acceptance.filter((a) => a.kind === "criterion"))[0];
+          const open = items.reduce((n, i) => n + i.open_questions.length, 0);
+          return [
+            "Read SPEC.md, ACCEPTANCE.md, GUARDRAILS.md and DECISIONS.md in full before doing anything.",
+            "",
+            `We're building: ${items.map((i) => i.title).join("; ")}.`,
+            "",
+            "1. Plan first. Give me a short plan: the smallest slice that proves the idea, the files you'll touch, and how you'll test it. Wait for my OK.",
+            first ? `2. Build only that slice. Start with this criterion: Given ${first.given}, when ${first.when}, then ${first.then}.` : "2. Build only that slice, starting from the first criterion in ACCEPTANCE.md.",
+            "3. Write tests from ACCEPTANCE.md, including the error cases, before the code they cover.",
+            `4. Stop and ask before touching anything in Out of scope${open ? `, or anything that depends on the ${open} open question${open === 1 ? "" : "s"} in SPEC.md` : ""}.`,
+            "5. Check GUARDRAILS.md before anything that touches data handling or a review point."
+          ].join("\n");
+        }
+      };
+    case "DECISIONS.md":
+      return {
+        gate: (items) => items.map((i) => gateBlock(i).join("\n")).join("\n\n"),
+        reclassifications: (items) => {
+          const lines = items.flatMap(
+            (i) => i.type_history.filter((h) => h.from != null).map((h) => `- \`${i.id}\` ${h.from} \u2192 ${h.to}: ${h.reason} ("${h.quote}")`)
+          );
+          return lines.length ? lines.join("\n") : "_None._";
+        },
+        assumptions: (items) => {
+          const lines = [];
+          const seen = /* @__PURE__ */ new Set();
+          for (const i of items) {
+            for (const area of areasOf(i, fw)) {
+              const entry = coverageFor(session, i, area.id);
+              if (entry?.status !== "assumed") continue;
+              const shared = area.id.startsWith("core.") && !i.core_overrides[area.id.slice(5)];
+              const key = shared ? area.id : `${i.id}:${area.id}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              lines.push(`- **${area.id}**${shared ? "" : ` (\`${i.id}\`)`}: ${entry.value} ("${entry.quotes[0]}"). Owner: _unassigned_`);
+            }
+          }
+          return lines.length ? lines.join("\n") : "_None._";
+        },
+        adoption_risks: (items) => {
+          const lines = items.flatMap((i) => i.scoring ? adoptionRisks(i.scoring, fw).map((force) => `- \`${i.id}\`: ${force} is ${i.scoring.adoption[force]}`) : []);
+          return lines.length ? lines.join("\n") : "_None identified._";
+        }
+      };
+    case "DISCOVERY_BRIEF.md":
+      return {
+        open_questions: (items) => items.map((i) => {
+          const open = openQuestionLines(session, i, fw, Object.keys(fw.sections));
+          return [`## ${i.title} (\`${i.id}\`)`, "", "Why it needs more discovery:", "", ...i.gate.reasons.map((r) => `- ${r}`), "", "Open questions:", "", ...open.length ? open : [NOTHING]].join("\n");
+        }).join("\n\n")
+      };
+    case "DIAGNOSTIC_BRIEF.md":
+      return {
+        symptom: fed("symptom"),
+        timeline: fed("timeline"),
+        impact: fed("impact"),
+        workaround: fed("workaround"),
+        cause: fed("cause"),
+        recurrence: fed("recurrence"),
+        fix_ticket: (items) => perItem(items, (i) => {
+          if (i.gate?.decision !== "fix_not_build") return ["_Not a fix: see the gate decision in DECISIONS.md._"];
+          const cause = i.facts.broken_cause?.band ?? "unknown";
+          return [`**${i.title}**: ${cause} cause.`, "", ...fedLines(session, i, fw, file, "fix_ticket")];
+        }),
+        known_error: fed("known_error")
+      };
+    case "PROCESS_MAP.md":
+      return {
+        steps: fed("steps"),
+        candidates: (items) => perItem(items, (i) => [
+          `**${DECISION_LABEL[i.gate.decision]}**${i.scoring?.quadrant ? ` (${i.scoring.quadrant})` : ""}: ${i.gate.reasons[0]}.`,
+          "",
+          ...fedLines(session, i, fw, file, "candidates")
+        ])
+      };
+    case "BACKLOG.md":
+      return {
+        items: (items) => {
+          const rank = (i) => (i.gate?.decision === "go" ? 0 : 1) * 100 - ((i.scoring?.automation_potential ?? 0) + (i.scoring?.ease ?? 0));
+          const ranked = items.filter((i) => i.type !== "exploratory").sort((a, b) => rank(a) - rank(b) || a.id.localeCompare(b.id));
+          return ranked.length ? ranked.map((i, n) => `${n + 1}. **${i.title}** (\`${i.id}\`, ${i.type}): ${DECISION_LABEL[i.gate.decision]}${i.scoring?.quadrant ? `, ${i.scoring.quadrant}` : ""}`).join("\n") : NOTHING;
+        },
+        self_serve: (items) => perItem(items.filter((i) => i.type === "exploratory"), (i) => fedLines(session, i, fw, file, "self_serve"))
+      };
+    default:
+      throw new RenderError(`no renderer for ${file}`);
+  }
+}
+function renderAll(session, fw, templatesDir) {
+  if (!session.session.reflect_back?.confirmed || session.items.some((i) => !i.gate || !i.scoring)) {
+    throw new RenderError("The session isn't scored and gated yet: confirm the reflect-back first.");
+  }
+  const out2 = /* @__PURE__ */ new Map();
+  const scopes = scope(session);
+  for (const [file, sections] of Object.entries(fw.sections)) {
+    const items = scopes[file];
+    if (!items?.length) continue;
+    const renderers = sectionRenderers(session, fw, file);
+    let text = readFileSync2(join2(templatesDir, file), "utf8");
+    for (const section of sections) {
+      const fn = renderers[section];
+      if (!fn) throw new RenderError(`${file}: no renderer for section ${section}`);
+      const placeholder = `{{section:${section}}}`;
+      if (!text.includes(placeholder)) throw new RenderError(`templates/${file} is missing ${placeholder}`);
+      text = text.replace(placeholder, () => fn(items));
+    }
+    text = text.replaceAll("{{titles}}", items.map((i) => i.title).join("; ")).replaceAll("{{session_id}}", session.session.id).replaceAll("{{date}}", session.session.started_at.slice(0, 10)).replaceAll("{{rules_version}}", items[0].gate.rules_version);
+    const leftover = text.match(/\{\{[^}]+\}\}/);
+    if (leftover) throw new RenderError(`templates/${file}: unknown placeholder ${leftover[0]}`);
+    out2.set(file, text.replace(/\n{3,}/g, "\n\n").trimEnd() + "\n");
+  }
+  return out2;
+}
+
+// src/lib/diff.ts
+function lineDiff(before, after, context = 2) {
+  const a = before.split("\n");
+  const b = after.split("\n");
+  const lcs = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i2 = a.length - 1; i2 >= 0; i2--) {
+    for (let j2 = b.length - 1; j2 >= 0; j2--) {
+      lcs[i2][j2] = a[i2] === b[j2] ? lcs[i2 + 1][j2 + 1] + 1 : Math.max(lcs[i2 + 1][j2], lcs[i2][j2 + 1]);
+    }
+  }
+  const ops = [];
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      ops.push([" ", a[i]]);
+      i++;
+      j++;
+    } else if (lcs[i + 1][j] >= lcs[i][j + 1]) ops.push(["-", a[i++]]);
+    else ops.push(["+", b[j++]]);
+  }
+  while (i < a.length) ops.push(["-", a[i++]]);
+  while (j < b.length) ops.push(["+", b[j++]]);
+  const keep = ops.map((_, k) => ops.slice(Math.max(0, k - context), k + context + 1).some(([op]) => op !== " "));
+  const out2 = [];
+  let skipped = false;
+  ops.forEach(([op, line], k) => {
+    if (keep[k]) {
+      out2.push(`${op} ${line}`);
+      skipped = false;
+    } else if (!skipped) {
+      out2.push("  \u2026");
+      skipped = true;
+    }
+  });
+  return out2.join("\n");
 }
 
 // src/lib/state.ts
 var import_yaml2 = __toESM(require_dist(), 1);
-import { appendFileSync, existsSync, mkdirSync, readFileSync as readFileSync2, renameSync, writeFileSync } from "node:fs";
-import { dirname, join as join2 } from "node:path";
+import { appendFileSync, existsSync, mkdirSync, readFileSync as readFileSync3, renameSync, writeFileSync } from "node:fs";
+import { dirname, join as join3 } from "node:path";
 import { fileURLToPath } from "node:url";
 var SESSION_FILE = "intake-answers.yaml";
 function paths(dir) {
-  const state = join2(dir, ".intake-kit");
+  const state = join3(dir, ".intake-kit");
   return {
-    session: join2(dir, SESSION_FILE),
+    session: join3(dir, SESSION_FILE),
     stateDir: state,
-    marker: join2(state, "active"),
-    transcript: join2(state, "transcript.jsonl"),
-    turn: join2(state, "turn.json"),
-    rejections: join2(state, "rejections.jsonl"),
-    state: join2(state, "state.json"),
-    archive: join2(state, "archive"),
-    gitignore: join2(state, ".gitignore")
+    marker: join3(state, "active"),
+    transcript: join3(state, "transcript.jsonl"),
+    turn: join3(state, "turn.json"),
+    rejections: join3(state, "rejections.jsonl"),
+    state: join3(state, "state.json"),
+    archive: join3(state, "archive"),
+    gitignore: join3(state, ".gitignore")
   };
 }
 var STATE_GITIGNORE = `# Local intake-kit state. Transcripts hold the user's exact words and stay on this machine.
@@ -16913,28 +17324,28 @@ function ensureStateDir(dir) {
 function archive(dir, file, name) {
   const p = paths(dir);
   mkdirSync(p.archive, { recursive: true });
-  const target = join2(p.archive, name);
+  const target = join3(p.archive, name);
   renameSync(file, target);
   return target;
 }
 function archiveText(dir, name, content) {
   const p = paths(dir);
   mkdirSync(p.archive, { recursive: true });
-  const target = join2(p.archive, name);
+  const target = join3(p.archive, name);
   writeFileSync(target, content);
   return target;
 }
 function readTranscript(dir) {
   const file = paths(dir).transcript;
   if (!existsSync(file)) return null;
-  return readFileSync2(file, "utf8").split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
+  return readFileSync3(file, "utf8").split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
 }
 function writeTranscript(dir, entries) {
   writeFileSync(paths(dir).transcript, entries.map((e) => JSON.stringify(e) + "\n").join(""));
 }
 function readSession(dir) {
   const file = paths(dir).session;
-  return existsSync(file) ? (0, import_yaml2.parse)(readFileSync2(file, "utf8")) : null;
+  return existsSync(file) ? (0, import_yaml2.parse)(readFileSync3(file, "utf8")) : null;
 }
 function writeSession(dir, session) {
   const header = "# Written by intake-kit. Edit with care: every SPEC and ACCEPTANCE line is rendered from this file.\n";
@@ -16943,7 +17354,7 @@ function writeSession(dir, session) {
 function readRunState(dir) {
   const file = paths(dir).state;
   if (!existsSync(file)) return { consecutive_rejections: 0 };
-  return JSON.parse(readFileSync2(file, "utf8"));
+  return JSON.parse(readFileSync3(file, "utf8"));
 }
 function writeRunState(dir, state) {
   writeFileSync(paths(dir).state, JSON.stringify(state, null, 2) + "\n");
@@ -16951,7 +17362,7 @@ function writeRunState(dir, state) {
 function pluginRoot(from = fileURLToPath(import.meta.url)) {
   let dir = dirname(from);
   for (; ; ) {
-    if (existsSync(join2(dir, ".claude-plugin", "plugin.json"))) return dir;
+    if (existsSync(join3(dir, ".claude-plugin", "plugin.json"))) return dir;
     const parent = dirname(dir);
     if (parent === dir) throw new Error(`intake-kit: can't find the plugin root above ${from}`);
     dir = parent;
@@ -17031,7 +17442,7 @@ function applyTurnCommand(dir, turnFile) {
   if (!existsSync2(turnFile)) return out(4, { result: "no_turn", message: `Write the turn JSON to ${turnFile} first.` });
   let turn;
   try {
-    turn = JSON.parse(readFileSync3(turnFile, "utf8"));
+    turn = JSON.parse(readFileSync4(turnFile, "utf8"));
   } catch (err) {
     turn = { __unparseable: err.message };
   }
@@ -17068,6 +17479,44 @@ function applyTurnCommand(dir, turnFile) {
     ...result.confirmed ? { gates: result.session.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons, revisit_trigger: i.gate?.revisit_trigger })) } : { status: statusOf(result.session, fw) }
   });
 }
+function renderCommand(dir, overwrite) {
+  const session = readSession(dir);
+  if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
+  if (!session.session.reflect_back?.confirmed) {
+    return out(4, { result: "not_ready", message: "Nothing is rendered until the reflect-back is confirmed and the items are gated." });
+  }
+  const root = pluginRoot();
+  const rendered = renderAll(session, loadFramework(root), join4(root, "templates"));
+  const unknownOverwrite = overwrite.filter((f) => !rendered.has(f));
+  if (unknownOverwrite.length) return out(4, { result: "bad_option", message: `--overwrite names files this intake doesn't render: ${unknownOverwrite.join(", ")}` });
+  const staged = join4(paths(dir).stateDir, "render");
+  const files = [];
+  for (const [file, content] of rendered) {
+    const target = join4(dir, file);
+    if (!existsSync2(target)) {
+      writeFileSync2(target, content);
+      files.push({ file, status: "written" });
+      continue;
+    }
+    const current = readFileSync4(target, "utf8").replace(/\r\n/g, "\n");
+    if (current === content) files.push({ file, status: "unchanged" });
+    else if (overwrite.includes(file)) {
+      writeFileSync2(target, content);
+      files.push({ file, status: "overwritten" });
+    } else {
+      const stagedFile = join4(staged, file);
+      mkdirSync2(dirname2(stagedFile), { recursive: true });
+      writeFileSync2(stagedFile, content);
+      files.push({ file, status: "needs_confirmation", diff: lineDiff(current, content), staged: stagedFile });
+    }
+  }
+  const pending = files.filter((f) => f.status === "needs_confirmation").map((f) => f.file);
+  return out(pending.length ? 5 : 0, {
+    result: pending.length ? "needs_confirmation" : "rendered",
+    files,
+    ...pending.length ? { message: `These files already exist and would change: ${pending.join(", ")}. Show the user each diff and ask before overwriting any of them; then run render --overwrite <file> for each one they approve.` } : {}
+  });
+}
 function main() {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
@@ -17078,7 +17527,8 @@ function main() {
       provider: { type: "string", default: "claude" },
       grounding: { type: "string", default: "transcript" },
       new: { type: "boolean", default: false },
-      resume: { type: "boolean", default: false }
+      resume: { type: "boolean", default: false },
+      overwrite: { type: "string", multiple: true, default: [] }
     }
   });
   const dir = values.dir ?? process.cwd();
@@ -17095,6 +17545,8 @@ function main() {
       return start(dir, { mode: values.mode, provider: values.provider, grounding: values.grounding, new: values.new, resume: values.resume });
     case "apply-turn":
       return applyTurnCommand(dir, values.turn ?? paths(dir).turn);
+    case "render":
+      return renderCommand(dir, values.overwrite);
     case "status": {
       const session = readSession(dir);
       if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
@@ -17104,7 +17556,7 @@ function main() {
       process.stdout.write(guide(loadFramework(pluginRoot())));
       return;
     default:
-      return out(4, { result: "bad_command", message: "usage: intake.mjs start | apply-turn | status | guide  (see the header of src/cli/intake.ts)" });
+      return out(4, { result: "bad_command", message: "usage: intake.mjs start | apply-turn | render | status | guide  (see the header of src/cli/intake.ts)" });
   }
 }
 try {

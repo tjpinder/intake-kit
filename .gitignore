@@ -4,3 +4,6 @@ node_modules/
 .intake-kit/transcript.jsonl
 .intake-kit/active
 .intake-kit/last-audit.json
+
+# Personal notes kept out of the public repo
+*.private.md

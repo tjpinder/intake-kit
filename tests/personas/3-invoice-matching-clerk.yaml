@@ -1,0 +1,21 @@
+id: invoice-matching-clerk
+title: AP clerk matching invoices to purchase orders by hand
+opening: "I match every supplier invoice to its purchase order by hand and it takes most of my week."
+voice: Careful accounts-payable clerk. Polite, detailed when asked about steps, two to three sentences.
+situation: |
+  You're an accounts-payable clerk. About 300 supplier invoices a week arrive as PDFs by email. For each one you open the PDF,
+  find the PO number, look up the PO in the ERP, compare each line's quantity and price, and approve or flag it. It takes about
+  15 hours a week. The rules are clear: PO number must match, quantities must match, price within 2%. Anything else goes to the buyer.
+  It's done the same way every time, except freight lines, which you check against the carrier quote.
+  There's a written SOP with real examples. You can export open POs from the ERP as a CSV saved search; the ERP has no API you can use.
+  The invoice PDFs are mostly from the same 40 suppliers with consistent layouts, but some are scanned. Nothing is changing in the ERP this year.
+  You do the work; the controller signs off on anything over $5,000; the AP manager owns the process.
+  Success would be cutting your 15 hours to a few, with no more overpayments than today (about two a month).
+  A wrong match could mean overpaying a supplier, so you'd want to review anything flagged before it's paid, and you could always go back to doing it by hand.
+  Invoice data includes supplier bank details and pricing. No AI decision-making is wanted; rules are fine.
+expect:
+  primary_type: manual_process
+  items:
+    - { type: manual_process }
+  quadrant: [prioritize, review]
+  min_items: 1

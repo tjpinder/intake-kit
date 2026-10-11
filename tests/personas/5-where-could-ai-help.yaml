@@ -1,0 +1,18 @@
+id: where-could-ai-help
+title: Director asks where AI could help
+opening: "Where could AI help us in our warehouse operation? I don't have a specific process in mind."
+voice: Busy operations director. Thinks in examples when prompted, two to three sentences.
+situation: |
+  You direct operations for a regional warehouse network. You don't have one process in mind. If asked for repetitive work,
+  waiting on other teams, or places people get stuck, you have these examples, each with a recent instance:
+  1. Customer service answers about 200 "where is my order" emails a day by looking up tracking in two systems; last Monday it took three people all morning.
+  2. Every Thursday a supervisor spends about six hours building next week's labor plan in a spreadsheet from forecast volumes.
+  3. Damage claims: someone reviews photos of damaged freight and writes up each claim, about 30 a week, and claims sit for days.
+  4. Supervisors get stuck deciding where to slot new products; they wait days for the engineering team.
+  The WMS, the TMS and email are the main systems. Your VP signs off on new tools. Customer emails include names and addresses.
+  You'd want a person to review anything that goes to customers. You're happy to keep it high level.
+expect:
+  primary_type: exploratory
+  items:
+    - { type: exploratory }
+  min_items: 3

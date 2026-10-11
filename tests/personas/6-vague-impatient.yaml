@@ -1,0 +1,16 @@
+id: vague-impatient
+title: Vague, impatient manager who doesn't know many answers
+opening: "We need a dashboard. For everything, basically."
+voice: Impatient store operations manager. Very short answers, often "I don't know", "not sure", or "whatever works". Wants to wrap up quickly and says so after a few questions.
+situation: |
+  You manage operations for a group of stores. You want "a dashboard" but you can't say exactly what it should show beyond
+  "sales and stuff, how we're doing". You don't know where the data lives, who owns it, or who would sign off.
+  You don't know what you'd do differently with it. You don't know of any existing reports (someone in finance might have something).
+  You don't know how often it should update. Keep answers short and vague; say "I don't know" to most specifics.
+  After five or six questions, ask to wrap it up. If the interviewer plays back a summary, say it's fine.
+expect:
+  primary_type: data_report
+  items:
+    - { type: data_report, gates: [gather_more] }
+  min_items: 1
+  min_unknown_critical: 2

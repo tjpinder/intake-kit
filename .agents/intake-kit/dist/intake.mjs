@@ -16676,7 +16676,8 @@ function validateTurn(data) {
 // src/lib/apply-turn.ts
 var ITEM_ID = /^item-\d+$/;
 function applyTurn(original, turnData, ctx) {
-  const reject = (rejections2) => ({ session: original, rejections: rejections2, applied: false, confirmed: false });
+  const reject = (rejections2) => ({ session: original, rejections: rejections2, applied: false, confirmed: false, warnings: [] });
+  const warnings = [];
   const shape = validateTurn(turnData);
   if (!shape.ok) return reject(shape.errors.map((e) => ({ path: e.split(" ")[0], reason: `doesn't match the turn schema: ${e}` })));
   const turn = turnData;
@@ -16712,11 +16713,14 @@ function applyTurn(original, turnData, ctx) {
     return fits;
   };
   const knownArea = (path, area) => {
-    if (!fw.areas.has(area)) {
+    if (fw.areas.has(area)) return true;
+    const asFact = area.replace(/^(core|[a-z_]+)\./, "");
+    if (fw.factBands.has(area) || fw.factBands.has(asFact)) {
+      fail(path, `${area} is a band pick, not a coverage area: record it only in "facts" (as { "fact": "${asFact}", "band": ... }), never in "updates" or as evidence.`);
+    } else {
       fail(path, `unknown coverage ID ${area}`);
-      return false;
     }
-    return true;
+    return false;
   };
   turn.router.new_items.forEach((n, i) => {
     const path = `/router/new_items/${i}`;
@@ -16792,7 +16796,8 @@ function applyTurn(original, turnData, ctx) {
       else {
         const item = needItem(`${path}/item`, u.item);
         if (!item) return;
-        target = item.core_overrides;
+        const shared = session.core[key];
+        target = shared?.updated_at || item.core_overrides[key] ? item.core_overrides : session.core;
       }
     } else {
       const item = needItem(`${path}/item`, u.item);
@@ -16812,8 +16817,12 @@ function applyTurn(original, turnData, ctx) {
     if (!bands) fail(`${path}/fact`, `unknown fact ${f.fact}`);
     else if (!bands.includes(f.band)) fail(`${path}/band`, `"${f.band}" isn't a band of ${f.fact}; use one of: ${bands.join(", ")}`);
     f.evidence.forEach((ev, j) => knownArea(`${path}/evidence/${j}`, ev));
-    grounded(`${path}/quote`, f.quote);
-    if (item) item.facts[f.fact] = { band: f.band, evidence: f.evidence, quotes: f.quote ? [f.quote] : [] };
+    let quote = f.quote;
+    if (quote != null && ctx.transcript != null && !findQuote(quote, ctx.transcript)) {
+      warnings.push(`${path}/quote dropped: not the user's words`);
+      quote = null;
+    }
+    if (item) item.facts[f.fact] = { band: f.band, evidence: f.evidence, quotes: quote ? [quote] : [] };
   });
   turn.prose.forEach((p, i) => {
     const item = needItem(`/prose/${i}/item`, p.item);
@@ -16914,7 +16923,7 @@ function applyTurn(original, turnData, ctx) {
   }
   const valid = validateSession(result);
   if (!valid.ok) return reject(valid.errors.map((e) => ({ path: "/", reason: `the result wouldn't be a valid session: ${e}` })));
-  return { session: result, rejections: [], applied: true, confirmed: confirmedNow };
+  return { session: result, rejections: [], applied: true, confirmed: confirmedNow, warnings };
 }
 
 // src/lib/guide.ts
@@ -17012,16 +17021,34 @@ function statusOf(session, fw) {
       }
     };
   });
+  const interviewComplete = items.length > 0 && items.every((i) => i.critical_unasked.length === 0 && i.always_ask_pending.length === 0);
+  const writeUpComplete = items.every(
+    (i) => (i.superseded_by != null || i.facts_missing.length === 0) && (!needsAcceptance(i) || i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)
+  );
+  const reflect = !rb ? "none" : rb.confirmed ? "confirmed" : "proposed";
   return {
-    reflect_back: !rb ? "none" : rb.confirmed ? "confirmed" : "proposed",
+    reflect_back: reflect,
     core,
     items,
-    ready_for_reflect_back: items.length > 0 && items.every(
-      (i) => i.critical_unasked.length === 0 && i.always_ask_pending.length === 0 && // A superseded item needs no band picks: if its replacement doesn't reach Go, it's
-      // gated on its unknowns, which honestly lands it in Gather more.
-      (i.superseded_by != null || i.facts_missing.length === 0) && (!needsAcceptance(i) || i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)
-    )
+    interview_complete: interviewComplete,
+    ready_for_reflect_back: interviewComplete && writeUpComplete,
+    next_step: nextStep(reflect, interviewComplete, items)
   };
+}
+function nextStep(reflect, interviewComplete, items) {
+  if (reflect === "confirmed") return "The intake is complete. Thank the user briefly.";
+  if (reflect === "proposed") return "You've played back a summary. Record whether the user confirmed it or what they corrected.";
+  if (items.length === 0) return "Create the first item from the user's opening statement and ask your first question.";
+  if (!interviewComplete) {
+    const open = items.flatMap((i) => [...i.critical_unasked, ...i.always_ask_pending]);
+    return `Keep interviewing. Still to ask (in whatever order follows the conversation): ${[...new Set(open)].join(", ")}. Record every answer the user gives as you go.`;
+  }
+  return [
+    "Every needed area has been asked, so stop asking questions now. In this one turn:",
+    "add a band for every fact listed in each item's facts_missing, picked from what the user already said (use `unknown` where they didn't say), in `facts` only, never in `updates`; a band's quote is optional, so leave it null unless you copy the user's exact words;",
+    "write acceptance criteria (at least one criterion and one error case) and guardrails (at least a kill criterion and a fallback) for each item that might be built, from what you heard;",
+    "and propose the reflect-back."
+  ].join(" ");
 }
 
 // src/lib/check-meta.ts

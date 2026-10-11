@@ -1,0 +1,24 @@
+id: ops-supervisor-report
+title: Ops supervisor wants a pick-exception report
+opening: "I need a report of short picks by shift and picker so my shift leads can target retraining instead of guessing."
+voice: Practical distribution-center supervisor. Answers in one to three plain sentences, mentions numbers when asked, a bit dry.
+situation: |
+  You supervise operations at a distribution center. You want a daily view of pick exceptions (short picks and
+  wrong-location scans, not cancelled lines) by shift and by picker, so shift leads can choose who to retrain.
+  Today you build a version of it in Excel every Monday: export pick confirmations from the WMS reporting copy,
+  paste into a template, pivot by picker and shift, email it to the three shift leads. It takes about four hours
+  every Monday morning. If you had the daily report you would stop doing the Monday spreadsheet.
+  You build it; the three shift leads use it; the DC manager signs off on retraining.
+  You want it ready by 7am every day, when you walk in. Count each short pick and wrong-location scan per picker, per shift, per day.
+  The data all comes from the WMS pick confirmations. You have read access to the WMS reporting database. One clean row per pick.
+  No customer data or pricing, just orders, locations and badge numbers. Nothing is changing on the WMS this year.
+  The WMS dashboard only shows building totals, nothing by picker. When the dashboard total and your count disagree you honestly don't know which is right.
+  There's a half-written SOP for the Monday sheet. If a count is wrong, the shift lead would check it with you before pulling anyone.
+  You'd stop using the report for retraining if counts didn't match the WMS, and you'd fall back to the Excel sheet.
+  No AI is involved; this is a report.
+expect:
+  primary_type: data_report
+  items:
+    - { type: data_report, gates: [go] }
+    - { type: manual_process, gates: [dont_build] }
+  min_items: 2

@@ -23,6 +23,7 @@
     "build:web": "vite build --config web/vite.config.ts",
     "typecheck:web": "tsc --noEmit -p web",
     "golden:update": "node scripts/update-golden.mjs",
+    "eval:personas": "node scripts/eval-personas.mjs",
     "validate:plugin": "claude plugin validate ."
   },
   "devDependencies": {

@@ -102,12 +102,24 @@ describe("applying a good turn", () => {
     assert.deepEqual(validateSession(r.session).errors, []);
   });
 
-  test("an item's core override leaves the shared core alone", () => {
+  test("a core answer aimed at an item becomes the shared answer when there isn't one yet", () => {
+    // Found in the persona evals: the model filed shared answers under the item, status never
+    // saw them, and the interviewer kept re-asking.
     const turn = emptyTurn();
     turn.updates = [{ item: "item-1", area: "core.data", status: "covered", value: "Has badge numbers", quote: "count by picker" }];
     const r = run(turn);
+    assert.equal(r.session.core.data.value, "Has badge numbers");
+    assert.deepEqual(r.session.items[0].core_overrides, {});
+  });
+
+  test("once a shared answer exists, an item's different answer is an override and leaves the shared one alone", () => {
+    const session = freshSession();
+    session.core.data = { status: "covered", value: "No personal data", quotes: ["count by picker"], probe_count: 0, updated_at: T0 };
+    const turn = emptyTurn();
+    turn.updates = [{ item: "item-1", area: "core.data", status: "covered", value: "Has badge numbers", quote: "short picks by shift" }];
+    const r = run(turn, { session });
     assert.equal(r.session.items[0].core_overrides.data.value, "Has badge numbers");
-    assert.equal(r.session.core.data.status, "unknown");
+    assert.equal(r.session.core.data.value, "No personal data");
   });
 
   test("quotes accumulate without duplicates and probe_count is kept", () => {
@@ -197,7 +209,6 @@ describe("grounding is enforced on every quote", () => {
 
   for (const [where, build] of [
     ["trigger_quote", (t: any) => { t.router.new_items = [{ id: "item-2", type: "broken", confidence: "low", title: "x", trigger_quote: "it's all broken", spawned_from: null }]; }],
-    ["fact quote", (t: any) => { t.facts = [{ item: "item-1", fact: "value", band: "high", evidence: [], quote: "huge savings" }]; }],
     ["modifier quote", (t: any) => { t.router.add_modifiers = [{ item: "item-1", modifier: "integration", quote: "it syncs via EDI" }]; }],
     ["supersede quote", (t: any) => { t.router.supersede = { item: "item-1", by: "item-1", quote: "replace it" }; }],
     ["reclassify quote", (t: any) => { t.router.reclassify = { item: "item-1", to: "broken", reason: "r", quote: "it stopped working" }; }],
@@ -208,6 +219,27 @@ describe("grounding is enforced on every quote", () => {
       expectRejected(run(t), "/", "isn't the user's words");
     });
   }
+
+  test("a band's quote that isn't the user's words is dropped, not stored, and the band is kept", () => {
+    // Found in the persona evals: the model attached its own summaries to band picks, and the
+    // whole write-up turn (and so the reflect-back) failed over optional detail.
+    const t = emptyTurn();
+    t.facts = [
+      { item: "item-1", fact: "value", band: "high", evidence: [], quote: "huge savings" },
+      { item: "item-1", fact: "ways_done", band: "one", evidence: [], quote: "count by picker" },
+    ];
+    const r = run(t);
+    assert.equal(r.applied, true);
+    assert.deepEqual(r.session.items[0].facts.value, { band: "high", evidence: [], quotes: [] });
+    assert.deepEqual(r.session.items[0].facts.ways_done.quotes, ["count by picker"], "a real quote is kept");
+    assert.deepEqual(r.warnings, ["/facts/0/quote dropped: not the user's words"]);
+  });
+
+  test("a band name used as a coverage area gets a message saying where it belongs", () => {
+    const t = emptyTurn();
+    t.updates = [{ item: "item-1", area: "existing_asset", status: "covered", value: "none", quote: "count by picker" }];
+    expectRejected(run(t), "/updates/0/area", 'existing_asset is a band pick, not a coverage area: record it only in "facts"');
+  });
 
   test("an empty transcript points at the hook", () => {
     const t = emptyTurn();

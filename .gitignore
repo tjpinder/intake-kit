@@ -1,6 +1,7 @@
 node_modules/
 api/dist/
 web/dist/
+evals/results/
 .env.local
 .env.*.local
 

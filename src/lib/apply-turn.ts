@@ -29,6 +29,8 @@ export interface ApplyResult {
   applied: boolean;
   /** True when this turn confirmed the reflect-back and the session was scored and gated. */
   confirmed: boolean;
+  /** Optional details that were dropped rather than stored, e.g. a band's quote that isn't the user's words. */
+  warnings: string[];
 }
 
 // Turn shapes, as guaranteed by schema/turn.schema.json once validateTurn passes.
@@ -54,7 +56,8 @@ const ITEM_ID = /^item-\d+$/;
 const CORE_AREAS = ["users", "outcome", "data", "systems", "constraints", "trust"] as const;
 
 export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContext): ApplyResult {
-  const reject = (rejections: Rejection[]): ApplyResult => ({ session: original, rejections, applied: false, confirmed: false });
+  const reject = (rejections: Rejection[]): ApplyResult => ({ session: original, rejections, applied: false, confirmed: false, warnings: [] });
+  const warnings: string[] = [];
 
   const shape = validateTurn(turnData);
   if (!shape.ok) return reject(shape.errors.map((e) => ({ path: e.split(" ")[0], reason: `doesn't match the turn schema: ${e}` })));
@@ -93,8 +96,14 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
     return fits;
   };
   const knownArea = (path: string, area: string): boolean => {
-    if (!fw.areas.has(area)) { fail(path, `unknown coverage ID ${area}`); return false; }
-    return true;
+    if (fw.areas.has(area)) return true;
+    const asFact = area.replace(/^(core|[a-z_]+)\./, "");
+    if (fw.factBands.has(area) || fw.factBands.has(asFact)) {
+      fail(path, `${area} is a band pick, not a coverage area: record it only in "facts" (as { "fact": "${asFact}", "band": ... }), never in "updates" or as evidence.`);
+    } else {
+      fail(path, `unknown coverage ID ${area}`);
+    }
+    return false;
   };
 
   // 1. Router: new items first, so the rest of the turn can refer to them.
@@ -179,7 +188,10 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
       else {
         const item = needItem(`${path}/item`, u.item);
         if (!item) return;
-        target = item.core_overrides;
+        // Shared core is captured once; an item overrides it only when its answer differs from
+        // one already given. With no shared answer yet, this answer becomes the shared one.
+        const shared = session.core[key as (typeof CORE_AREAS)[number]];
+        target = shared?.updated_at || item.core_overrides[key] ? item.core_overrides : session.core;
       }
     } else {
       const item = needItem(`${path}/item`, u.item);
@@ -202,8 +214,14 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
     if (!bands) fail(`${path}/fact`, `unknown fact ${f.fact}`);
     else if (!bands.includes(f.band)) fail(`${path}/band`, `"${f.band}" isn't a band of ${f.fact}; use one of: ${bands.join(", ")}`);
     f.evidence.forEach((ev, j) => knownArea(`${path}/evidence/${j}`, ev));
-    grounded(`${path}/quote`, f.quote);
-    if (item) item.facts[f.fact] = { band: f.band, evidence: f.evidence, quotes: f.quote ? [f.quote] : [] };
+    // A band's quote is optional colour: its evidence already points at answers with real quotes.
+    // One that isn't the user's words is dropped (never stored), rather than failing the turn.
+    let quote = f.quote;
+    if (quote != null && ctx.transcript != null && !findQuote(quote, ctx.transcript)) {
+      warnings.push(`${path}/quote dropped: not the user's words`);
+      quote = null;
+    }
+    if (item) item.facts[f.fact] = { band: f.band, evidence: f.evidence, quotes: quote ? [quote] : [] };
   });
 
   // 4. Prose and open questions
@@ -320,5 +338,5 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
   const valid = validateSession(result);
   if (!valid.ok) return reject(valid.errors.map((e) => ({ path: "/", reason: `the result wouldn't be a valid session: ${e}` })));
 
-  return { session: result, rejections: [], applied: true, confirmed: confirmedNow };
+  return { session: result, rejections: [], applied: true, confirmed: confirmedNow, warnings };
 }

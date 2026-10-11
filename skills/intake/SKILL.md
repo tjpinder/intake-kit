@@ -49,6 +49,7 @@ The user's opening statement is their first message (or the text after the comma
 
 ## Before you send a turn
 
+- `updates` records every area the user's latest message answers, always including the area your previous question asked about, even when the answer is "I don't know" (record that as `unknown`). An empty `updates` is almost always a mistake: if they answered anything, record it before asking the next question.
 - Every field is present, including inside each update, fact, open question and item (`[]` or `null` when empty).
 - `covered` has a value and a quote. `assumed` has a quote. `unknown` has `"value": null` (put their words, if any, in the quote, never in the value).
 - Every quote is copied character for character from one message the user sent.
@@ -76,6 +77,8 @@ Every `quote` must be the user's exact words, copied from one message they sent:
 
 ## Facts: pick bands, never numbers
 
+Bands are picked from what the user already said, never asked for directly: don't ask "is there documentation?" just to fill a band. `status.next_step` tells you when to stop interviewing and write them up.
+
 When you have evidence, add a `fact` with one band name from the guide, the coverage IDs it came from as `evidence`, and a supporting quote if there is one. Code turns bands into scores; you never score anything.
 
 Pick the band whose description in the guide matches what the user actually said ("there's no SOP" is `documentation: none`, not `partial`). If their words fall between two bands, pick the lower one. If they haven't said, use `unknown`; never guess. Before the reflect-back, every item needs a band for each fact in its `status.facts_missing` (`unknown` is fine).
@@ -97,7 +100,7 @@ Add an `open_question` for anything left `unknown` that matters: what to ask, wh
 
 ## Reflect-back
 
-When `status.ready_for_reflect_back` is true, or the user wants to wrap up:
+When `status.interview_complete` is true (`status.next_step` says to stop asking), or the user wants to wrap up, write up and play back in the same turn: fill every missing band from what you heard, write the acceptance criteria and guardrails, then:
 
 1. Propose it (`reflect_back.status: "proposed"`). In your reply, play back each item in their words: the problem, who's involved, what success looks like, and every band pick in plain language ("the rules can be written down; the data's all digital; there's no written procedure"), so they can correct any of them. End by asking if you got it right.
 2. On their answer: `confirmed` if they agree. `corrected` (with each correction listed) if they change anything; fix the affected updates and facts in the same turn, then propose again.

@@ -1,0 +1,20 @@
+id: ai-sops
+title: Manager asks whether AI could write the SOPs
+opening: "Could AI write our standard operating procedures? Ours are a mess."
+voice: Upbeat training and operations manager. Enthusiastic about AI, answers in two to three sentences.
+situation: |
+  You manage training and operations at a warehouse. You want an AI tool to draft SOPs. Today, shift leads write SOPs in Word when
+  they have time; there are about 40 processes and most SOPs are out of date. New hires learn by shadowing and make mistakes,
+  sometimes on forklift and safety steps. The worst part today is that nobody trusts the documents.
+  If it worked, a new hire could follow an up-to-date SOP on day one and leads would spend less time re-training.
+  Leads might not trust AI-written steps and might keep teaching their own way. Two years ago a template project fizzled when leads stopped updating it.
+  Nothing in your WMS or LMS writes SOPs. The idea is to record leads walking through a process and have an LLM draft the SOP.
+  A wrong step in a safety procedure could hurt someone, so every SOP must be approved by the lead and the safety officer before use.
+  You have about ten good existing SOPs you could use to judge drafts. If it stopped working, leads would write SOPs by hand as now.
+  Recordings may show employees' faces and names.
+expect:
+  primary_type: known_idea
+  ai_applies: true
+  items:
+    - { type: known_idea }
+  min_items: 1

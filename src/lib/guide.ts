@@ -94,7 +94,11 @@ export interface Status {
   reflect_back: "none" | "proposed" | "confirmed";
   core: Array<{ area: string; status: string; asked: boolean; probe_available: boolean }>;
   items: ItemStatus[];
+  /** Every critical and always-ask area has been asked about. */
+  interview_complete: boolean;
   ready_for_reflect_back: boolean;
+  /** What the interviewer should do next, in plain words. */
+  next_step: string;
 }
 
 /** Items that could be built need acceptance criteria and guardrails; superseded and exploratory ones don't. */
@@ -143,21 +147,42 @@ export function statusOf(session: Session, fw: Framework): Status {
     };
   });
 
+  const interviewComplete = items.length > 0 && items.every((i) => i.critical_unasked.length === 0 && i.always_ask_pending.length === 0);
+  // A superseded item needs no band picks: if its replacement doesn't reach Go, it's gated on
+  // its unknowns, which honestly lands it in Gather more.
+  const writeUpComplete = items.every(
+    (i) =>
+      (i.superseded_by != null || i.facts_missing.length === 0) &&
+      (!needsAcceptance(i) || (i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)),
+  );
+  const reflect = !rb ? "none" : rb.confirmed ? "confirmed" : "proposed";
   return {
-    reflect_back: !rb ? "none" : rb.confirmed ? "confirmed" : "proposed",
+    reflect_back: reflect,
     core,
     items,
-    ready_for_reflect_back:
-      items.length > 0 &&
-      items.every(
-        (i) =>
-          i.critical_unasked.length === 0 &&
-          i.always_ask_pending.length === 0 &&
-          // A superseded item needs no band picks: if its replacement doesn't reach Go, it's
-          // gated on its unknowns, which honestly lands it in Gather more.
-          (i.superseded_by != null || i.facts_missing.length === 0) &&
-          (!needsAcceptance(i) ||
-            (i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)),
-      ),
+    interview_complete: interviewComplete,
+    ready_for_reflect_back: interviewComplete && writeUpComplete,
+    next_step: nextStep(reflect, interviewComplete, items),
   };
+}
+
+/**
+ * One plain instruction for the interviewer, computed from the status. Band picks, acceptance
+ * criteria and guardrails are written from what was already said, never asked for directly:
+ * once every needed area has been asked, the next step is to write them up and play back.
+ */
+function nextStep(reflect: Status["reflect_back"], interviewComplete: boolean, items: ItemStatus[]): string {
+  if (reflect === "confirmed") return "The intake is complete. Thank the user briefly.";
+  if (reflect === "proposed") return "You've played back a summary. Record whether the user confirmed it or what they corrected.";
+  if (items.length === 0) return "Create the first item from the user's opening statement and ask your first question.";
+  if (!interviewComplete) {
+    const open = items.flatMap((i) => [...i.critical_unasked, ...i.always_ask_pending]);
+    return `Keep interviewing. Still to ask (in whatever order follows the conversation): ${[...new Set(open)].join(", ")}. Record every answer the user gives as you go.`;
+  }
+  return [
+    "Every needed area has been asked, so stop asking questions now. In this one turn:",
+    "add a band for every fact listed in each item's facts_missing, picked from what the user already said (use `unknown` where they didn't say), in `facts` only, never in `updates`; a band's quote is optional, so leave it null unless you copy the user's exact words;",
+    "write acceptance criteria (at least one criterion and one error case) and guardrails (at least a kill criterion and a fallback) for each item that might be built, from what you heard;",
+    "and propose the reflect-back.",
+  ].join(" ");
 }

@@ -37,7 +37,7 @@ Never mention JSON, schemas, turns, the app's checks or rejections to the user. 
 
 const REFLECT_BACK = `## Reflect-back
 
-When the status says you're ready for the reflect-back, or the user wants to wrap up:
+When the status's next step says to stop asking, or the user wants to wrap up, write up and play back in the same turn: fill every missing band from what you heard, write the acceptance criteria and guardrails, then:
 
 1. Propose it (\`reflect_back.status: "proposed"\`). In your reply, play back each item in their words: the problem, who's involved, what success looks like, and every band pick in plain language ("the rules can be written down; the data's all digital; there's no written procedure"), so they can correct any of them. End by asking if you got it right.
 2. On their answer: \`confirmed\` if they agree. \`corrected\` (with each correction listed) if they change anything; fix the affected updates and facts in the same turn, then propose again.
@@ -90,7 +90,10 @@ export function sessionSnapshot(session: Session): unknown {
 
 /** This turn's context: session snapshot and status, as a system message after the history. */
 export function buildContext(session: Session, fw: Framework): string {
+  const nextId = `item-${session.items.reduce((n, i) => Math.max(n, Number(i.id.slice(5)) || 0), 0) + 1}`;
   return [
+    `Next step: ${statusOf(session, fw).next_step}`,
+    `Next free item ID: ${nextId}. Existing items keep their IDs.`,
     "Session state before this turn (what's recorded so far; quotes omitted):",
     "```json",
     JSON.stringify(sessionSnapshot(session)),

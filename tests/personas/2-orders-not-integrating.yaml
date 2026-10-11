@@ -1,0 +1,21 @@
+id: orders-not-integrating
+title: Customer orders stopped flowing into the WMS
+opening: "Orders from one of our biggest customers stopped coming into the WMS last Tuesday and we've been keying them in by hand."
+voice: Stressed customer-service lead at a 3PL. Short, a little frantic, answers what's asked.
+situation: |
+  You lead customer service at a third-party logistics warehouse. Since last Tuesday, EDI purchase orders from your biggest retail
+  customer stopped flowing from the integration platform into the WMS. About 120 orders a day are affected. Two people are keying
+  them in by hand, and you're worried about late shipments and chargebacks under the customer's 24-hour ship SLA.
+  When you look, the integration log shows errors saying "invalid ship-to code" for those orders; other customers' orders are fine.
+  It worked until last Tuesday. That week the customer opened new store locations, and the integration team later told you the new
+  ship-to codes were never added to the EDI mapping table, so those orders fail. Fixing it means adding the codes to the mapping.
+  Something like this happened once last year when a mapping changed; it isn't written down anywhere.
+  The integration team owns the platform; the customer owns their EDI feed; you own the order desk. Your ops manager signs off on changes.
+  Order data includes customer store addresses but no pricing. A wrong or missed order means a late shipment and a chargeback.
+  The workaround (keying by hand) is not acceptable long term. No AI is involved.
+expect:
+  primary_type: broken
+  modifiers: [integration]
+  items:
+    - { type: broken, gates: [fix_not_build] }
+  min_items: 1

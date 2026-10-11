@@ -1,4 +1,5 @@
 node_modules/
+api/dist/
 
 # Local intake state. Transcripts hold the user's exact words and stay on this machine.
 .intake-kit/transcript.jsonl

@@ -1,0 +1,11 @@
+{
+  "name": "intake-kit-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Azure Static Web Apps managed functions for the intake-kit web app. Built by scripts/build-api.mjs into dist/; everything is bundled, so there are no runtime dependencies.",
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=22"
+  }
+}

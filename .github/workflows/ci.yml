@@ -23,5 +23,7 @@ jobs:
       - run: npm test
       - name: dist/ is committed and up to date
         run: git diff --exit-code -- dist/
+      - name: The web API bundles
+        run: npm run build:api
       - name: Dogfood the guardrail checks on the worked example
         run: node scripts/dogfood.mjs

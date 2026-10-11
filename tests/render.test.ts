@@ -1,7 +1,7 @@
 import { test, describe, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
@@ -207,5 +207,53 @@ describe("render command", () => {
     const unconfirmed = makeSession([makeItem("item-1")], { confirmed: false });
     assert.equal(run(repoWithSession(unconfirmed)).status, 4);
     assert.equal(run(repoWithSession(fixture()), "--overwrite", "README.md").status, 4);
+  });
+});
+
+describe("render ledger", () => {
+  const dirs: string[] = [];
+  after(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })));
+  const run = (dir: string, ...args: string[]) => {
+    const r = spawnSync(process.execPath, [resolve("dist/intake.mjs"), "render", "--dir", dir, ...args], { encoding: "utf8" });
+    return { status: r.status, body: JSON.parse(r.stdout || "null") };
+  };
+  const statusOf = (body: { files: Array<{ file: string; status: string }> }, file: string) => body.files.find((f) => f.file === file)?.status;
+  function repoWith(claude?: string) {
+    const dir = mkdtempSync(join(tmpdir(), "intake-kit-ledger-"));
+    dirs.push(dir);
+    writeSession(dir, fixture());
+    if (claude) writeFileSync(join(dir, "CLAUDE.md"), claude);
+    return dir;
+  }
+
+  test("--keep stops the question until the proposed content changes", () => {
+    const dir = repoWith("mine\n");
+    assert.equal(run(dir).status, 5);
+    const kept = run(dir, "--keep", "CLAUDE.md");
+    assert.equal(kept.status, 0);
+    assert.equal(statusOf(kept.body, "CLAUDE.md"), "kept");
+    assert.equal(statusOf(run(dir).body, "CLAUDE.md"), "kept", "not asked again");
+    assert.equal(readFileSync(join(dir, "CLAUDE.md"), "utf8"), "mine\n");
+
+    mkdirSync(join(dir, ".intake-kit"), { recursive: true });
+    writeFileSync(join(dir, ".intake-kit", "checks.json"), JSON.stringify({ version: 1, flagged_paths: ["sql/**"] }));
+    // CLAUDE.md's generated content doesn't depend on checks.json, so it stays kept; GUARDRAILS.md
+    // was written by intake-kit and is untouched, so it's refreshed without asking.
+    const after = run(dir);
+    assert.equal(statusOf(after.body, "CLAUDE.md"), "kept");
+    assert.equal(statusOf(after.body, "GUARDRAILS.md"), "updated");
+  });
+
+  test("a file found identical is recorded, so later changes refresh it silently", () => {
+    const dir = repoWith();
+    run(dir);
+    rmSync(join(dir, ".intake-kit", "rendered.json")); // as if rendered by an older version
+    assert.equal(statusOf(run(dir).body, "GUARDRAILS.md"), "unchanged");
+    writeFileSync(join(dir, ".intake-kit", "checks.json"), JSON.stringify({ version: 1, flagged_paths: ["sql/**"] }));
+    assert.equal(statusOf(run(dir).body, "GUARDRAILS.md"), "updated");
+  });
+
+  test("--overwrite and --keep on the same file is refused", () => {
+    assert.equal(run(repoWith("mine\n"), "--overwrite", "CLAUDE.md", "--keep", "CLAUDE.md").status, 4);
   });
 });

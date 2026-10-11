@@ -12,6 +12,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { Area, Framework } from "./framework.ts";
 import { adoptionRisks } from "./score.ts";
+import { CHECK_LABELS, type ChecksConfig } from "./checks.ts";
 import { coverageFor, type CoverageEntry, type Item, type Session } from "./session.ts";
 
 export class RenderError extends Error {}
@@ -126,7 +127,7 @@ export function scope(session: Session): Record<string, Item[]> {
 
 type SectionFn = (items: Item[]) => string;
 
-function sectionRenderers(session: Session, fw: Framework, file: string): Record<string, SectionFn> {
+function sectionRenderers(session: Session, fw: Framework, file: string, checks: ChecksConfig | null): Record<string, SectionFn> {
   const fed = (section: string): SectionFn => (items) => perItem(items, (i) => fedLines(session, i, fw, file, section));
   const withSummary = (section: string, field: keyof Item["prose"]): SectionFn => (items) =>
     perItem(items, (i) => {
@@ -135,7 +136,7 @@ function sectionRenderers(session: Session, fw: Framework, file: string): Record
       return text ? [`> ${text}`, ...(lines.length ? ["", ...lines] : [])] : lines;
     });
   const prose = (field: keyof Item["prose"]): SectionFn => (items) => perItem(items, (i) => (i.prose[field] ? [`> ${i.prose[field]}`] : []));
-  const notYet: SectionFn = () => "_Not set up yet. Run `/intake-kit:guardrails` to choose these._";
+  const notYet = "_Not set up yet. Run `/intake-kit:guardrails` to choose these._";
 
   switch (file) {
     case "SPEC.md":
@@ -175,8 +176,20 @@ function sectionRenderers(session: Session, fw: Framework, file: string): Record
         review_points: (items) =>
           perItem(items, (i) => [...guardrailLines(session, i, "review_point"), ...(i.prose.mitigation ? [`> Mitigation agreed in the intake: ${i.prose.mitigation}`] : [])]),
         data_handling: (items) => perItem(items, (i) => guardrailLines(session, i, "data_rule")),
-        flagged_paths: notYet,
-        ci_checks: notYet,
+        flagged_paths: () =>
+          !checks
+            ? notYet
+            : checks.flagged_paths.length
+              ? [...checks.flagged_paths.map((g) => `- \`${g}\``), "", `A pull request that changes any of these needs the \`${checks.review_label}\` label and a human review before it can merge.`].join("\n")
+              : "_None flagged._",
+        ci_checks: () =>
+          !checks
+            ? notYet
+            : [
+                ...checks.enabled.map((id) => `- **${id}**: ${CHECK_LABELS[id]}`),
+                "",
+                "They run on every pull request from `.github/workflows/intake-kit.yml`; a failing check blocks the merge. Configure them in `.intake-kit/checks.json`.",
+              ].join("\n"),
       };
     case "FIRST_PROMPT.md":
       return {
@@ -281,7 +294,7 @@ function sectionRenderers(session: Session, fw: Framework, file: string): Record
 }
 
 /** Renders every output file that has items in scope. Throws if the session isn't gated yet. */
-export function renderAll(session: Session, fw: Framework, templatesDir: string): Map<string, string> {
+export function renderAll(session: Session, fw: Framework, templatesDir: string, checks: ChecksConfig | null = null): Map<string, string> {
   if (!session.session.reflect_back?.confirmed || session.items.some((i) => !i.gate || !i.scoring)) {
     throw new RenderError("The session isn't scored and gated yet: confirm the reflect-back first.");
   }
@@ -290,7 +303,7 @@ export function renderAll(session: Session, fw: Framework, templatesDir: string)
   for (const [file, sections] of Object.entries(fw.sections)) {
     const items = scopes[file];
     if (!items?.length) continue;
-    const renderers = sectionRenderers(session, fw, file);
+    const renderers = sectionRenderers(session, fw, file, checks);
     let text = readFileSync(join(templatesDir, file), "utf8");
     for (const section of sections) {
       const fn = renderers[section];

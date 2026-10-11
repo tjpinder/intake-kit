@@ -4,7 +4,7 @@ Turn a vague ops request into a build-ready spec in 30 minutes.
 
 intake-kit is a Claude Code plugin. It runs a guided intake interview, scores what it hears, gates each item (Go, Gather more, Don't build, Fix not build), and writes a spec pack with guardrails derived from what the user actually said.
 
-> **Status:** in development. `/intake-kit:intake` runs the full interview, gates each item and renders the spec pack; `/guardrails` and `/audit` aren't built yet. See [HANDOFF.md](HANDOFF.md) for the full spec.
+> **Status:** in development. All three commands work in Claude Code. Codex packaging, the worked example and the docs site are still to come. See [HANDOFF.md](HANDOFF.md) for the full spec.
 
 ## Prerequisites
 
@@ -31,6 +31,20 @@ Or, on older Claude Code versions, inside a session:
 | `/intake-kit:intake` | Runs the guided intake and renders the spec pack |
 | `/intake-kit:guardrails` | Writes GUARDRAILS.md, `.intake-kit/checks.json` and a CI workflow from the intake |
 | `/intake-kit:audit` | Runs the kit's checks and writes `audits/intake-kit-audit.md` |
+
+## Guardrail checks
+
+`/intake-kit:guardrails` copies the checks into your repo (`.intake-kit/check.mjs`) and adds `.github/workflows/intake-kit.yml`, so every pull request runs them with nothing else to install. A failing check blocks the merge.
+
+| Check | Fails when |
+| --- | --- |
+| `traceability` | A SPEC or ACCEPTANCE requirement doesn't cite a real answer in the user's words |
+| `eval_gate` | An item that uses an LLM has no eval set, or its evals fail |
+| `kill_criteria` | GUARDRAILS.md has no kill criteria or no manual fallback |
+| `flagged_paths` | A pull request changes a flagged path without the review label |
+| `open_assumptions` | An assumption in DECISIONS.md has no owner |
+
+A check that doesn't apply, or can't run where it is (for example `flagged_paths` outside a pull request), is reported as skipped, never as a pass. Hooks only remind: they record the checks at the end of a session, mention failures at the start of the next one, and flag edits to flagged paths.
 
 ## Development
 

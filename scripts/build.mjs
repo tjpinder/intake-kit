@@ -2,7 +2,7 @@
 // dist/<name>.mjs. dist/ is committed so users never install or build anything.
 
 import { build } from "esbuild";
-import { readdirSync, rmSync, mkdirSync } from "node:fs";
+import { readdirSync, readFileSync, rmSync, mkdirSync } from "node:fs";
 import { basename, join } from "node:path";
 import { nodeVersionBanner } from "../src/lib/node-check.ts";
 
@@ -21,6 +21,7 @@ for (const entry of entries) {
     platform: "node",
     format: "esm",
     target: "node22",
+    define: { __INTAKE_KIT_VERSION__: JSON.stringify(JSON.parse(readFileSync(".claude-plugin/plugin.json", "utf8")).version) },
     // yaml and ajv are CommonJS and call require() internally; an ESM bundle has no require,
     // so give it one.
     banner: {

@@ -15365,9 +15365,9 @@ var require_dist2 = __commonJS({
 });
 
 // src/cli/intake.ts
-import { existsSync as existsSync2, mkdirSync as mkdirSync2, readFileSync as readFileSync4, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
-import { dirname as dirname2, join as join4 } from "node:path";
-import { randomBytes } from "node:crypto";
+import { existsSync as existsSync3, mkdirSync as mkdirSync2, readFileSync as readFileSync5, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
+import { dirname as dirname2, join as join5 } from "node:path";
+import { createHash, randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
 
 // src/lib/framework.ts
@@ -16994,8 +16994,43 @@ function statusOf(session, fw) {
 }
 
 // src/lib/render.ts
-import { readFileSync as readFileSync2 } from "node:fs";
+import { readFileSync as readFileSync3 } from "node:fs";
+import { join as join3 } from "node:path";
+
+// src/lib/checks.ts
+var import_yaml2 = __toESM(require_dist(), 1);
+import { existsSync, readFileSync as readFileSync2, readdirSync as readdirSync2 } from "node:fs";
 import { join as join2 } from "node:path";
+var CHECK_IDS = ["traceability", "eval_gate", "kill_criteria", "flagged_paths", "open_assumptions"];
+var CHECK_LABELS = {
+  traceability: "Every SPEC and ACCEPTANCE requirement cites a real answer in the user's words",
+  eval_gate: "Items that use an LLM have an eval set, and the evals pass",
+  kill_criteria: "Kill criteria and fallback are written down in GUARDRAILS.md",
+  flagged_paths: "Pull requests touching flagged paths carry the review label",
+  open_assumptions: "Every assumption in DECISIONS.md has an owner"
+};
+var DEFAULT_CONFIG = {
+  version: 1,
+  enabled: [...CHECK_IDS],
+  flagged_paths: [],
+  review_label: "needs-review",
+  eval_command: null,
+  evals_dir: "evals"
+};
+function readConfig(dir) {
+  const file = join2(dir, ".intake-kit", "checks.json");
+  if (!existsSync(file)) return { config: DEFAULT_CONFIG, found: false };
+  const raw = JSON.parse(readFileSync2(file, "utf8"));
+  const config = { ...DEFAULT_CONFIG, ...raw };
+  const unknown = config.enabled.filter((c) => !CHECK_IDS.includes(c));
+  if (unknown.length) throw new Error(`.intake-kit/checks.json enables unknown checks: ${unknown.join(", ")}`);
+  if (!Array.isArray(config.flagged_paths) || !config.flagged_paths.every((p) => typeof p === "string")) {
+    throw new Error(".intake-kit/checks.json: flagged_paths must be a list of glob strings");
+  }
+  return { config, found: true };
+}
+
+// src/lib/render.ts
 var RenderError = class extends Error {
 };
 var NOTHING = "_Nothing recorded._";
@@ -17087,7 +17122,7 @@ function scope(session) {
     "BACKLOG.md": items.some((i) => i.type === "exploratory") ? items : []
   };
 }
-function sectionRenderers(session, fw, file) {
+function sectionRenderers(session, fw, file, checks) {
   const fed = (section) => (items) => perItem(items, (i) => fedLines(session, i, fw, file, section));
   const withSummary = (section, field) => (items) => perItem(items, (i) => {
     const lines = fedLines(session, i, fw, file, section);
@@ -17095,7 +17130,7 @@ function sectionRenderers(session, fw, file) {
     return text ? [`> ${text}`, ...lines.length ? ["", ...lines] : []] : lines;
   });
   const prose = (field) => (items) => perItem(items, (i) => i.prose[field] ? [`> ${i.prose[field]}`] : []);
-  const notYet = () => "_Not set up yet. Run `/intake-kit:guardrails` to choose these._";
+  const notYet = "_Not set up yet. Run `/intake-kit:guardrails` to choose these._";
   switch (file) {
     case "SPEC.md":
       return {
@@ -17131,8 +17166,12 @@ function sectionRenderers(session, fw, file) {
         fallback: (items) => perItem(items, (i) => guardrailLines(session, i, "fallback")),
         review_points: (items) => perItem(items, (i) => [...guardrailLines(session, i, "review_point"), ...i.prose.mitigation ? [`> Mitigation agreed in the intake: ${i.prose.mitigation}`] : []]),
         data_handling: (items) => perItem(items, (i) => guardrailLines(session, i, "data_rule")),
-        flagged_paths: notYet,
-        ci_checks: notYet
+        flagged_paths: () => !checks ? notYet : checks.flagged_paths.length ? [...checks.flagged_paths.map((g) => `- \`${g}\``), "", `A pull request that changes any of these needs the \`${checks.review_label}\` label and a human review before it can merge.`].join("\n") : "_None flagged._",
+        ci_checks: () => !checks ? notYet : [
+          ...checks.enabled.map((id) => `- **${id}**: ${CHECK_LABELS[id]}`),
+          "",
+          "They run on every pull request from `.github/workflows/intake-kit.yml`; a failing check blocks the merge. Configure them in `.intake-kit/checks.json`."
+        ].join("\n")
       };
     case "FIRST_PROMPT.md":
       return {
@@ -17226,7 +17265,7 @@ function sectionRenderers(session, fw, file) {
       throw new RenderError(`no renderer for ${file}`);
   }
 }
-function renderAll(session, fw, templatesDir) {
+function renderAll(session, fw, templatesDir, checks = null) {
   if (!session.session.reflect_back?.confirmed || session.items.some((i) => !i.gate || !i.scoring)) {
     throw new RenderError("The session isn't scored and gated yet: confirm the reflect-back first.");
   }
@@ -17235,8 +17274,8 @@ function renderAll(session, fw, templatesDir) {
   for (const [file, sections] of Object.entries(fw.sections)) {
     const items = scopes[file];
     if (!items?.length) continue;
-    const renderers = sectionRenderers(session, fw, file);
-    let text = readFileSync2(join2(templatesDir, file), "utf8");
+    const renderers = sectionRenderers(session, fw, file, checks);
+    let text = readFileSync3(join3(templatesDir, file), "utf8");
     for (const section of sections) {
       const fn = renderers[section];
       if (!fn) throw new RenderError(`${file}: no renderer for section ${section}`);
@@ -17291,70 +17330,71 @@ function lineDiff(before, after, context = 2) {
 }
 
 // src/lib/state.ts
-var import_yaml2 = __toESM(require_dist(), 1);
-import { appendFileSync, existsSync, mkdirSync, readFileSync as readFileSync3, renameSync, writeFileSync } from "node:fs";
-import { dirname, join as join3 } from "node:path";
+var import_yaml3 = __toESM(require_dist(), 1);
+import { appendFileSync, existsSync as existsSync2, mkdirSync, readFileSync as readFileSync4, renameSync, writeFileSync } from "node:fs";
+import { dirname, join as join4 } from "node:path";
 import { fileURLToPath } from "node:url";
 var SESSION_FILE = "intake-answers.yaml";
 function paths(dir) {
-  const state = join3(dir, ".intake-kit");
+  const state = join4(dir, ".intake-kit");
   return {
-    session: join3(dir, SESSION_FILE),
+    session: join4(dir, SESSION_FILE),
     stateDir: state,
-    marker: join3(state, "active"),
-    transcript: join3(state, "transcript.jsonl"),
-    turn: join3(state, "turn.json"),
-    rejections: join3(state, "rejections.jsonl"),
-    state: join3(state, "state.json"),
-    archive: join3(state, "archive"),
-    gitignore: join3(state, ".gitignore")
+    marker: join4(state, "active"),
+    transcript: join4(state, "transcript.jsonl"),
+    turn: join4(state, "turn.json"),
+    rejections: join4(state, "rejections.jsonl"),
+    state: join4(state, "state.json"),
+    archive: join4(state, "archive"),
+    gitignore: join4(state, ".gitignore")
   };
 }
 var STATE_GITIGNORE = `# Local intake-kit state. Transcripts hold the user's exact words and stay on this machine.
-# checks.json is the only file here that belongs in the repo.
+# checks.json and check.mjs (the CI copy of the checks) are the only files here that belong in the repo.
 *
 !.gitignore
 !checks.json
+!check.mjs
 `;
 function ensureStateDir(dir) {
   const p = paths(dir);
   mkdirSync(p.stateDir, { recursive: true });
-  if (!existsSync(p.gitignore)) writeFileSync(p.gitignore, STATE_GITIGNORE);
+  if (!existsSync2(p.gitignore)) writeFileSync(p.gitignore, STATE_GITIGNORE);
 }
 function archive(dir, file, name) {
   const p = paths(dir);
   mkdirSync(p.archive, { recursive: true });
-  const target = join3(p.archive, name);
+  const target = join4(p.archive, name);
   renameSync(file, target);
   return target;
 }
 function archiveText(dir, name, content) {
   const p = paths(dir);
   mkdirSync(p.archive, { recursive: true });
-  const target = join3(p.archive, name);
+  const target = join4(p.archive, name);
   writeFileSync(target, content);
   return target;
 }
 function readTranscript(dir) {
   const file = paths(dir).transcript;
-  if (!existsSync(file)) return null;
-  return readFileSync3(file, "utf8").split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
+  if (!existsSync2(file)) return null;
+  return readFileSync4(file, "utf8").split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
 }
 function writeTranscript(dir, entries) {
   writeFileSync(paths(dir).transcript, entries.map((e) => JSON.stringify(e) + "\n").join(""));
 }
 function readSession(dir) {
   const file = paths(dir).session;
-  return existsSync(file) ? (0, import_yaml2.parse)(readFileSync3(file, "utf8")) : null;
+  return existsSync2(file) ? (0, import_yaml3.parse)(readFileSync4(file, "utf8")) : null;
 }
 function writeSession(dir, session) {
   const header = "# Written by intake-kit. Edit with care: every SPEC and ACCEPTANCE line is rendered from this file.\n";
-  writeFileSync(paths(dir).session, header + (0, import_yaml2.stringify)(session, { lineWidth: 0, aliasDuplicateObjects: false }));
+  writeFileSync(paths(dir).session, header + (0, import_yaml3.stringify)(session, { lineWidth: 0, aliasDuplicateObjects: false }));
 }
 function readRunState(dir) {
   const file = paths(dir).state;
-  if (!existsSync(file)) return { consecutive_rejections: 0 };
-  return JSON.parse(readFileSync3(file, "utf8"));
+  if (!existsSync2(file)) return { consecutive_rejections: 0 };
+  return JSON.parse(readFileSync4(file, "utf8"));
 }
 function writeRunState(dir, state) {
   writeFileSync(paths(dir).state, JSON.stringify(state, null, 2) + "\n");
@@ -17362,7 +17402,7 @@ function writeRunState(dir, state) {
 function pluginRoot(from = fileURLToPath(import.meta.url)) {
   let dir = dirname(from);
   for (; ; ) {
-    if (existsSync(join3(dir, ".claude-plugin", "plugin.json"))) return dir;
+    if (existsSync2(join4(dir, ".claude-plugin", "plugin.json"))) return dir;
     const parent = dirname(dir);
     if (parent === dir) throw new Error(`intake-kit: can't find the plugin root above ${from}`);
     dir = parent;
@@ -17383,7 +17423,7 @@ function start(dir, opts) {
   if (existing) {
     const done = existing.session.reflect_back?.confirmed === true;
     if (opts.resume && !done) {
-      if (existing.session.grounding === "transcript" && !existsSync2(p.marker)) writeFileSync2(p.marker, "");
+      if (existing.session.grounding === "transcript" && !existsSync3(p.marker)) writeFileSync2(p.marker, "");
       return out(0, { result: "resumed", session_id: existing.session.id, status: statusOf(existing, fw) });
     }
     if (!opts.new) {
@@ -17428,7 +17468,7 @@ function start(dir, opts) {
   writeRunState(dir, { consecutive_rejections: 0 });
   const warnings = [];
   if (opts.grounding === "transcript") {
-    if (!existsSync2(p.marker)) writeFileSync2(p.marker, "");
+    if (!existsSync3(p.marker)) writeFileSync2(p.marker, "");
     if (!readTranscript(dir)?.length) {
       warnings.push("No transcript has been recorded yet, so quotes can't be verified. The prompt hook may not be installed or enabled; check /hooks. Every quoted answer will be rejected until it records the user's messages.");
     }
@@ -17439,10 +17479,10 @@ function applyTurnCommand(dir, turnFile) {
   const p = paths(dir);
   const session = readSession(dir);
   if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
-  if (!existsSync2(turnFile)) return out(4, { result: "no_turn", message: `Write the turn JSON to ${turnFile} first.` });
+  if (!existsSync3(turnFile)) return out(4, { result: "no_turn", message: `Write the turn JSON to ${turnFile} first.` });
   let turn;
   try {
-    turn = JSON.parse(readFileSync4(turnFile, "utf8"));
+    turn = JSON.parse(readFileSync5(turnFile, "utf8"));
   } catch (err) {
     turn = { __unparseable: err.message };
   }
@@ -17472,49 +17512,71 @@ function applyTurnCommand(dir, turnFile) {
   }
   writeSession(dir, result.session);
   writeRunState(dir, { consecutive_rejections: 0 });
-  if (result.confirmed && existsSync2(p.marker)) rmSync(p.marker);
+  if (result.confirmed && existsSync3(p.marker)) rmSync(p.marker);
   return out(0, {
     result: "applied",
     scored: result.confirmed,
     ...result.confirmed ? { gates: result.session.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons, revisit_trigger: i.gate?.revisit_trigger })) } : { status: statusOf(result.session, fw) }
   });
 }
-function renderCommand(dir, overwrite) {
+function renderCommand(dir, overwrite, keep) {
   const session = readSession(dir);
   if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
   if (!session.session.reflect_back?.confirmed) {
     return out(4, { result: "not_ready", message: "Nothing is rendered until the reflect-back is confirmed and the items are gated." });
   }
+  const both = overwrite.filter((f) => keep.includes(f));
+  if (both.length) return out(4, { result: "bad_option", message: `Use --overwrite or --keep for a file, not both: ${both.join(", ")}` });
   const root = pluginRoot();
-  const rendered = renderAll(session, loadFramework(root), join4(root, "templates"));
-  const unknownOverwrite = overwrite.filter((f) => !rendered.has(f));
-  if (unknownOverwrite.length) return out(4, { result: "bad_option", message: `--overwrite names files this intake doesn't render: ${unknownOverwrite.join(", ")}` });
-  const staged = join4(paths(dir).stateDir, "render");
+  const checks = existsSync3(join5(paths(dir).stateDir, "checks.json")) ? readConfig(dir).config : null;
+  const rendered = renderAll(session, loadFramework(root), join5(root, "templates"), checks);
+  const unknown = [...overwrite, ...keep].filter((f) => !rendered.has(f));
+  if (unknown.length) return out(4, { result: "bad_option", message: `--overwrite/--keep name files this intake doesn't render: ${unknown.join(", ")}` });
+  const ledgerFile = join5(paths(dir).stateDir, "rendered.json");
+  const raw = existsSync3(ledgerFile) ? JSON.parse(readFileSync5(ledgerFile, "utf8")) : {};
+  const ledger = raw.written || raw.kept ? { written: raw.written ?? {}, kept: raw.kept ?? {} } : { written: raw, kept: {} };
+  const hash = (text) => createHash("sha256").update(text).digest("hex");
+  const write = (file, content) => {
+    writeFileSync2(join5(dir, file), content);
+    ledger.written[file] = hash(content);
+    delete ledger.kept[file];
+  };
+  const staged = join5(paths(dir).stateDir, "render");
   const files = [];
   for (const [file, content] of rendered) {
-    const target = join4(dir, file);
-    if (!existsSync2(target)) {
-      writeFileSync2(target, content);
+    const target = join5(dir, file);
+    if (!existsSync3(target)) {
+      write(file, content);
       files.push({ file, status: "written" });
       continue;
     }
-    const current = readFileSync4(target, "utf8").replace(/\r\n/g, "\n");
-    if (current === content) files.push({ file, status: "unchanged" });
-    else if (overwrite.includes(file)) {
-      writeFileSync2(target, content);
+    const current = readFileSync5(target, "utf8").replace(/\r\n/g, "\n");
+    if (current === content) {
+      ledger.written[file] = hash(content);
+      files.push({ file, status: "unchanged" });
+    } else if (ledger.written[file] === hash(current)) {
+      write(file, content);
+      files.push({ file, status: "updated" });
+    } else if (overwrite.includes(file)) {
+      write(file, content);
       files.push({ file, status: "overwritten" });
+    } else if (keep.includes(file) || ledger.kept[file] === hash(content)) {
+      ledger.kept[file] = hash(content);
+      files.push({ file, status: "kept" });
     } else {
-      const stagedFile = join4(staged, file);
+      const stagedFile = join5(staged, file);
       mkdirSync2(dirname2(stagedFile), { recursive: true });
       writeFileSync2(stagedFile, content);
       files.push({ file, status: "needs_confirmation", diff: lineDiff(current, content), staged: stagedFile });
     }
   }
+  mkdirSync2(paths(dir).stateDir, { recursive: true });
+  writeFileSync2(ledgerFile, JSON.stringify(ledger, null, 2) + "\n");
   const pending = files.filter((f) => f.status === "needs_confirmation").map((f) => f.file);
   return out(pending.length ? 5 : 0, {
     result: pending.length ? "needs_confirmation" : "rendered",
     files,
-    ...pending.length ? { message: `These files already exist and would change: ${pending.join(", ")}. Show the user each diff and ask before overwriting any of them; then run render --overwrite <file> for each one they approve.` } : {}
+    ...pending.length ? { message: `These files already exist and would change: ${pending.join(", ")}. Show the user each diff and ask. Then run render once with --overwrite <file> for each one they approve and --keep <file> for each one they want left as it is.` } : {}
   });
 }
 function main() {
@@ -17528,7 +17590,8 @@ function main() {
       grounding: { type: "string", default: "transcript" },
       new: { type: "boolean", default: false },
       resume: { type: "boolean", default: false },
-      overwrite: { type: "string", multiple: true, default: [] }
+      overwrite: { type: "string", multiple: true, default: [] },
+      keep: { type: "string", multiple: true, default: [] }
     }
   });
   const dir = values.dir ?? process.cwd();
@@ -17546,7 +17609,7 @@ function main() {
     case "apply-turn":
       return applyTurnCommand(dir, values.turn ?? paths(dir).turn);
     case "render":
-      return renderCommand(dir, values.overwrite);
+      return renderCommand(dir, values.overwrite, values.keep);
     case "status": {
       const session = readSession(dir);
       if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });

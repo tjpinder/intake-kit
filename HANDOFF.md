@@ -498,6 +498,15 @@ Codex isn't installed on the build machine. Build the `.agents/skills/` mirror a
 - **Never overwrite unasked.** `render` writes new files and skips identical ones (CRLF-only differences count as identical). A file that exists and would change is staged in `.intake-kit/render/` with a line diff, and the command exits 5. Only `render --overwrite <file>` replaces it, and the skill asks the user first. Verified live: a hand-written CLAUDE.md was shown, kept on "no", and left byte-for-byte unchanged.
 - **Golden files** for the worked example live in `tests/golden/pick-exception/`. After an intended change, regenerate them with `npm run golden:update` and review the diff before committing.
 
+**Guardrail checks decisions (step 7, Oct 11)**
+
+- **CI gets a vendored copy.** `/guardrails` (`check.mjs init`) copies the bundled checks to `.intake-kit/check.mjs` in the target repo, alongside `checks.json`, and adds `.github/workflows/intake-kit.yml`, which runs `node .intake-kit/check.mjs run --ci --report`. CI needs nothing from the plugin and no network, and is pinned to the kit version that generated it. The cost is a roughly 300 KB file in the repo. The checks read only `intake-answers.yaml`, the rendered files and `checks.json`, never the framework YAML.
+- **Results** are pass, fail, skipped (with the reason), error or off. Fail and error block; skipped and off never count as passes. A broken `checks.json` errors every check.
+- **Check details.** Traceability re-verifies every citation against the session, so hand edits that break it are caught. The eval gate runs `eval_command` from /audit and CI only, never from session hooks. Flagged paths read labels from the GitHub event and changed files from `git diff base...head`; outside a pull request the check is skipped. Open assumptions fail on `Owner: _unassigned_`.
+- **Hooks remind, never block.** SessionEnd runs the checks in the background and writes `.intake-kit/last-audit.json`. SessionStart turns any failures into a `systemMessage` and context. PostToolUse on `Edit|Write` reminds when a flagged path is edited. All are silent in repos without an intake.
+- **Render ledger.** `.intake-kit/rendered.json` records what intake-kit wrote, or found already matching, for each file. A file still matching is refreshed silently, so `/guardrails` updates an untouched GUARDRAILS.md without asking. `render --keep <file>` records that the user kept their own file over a proposed version; they aren't asked again until the proposed content changes.
+- **This repo's CI** (`.github/workflows/ci.yml`) runs the typecheck and all tests, checks `dist/` is committed and current, and dogfoods the checks on the rendered worked example (`scripts/dogfood.mjs`), which Week 2's `examples/` replaces. A hygiene test fails on any reference to TIF or the integrity CLI outside HANDOFF.md and `docs/`, and on common secret formats.
+
 **Handoff file:** Claude Code copies this spec into the repo as `HANDOFF.md`.
 
 ## Testing

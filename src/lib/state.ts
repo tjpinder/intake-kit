@@ -26,11 +26,12 @@ export function paths(dir: string) {
   };
 }
 
-const STATE_GITIGNORE = `# Local intake-kit state. Transcripts hold the user's exact words and stay on this machine.
-# checks.json is the only file here that belongs in the repo.
+export const STATE_GITIGNORE = `# Local intake-kit state. Transcripts hold the user's exact words and stay on this machine.
+# checks.json and check.mjs (the CI copy of the checks) are the only files here that belong in the repo.
 *
 !.gitignore
 !checks.json
+!check.mjs
 `;
 
 export function ensureStateDir(dir: string): void {

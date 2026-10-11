@@ -2,8 +2,10 @@
 //
 //   start [--mode stakeholder|builder] [--provider claude|codex] [--grounding transcript|unverified] [--new | --resume]
 //   apply-turn [--turn <file>]          (default: .intake-kit/turn.json)
-//   render [--overwrite <file>]...      write the spec pack and briefs; existing files that would
-//                                       change are staged with a diff, never overwritten unasked
+//   render [--overwrite <file>]... [--keep <file>]...
+//                                       write the spec pack and briefs; an existing file that would
+//                                       change is staged with a diff, never overwritten unasked.
+//                                       --keep records that the user kept their own version
 //   status                              what's still open, as returned after every turn
 //   guide                               the router, areas and bands, as markdown for the skill
 //
@@ -14,13 +16,14 @@
 
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
 import { loadFramework } from "../lib/framework.ts";
 import { applyTurn } from "../lib/apply-turn.ts";
 import { guide, statusOf } from "../lib/guide.ts";
 import { renderAll } from "../lib/render.ts";
 import { lineDiff } from "../lib/diff.ts";
+import { readConfig } from "../lib/checks.ts";
 import {
   archive, archiveText, ensureStateDir, paths, pluginRoot, readRunState, readSession, readTranscript,
   writeRunState, writeSession, writeTranscript,
@@ -150,31 +153,58 @@ function applyTurnCommand(dir: string, turnFile: string) {
   });
 }
 
-function renderCommand(dir: string, overwrite: string[]) {
+function renderCommand(dir: string, overwrite: string[], keep: string[]) {
   const session = readSession(dir);
   if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
   if (!session.session.reflect_back?.confirmed) {
     return out(4, { result: "not_ready", message: "Nothing is rendered until the reflect-back is confirmed and the items are gated." });
   }
+  const both = overwrite.filter((f) => keep.includes(f));
+  if (both.length) return out(4, { result: "bad_option", message: `Use --overwrite or --keep for a file, not both: ${both.join(", ")}` });
   const root = pluginRoot();
-  const rendered = renderAll(session, loadFramework(root), join(root, "templates"));
-  const unknownOverwrite = overwrite.filter((f) => !rendered.has(f));
-  if (unknownOverwrite.length) return out(4, { result: "bad_option", message: `--overwrite names files this intake doesn't render: ${unknownOverwrite.join(", ")}` });
+  const checks = existsSync(join(paths(dir).stateDir, "checks.json")) ? readConfig(dir).config : null;
+  const rendered = renderAll(session, loadFramework(root), join(root, "templates"), checks);
+  const unknown = [...overwrite, ...keep].filter((f) => !rendered.has(f));
+  if (unknown.length) return out(4, { result: "bad_option", message: `--overwrite/--keep name files this intake doesn't render: ${unknown.join(", ")}` });
+
+  // The ledger records, per file, what intake-kit last wrote (or found already matching), and
+  // which proposed content the user chose to keep their own file over. A file still matching
+  // what was written hasn't been edited, so it's refreshed without asking. A kept file isn't
+  // asked about again until the proposed content changes.
+  const ledgerFile = join(paths(dir).stateDir, "rendered.json");
+  const raw = existsSync(ledgerFile) ? JSON.parse(readFileSync(ledgerFile, "utf8")) : {};
+  const ledger: { written: Record<string, string>; kept: Record<string, string> } =
+    raw.written || raw.kept ? { written: raw.written ?? {}, kept: raw.kept ?? {} } : { written: raw, kept: {} };
+  const hash = (text: string) => createHash("sha256").update(text).digest("hex");
+  const write = (file: string, content: string) => {
+    writeFileSync(join(dir, file), content);
+    ledger.written[file] = hash(content);
+    delete ledger.kept[file];
+  };
 
   const staged = join(paths(dir).stateDir, "render");
-  const files: Array<{ file: string; status: "written" | "unchanged" | "overwritten" | "needs_confirmation"; diff?: string; staged?: string }> = [];
+  type Status = "written" | "unchanged" | "updated" | "overwritten" | "kept" | "needs_confirmation";
+  const files: Array<{ file: string; status: Status; diff?: string; staged?: string }> = [];
   for (const [file, content] of rendered) {
     const target = join(dir, file);
     if (!existsSync(target)) {
-      writeFileSync(target, content);
+      write(file, content);
       files.push({ file, status: "written" });
       continue;
     }
     const current = readFileSync(target, "utf8").replace(/\r\n/g, "\n");
-    if (current === content) files.push({ file, status: "unchanged" });
-    else if (overwrite.includes(file)) {
-      writeFileSync(target, content);
+    if (current === content) {
+      ledger.written[file] = hash(content);
+      files.push({ file, status: "unchanged" });
+    } else if (ledger.written[file] === hash(current)) {
+      write(file, content);
+      files.push({ file, status: "updated" });
+    } else if (overwrite.includes(file)) {
+      write(file, content);
       files.push({ file, status: "overwritten" });
+    } else if (keep.includes(file) || ledger.kept[file] === hash(content)) {
+      ledger.kept[file] = hash(content);
+      files.push({ file, status: "kept" });
     } else {
       const stagedFile = join(staged, file);
       mkdirSync(dirname(stagedFile), { recursive: true });
@@ -182,12 +212,14 @@ function renderCommand(dir: string, overwrite: string[]) {
       files.push({ file, status: "needs_confirmation", diff: lineDiff(current, content), staged: stagedFile });
     }
   }
+  mkdirSync(paths(dir).stateDir, { recursive: true });
+  writeFileSync(ledgerFile, JSON.stringify(ledger, null, 2) + "\n");
   const pending = files.filter((f) => f.status === "needs_confirmation").map((f) => f.file);
   return out(pending.length ? 5 : 0, {
     result: pending.length ? "needs_confirmation" : "rendered",
     files,
     ...(pending.length
-      ? { message: `These files already exist and would change: ${pending.join(", ")}. Show the user each diff and ask before overwriting any of them; then run render --overwrite <file> for each one they approve.` }
+      ? { message: `These files already exist and would change: ${pending.join(", ")}. Show the user each diff and ask. Then run render once with --overwrite <file> for each one they approve and --keep <file> for each one they want left as it is.` }
       : {}),
   });
 }
@@ -204,6 +236,7 @@ function main() {
       new: { type: "boolean", default: false },
       resume: { type: "boolean", default: false },
       overwrite: { type: "string", multiple: true, default: [] },
+      keep: { type: "string", multiple: true, default: [] },
     },
   });
   const dir = values.dir ?? process.cwd();
@@ -223,7 +256,7 @@ function main() {
     case "apply-turn":
       return applyTurnCommand(dir, values.turn ?? paths(dir).turn);
     case "render":
-      return renderCommand(dir, values.overwrite as string[]);
+      return renderCommand(dir, values.overwrite as string[], values.keep as string[]);
     case "status": {
       const session = readSession(dir);
       if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });

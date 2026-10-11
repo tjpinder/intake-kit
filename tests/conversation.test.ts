@@ -10,7 +10,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { findQuote, type TranscriptEntry } from "../src/lib/grounding.ts";
-import { loadFramework } from "../src/lib/framework.ts";
+import { loadFramework } from "../src/lib/framework-fs.ts";
 import { guide, statusOf } from "../src/lib/guide.ts";
 import { validateSession } from "../src/lib/schemas.ts";
 import type { Session } from "../src/lib/session.ts";

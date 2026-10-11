@@ -1,10 +1,8 @@
-// Loads and checks the framework config (router, modules, scoring, template sections).
-// These files are read at runtime, not bundled, so tuning scoring.yaml takes effect with no
-// rebuild. Any problem throws with every issue listed, so a bad edit can't silently change
-// how the intake behaves.
+// Builds and checks the framework config (router, modules, scoring, template sections) from
+// its YAML text. Pure, so the web app can run it in a browser; framework-fs.ts reads the files
+// for the plugin and CLI at runtime, so tuning scoring.yaml there needs no rebuild. Any problem
+// throws with every issue listed, so a bad edit can't silently change how the intake behaves.
 
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import frameworkSchema from "../../schema/framework.schema.json" with { type: "json" };
@@ -114,10 +112,6 @@ const validators = {
   sections: ajv.getSchema(`${schemaId}#/$defs/sections`)!,
 };
 
-function readYaml(path: string): unknown {
-  return parseYaml(readFileSync(path, "utf8"));
-}
-
 function check(kind: keyof typeof validators, data: unknown, file: string, issues: string[]): void {
   const fn = validators[kind];
   if (!fn(data)) {
@@ -132,27 +126,42 @@ export function schemaFactNames(): { turn: string[]; session: string[] } {
   return { turn, session };
 }
 
-/**
- * Loads the framework from a plugin root (the directory holding skills/ and templates/).
- * Throws FrameworkError listing every problem found.
- */
-export function loadFramework(root: string): Framework {
-  const issues: string[] = [];
-  // The plugin keeps the framework beside its skill; the standalone kit keeps it in framework/.
-  const intakeDir = existsSync(join(root, "framework")) ? join(root, "framework") : join(root, "skills", "intake");
+/** The framework's YAML, as text. The Node loader reads it from disk; the web app bundles it. */
+export interface FrameworkSources {
+  router: string;
+  scoring: string;
+  sections: string;
+  /** Module YAML keyed by file name, e.g. "core.yaml". */
+  modules: Record<string, string>;
+}
 
-  const router = readYaml(join(intakeDir, "router.yaml")) as Router;
+/**
+ * Builds and checks the framework from its YAML text. Pure: no file system, so it runs in a
+ * browser too. Throws FrameworkError listing every problem found.
+ */
+export function buildFramework(sources: FrameworkSources): Framework {
+  const issues: string[] = [];
+  const parse = (text: string, file: string): unknown => {
+    try {
+      return parseYaml(text);
+    } catch (err) {
+      issues.push(`${file}: not valid YAML: ${(err as Error).message}`);
+      return null;
+    }
+  };
+
+  const router = parse(sources.router, "router.yaml") as Router;
   check("router", router, "router.yaml", issues);
 
-  const scoring = readYaml(join(intakeDir, "scoring.yaml")) as Scoring;
+  const scoring = parse(sources.scoring, "scoring.yaml") as Scoring;
   check("scoring", scoring, "scoring.yaml", issues);
 
-  const sections = readYaml(join(root, "templates", "sections.yaml")) as Sections;
+  const sections = parse(sources.sections, "templates/sections.yaml") as Sections;
   check("sections", sections, "templates/sections.yaml", issues);
 
   const modules: Record<string, Module> = {};
-  for (const file of readdirSync(join(intakeDir, "modules")).filter((f) => f.endsWith(".yaml")).sort()) {
-    const mod = readYaml(join(intakeDir, "modules", file)) as Module;
+  for (const file of Object.keys(sources.modules).filter((f) => f.endsWith(".yaml")).sort()) {
+    const mod = parse(sources.modules[file], `modules/${file}`) as Module;
     check("module", mod, `modules/${file}`, issues);
     if (mod?.module) {
       if (`${mod.module}.yaml` !== file) issues.push(`modules/${file}: module "${mod.module}" doesn't match its file name`);

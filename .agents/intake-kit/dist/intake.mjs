@@ -15365,16 +15365,18 @@ var require_dist2 = __commonJS({
 });
 
 // src/cli/intake.ts
-import { existsSync as existsSync4, mkdirSync as mkdirSync2, readFileSync as readFileSync5, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
-import { dirname as dirname2, join as join5 } from "node:path";
+import { existsSync as existsSync4, mkdirSync as mkdirSync2, readFileSync as readFileSync4, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
+import { dirname as dirname2, join as join4 } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
+
+// src/lib/framework-fs.ts
+import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 
 // src/lib/framework.ts
 var import_yaml = __toESM(require_dist(), 1);
 var import__ = __toESM(require__(), 1);
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
 
 // schema/framework.schema.json
 var framework_schema_default = {
@@ -16247,9 +16249,6 @@ var validators = {
   scoring: ajv.getSchema(`${schemaId}#/$defs/scoring`),
   sections: ajv.getSchema(`${schemaId}#/$defs/sections`)
 };
-function readYaml(path) {
-  return (0, import_yaml.parse)(readFileSync(path, "utf8"));
-}
 function check(kind, data, file, issues) {
   const fn = validators[kind];
   if (!fn(data)) {
@@ -16261,18 +16260,25 @@ function schemaFactNames() {
   const session = session_schema_default.$defs.item.properties.facts.propertyNames.enum;
   return { turn, session };
 }
-function loadFramework(root) {
+function buildFramework(sources) {
   const issues = [];
-  const intakeDir = existsSync(join(root, "framework")) ? join(root, "framework") : join(root, "skills", "intake");
-  const router = readYaml(join(intakeDir, "router.yaml"));
+  const parse = (text, file) => {
+    try {
+      return (0, import_yaml.parse)(text);
+    } catch (err) {
+      issues.push(`${file}: not valid YAML: ${err.message}`);
+      return null;
+    }
+  };
+  const router = parse(sources.router, "router.yaml");
   check("router", router, "router.yaml", issues);
-  const scoring = readYaml(join(intakeDir, "scoring.yaml"));
+  const scoring = parse(sources.scoring, "scoring.yaml");
   check("scoring", scoring, "scoring.yaml", issues);
-  const sections = readYaml(join(root, "templates", "sections.yaml"));
+  const sections = parse(sources.sections, "templates/sections.yaml");
   check("sections", sections, "templates/sections.yaml", issues);
   const modules = {};
-  for (const file of readdirSync(join(intakeDir, "modules")).filter((f) => f.endsWith(".yaml")).sort()) {
-    const mod = readYaml(join(intakeDir, "modules", file));
+  for (const file of Object.keys(sources.modules).filter((f) => f.endsWith(".yaml")).sort()) {
+    const mod = parse(sources.modules[file], `modules/${file}`);
     check("module", mod, `modules/${file}`, issues);
     if (mod?.module) {
       if (`${mod.module}.yaml` !== file) issues.push(`modules/${file}: module "${mod.module}" doesn't match its file name`);
@@ -16368,6 +16374,31 @@ function loadFramework(root) {
   }
   if (issues.length) throw new FrameworkError(issues);
   return { router, modules, scoring, sections, areas, factBands };
+}
+
+// src/lib/framework-fs.ts
+function frameworkDir(root) {
+  return existsSync(join(root, "framework")) ? join(root, "framework") : join(root, "skills", "intake");
+}
+function readFrameworkSources(root) {
+  const dir = frameworkDir(root);
+  const modules = {};
+  for (const file of readdirSync(join(dir, "modules")).filter((f) => f.endsWith(".yaml"))) {
+    modules[file] = readFileSync(join(dir, "modules", file), "utf8");
+  }
+  return {
+    router: readFileSync(join(dir, "router.yaml"), "utf8"),
+    scoring: readFileSync(join(dir, "scoring.yaml"), "utf8"),
+    sections: readFileSync(join(root, "templates", "sections.yaml"), "utf8"),
+    modules
+  };
+}
+function loadFramework(root) {
+  return buildFramework(readFrameworkSources(root));
+}
+function readTemplates(root) {
+  const dir = join(root, "templates");
+  return Object.fromEntries(readdirSync(dir).filter((f) => f.endsWith(".md")).map((f) => [f, readFileSync(join(dir, f), "utf8")]));
 }
 
 // src/lib/grounding.ts
@@ -16993,14 +17024,7 @@ function statusOf(session, fw) {
   };
 }
 
-// src/lib/render.ts
-import { readFileSync as readFileSync3 } from "node:fs";
-import { join as join3 } from "node:path";
-
-// src/lib/checks.ts
-var import_yaml2 = __toESM(require_dist(), 1);
-import { existsSync as existsSync2, readFileSync as readFileSync2, readdirSync as readdirSync2 } from "node:fs";
-import { join as join2 } from "node:path";
+// src/lib/check-meta.ts
 var CHECK_IDS = ["traceability", "eval_gate", "kill_criteria", "flagged_paths", "open_assumptions"];
 var CHECK_LABELS = {
   traceability: "Every SPEC and ACCEPTANCE requirement cites a real answer in the user's words",
@@ -17017,18 +17041,6 @@ var DEFAULT_CONFIG = {
   eval_command: null,
   evals_dir: "evals"
 };
-function readConfig(dir) {
-  const file = join2(dir, ".intake-kit", "checks.json");
-  if (!existsSync2(file)) return { config: DEFAULT_CONFIG, found: false };
-  const raw = JSON.parse(readFileSync2(file, "utf8"));
-  const config = { ...DEFAULT_CONFIG, ...raw };
-  const unknown = config.enabled.filter((c) => !CHECK_IDS.includes(c));
-  if (unknown.length) throw new Error(`.intake-kit/checks.json enables unknown checks: ${unknown.join(", ")}`);
-  if (!Array.isArray(config.flagged_paths) || !config.flagged_paths.every((p) => typeof p === "string")) {
-    throw new Error(".intake-kit/checks.json: flagged_paths must be a list of glob strings");
-  }
-  return { config, found: true };
-}
 
 // src/lib/render.ts
 var RenderError = class extends Error {
@@ -17265,7 +17277,7 @@ function sectionRenderers(session, fw, file, checks) {
       throw new RenderError(`no renderer for ${file}`);
   }
 }
-function renderAll(session, fw, templatesDir, checks = null) {
+function renderAll(session, fw, templates, checks = null) {
   if (!session.session.reflect_back?.confirmed || session.items.some((i) => !i.gate || !i.scoring)) {
     throw new RenderError("The session isn't scored and gated yet: confirm the reflect-back first.");
   }
@@ -17275,7 +17287,8 @@ function renderAll(session, fw, templatesDir, checks = null) {
     const items = scopes[file];
     if (!items?.length) continue;
     const renderers = sectionRenderers(session, fw, file, checks);
-    let text = readFileSync3(join3(templatesDir, file), "utf8");
+    let text = templates[file];
+    if (text == null) throw new RenderError(`no template for ${file}`);
     for (const section of sections) {
       const fn = renderers[section];
       if (!fn) throw new RenderError(`${file}: no renderer for section ${section}`);
@@ -17329,24 +17342,41 @@ function lineDiff(before, after, context = 2) {
   return out2.join("\n");
 }
 
+// src/lib/checks.ts
+var import_yaml2 = __toESM(require_dist(), 1);
+import { existsSync as existsSync2, readFileSync as readFileSync2, readdirSync as readdirSync2 } from "node:fs";
+import { join as join2 } from "node:path";
+function readConfig(dir) {
+  const file = join2(dir, ".intake-kit", "checks.json");
+  if (!existsSync2(file)) return { config: DEFAULT_CONFIG, found: false };
+  const raw = JSON.parse(readFileSync2(file, "utf8"));
+  const config = { ...DEFAULT_CONFIG, ...raw };
+  const unknown = config.enabled.filter((c) => !CHECK_IDS.includes(c));
+  if (unknown.length) throw new Error(`.intake-kit/checks.json enables unknown checks: ${unknown.join(", ")}`);
+  if (!Array.isArray(config.flagged_paths) || !config.flagged_paths.every((p) => typeof p === "string")) {
+    throw new Error(".intake-kit/checks.json: flagged_paths must be a list of glob strings");
+  }
+  return { config, found: true };
+}
+
 // src/lib/state.ts
 var import_yaml3 = __toESM(require_dist(), 1);
-import { appendFileSync, existsSync as existsSync3, mkdirSync, readFileSync as readFileSync4, renameSync, writeFileSync } from "node:fs";
-import { dirname, join as join4 } from "node:path";
+import { appendFileSync, existsSync as existsSync3, mkdirSync, readFileSync as readFileSync3, renameSync, writeFileSync } from "node:fs";
+import { dirname, join as join3 } from "node:path";
 import { fileURLToPath } from "node:url";
 var SESSION_FILE = "intake-answers.yaml";
 function paths(dir) {
-  const state = join4(dir, ".intake-kit");
+  const state = join3(dir, ".intake-kit");
   return {
-    session: join4(dir, SESSION_FILE),
+    session: join3(dir, SESSION_FILE),
     stateDir: state,
-    marker: join4(state, "active"),
-    transcript: join4(state, "transcript.jsonl"),
-    turn: join4(state, "turn.json"),
-    rejections: join4(state, "rejections.jsonl"),
-    state: join4(state, "state.json"),
-    archive: join4(state, "archive"),
-    gitignore: join4(state, ".gitignore")
+    marker: join3(state, "active"),
+    transcript: join3(state, "transcript.jsonl"),
+    turn: join3(state, "turn.json"),
+    rejections: join3(state, "rejections.jsonl"),
+    state: join3(state, "state.json"),
+    archive: join3(state, "archive"),
+    gitignore: join3(state, ".gitignore")
   };
 }
 var STATE_GITIGNORE = `# Local intake-kit state. Transcripts hold the user's exact words and stay on this machine.
@@ -17364,28 +17394,28 @@ function ensureStateDir(dir) {
 function archive(dir, file, name) {
   const p = paths(dir);
   mkdirSync(p.archive, { recursive: true });
-  const target = join4(p.archive, name);
+  const target = join3(p.archive, name);
   renameSync(file, target);
   return target;
 }
 function archiveText(dir, name, content) {
   const p = paths(dir);
   mkdirSync(p.archive, { recursive: true });
-  const target = join4(p.archive, name);
+  const target = join3(p.archive, name);
   writeFileSync(target, content);
   return target;
 }
 function readTranscript(dir) {
   const file = paths(dir).transcript;
   if (!existsSync3(file)) return null;
-  return readFileSync4(file, "utf8").split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
+  return readFileSync3(file, "utf8").split("\n").filter((line) => line.trim()).map((line) => JSON.parse(line));
 }
 function writeTranscript(dir, entries) {
   writeFileSync(paths(dir).transcript, entries.map((e) => JSON.stringify(e) + "\n").join(""));
 }
 function readSession(dir) {
   const file = paths(dir).session;
-  return existsSync3(file) ? (0, import_yaml3.parse)(readFileSync4(file, "utf8")) : null;
+  return existsSync3(file) ? (0, import_yaml3.parse)(readFileSync3(file, "utf8")) : null;
 }
 function writeSession(dir, session) {
   const header = "# Written by intake-kit. Edit with care: every SPEC and ACCEPTANCE line is rendered from this file.\n";
@@ -17394,7 +17424,7 @@ function writeSession(dir, session) {
 function readRunState(dir) {
   const file = paths(dir).state;
   if (!existsSync3(file)) return { consecutive_rejections: 0 };
-  return JSON.parse(readFileSync4(file, "utf8"));
+  return JSON.parse(readFileSync3(file, "utf8"));
 }
 function writeRunState(dir, state) {
   writeFileSync(paths(dir).state, JSON.stringify(state, null, 2) + "\n");
@@ -17402,7 +17432,7 @@ function writeRunState(dir, state) {
 function pluginRoot(from = fileURLToPath(import.meta.url)) {
   let dir = dirname(from);
   for (; ; ) {
-    if (existsSync3(join4(dir, ".claude-plugin", "plugin.json")) || existsSync3(join4(dir, "kit.json"))) return dir;
+    if (existsSync3(join3(dir, ".claude-plugin", "plugin.json")) || existsSync3(join3(dir, "kit.json"))) return dir;
     const parent = dirname(dir);
     if (parent === dir) throw new Error(`intake-kit: can't find the plugin root above ${from}`);
     dir = parent;
@@ -17482,7 +17512,7 @@ function applyTurnCommand(dir, turnFile) {
   if (!existsSync4(turnFile)) return out(4, { result: "no_turn", message: `Write the turn JSON to ${turnFile} first.` });
   let turn;
   try {
-    turn = JSON.parse(readFileSync5(turnFile, "utf8"));
+    turn = JSON.parse(readFileSync4(turnFile, "utf8"));
   } catch (err) {
     turn = { __unparseable: err.message };
   }
@@ -17528,29 +17558,29 @@ function renderCommand(dir, overwrite, keep) {
   const both = overwrite.filter((f) => keep.includes(f));
   if (both.length) return out(4, { result: "bad_option", message: `Use --overwrite or --keep for a file, not both: ${both.join(", ")}` });
   const root = pluginRoot();
-  const checks = existsSync4(join5(paths(dir).stateDir, "checks.json")) ? readConfig(dir).config : null;
-  const rendered = renderAll(session, loadFramework(root), join5(root, "templates"), checks);
+  const checks = existsSync4(join4(paths(dir).stateDir, "checks.json")) ? readConfig(dir).config : null;
+  const rendered = renderAll(session, loadFramework(root), readTemplates(root), checks);
   const unknown = [...overwrite, ...keep].filter((f) => !rendered.has(f));
   if (unknown.length) return out(4, { result: "bad_option", message: `--overwrite/--keep name files this intake doesn't render: ${unknown.join(", ")}` });
-  const ledgerFile = join5(paths(dir).stateDir, "rendered.json");
-  const raw = existsSync4(ledgerFile) ? JSON.parse(readFileSync5(ledgerFile, "utf8")) : {};
+  const ledgerFile = join4(paths(dir).stateDir, "rendered.json");
+  const raw = existsSync4(ledgerFile) ? JSON.parse(readFileSync4(ledgerFile, "utf8")) : {};
   const ledger = raw.written || raw.kept ? { written: raw.written ?? {}, kept: raw.kept ?? {} } : { written: raw, kept: {} };
   const hash = (text) => createHash("sha256").update(text).digest("hex");
   const write = (file, content) => {
-    writeFileSync2(join5(dir, file), content);
+    writeFileSync2(join4(dir, file), content);
     ledger.written[file] = hash(content);
     delete ledger.kept[file];
   };
-  const staged = join5(paths(dir).stateDir, "render");
+  const staged = join4(paths(dir).stateDir, "render");
   const files = [];
   for (const [file, content] of rendered) {
-    const target = join5(dir, file);
+    const target = join4(dir, file);
     if (!existsSync4(target)) {
       write(file, content);
       files.push({ file, status: "written" });
       continue;
     }
-    const current = readFileSync5(target, "utf8").replace(/\r\n/g, "\n");
+    const current = readFileSync4(target, "utf8").replace(/\r\n/g, "\n");
     if (current === content) {
       ledger.written[file] = hash(content);
       files.push({ file, status: "unchanged" });
@@ -17564,7 +17594,7 @@ function renderCommand(dir, overwrite, keep) {
       ledger.kept[file] = hash(content);
       files.push({ file, status: "kept" });
     } else {
-      const stagedFile = join5(staged, file);
+      const stagedFile = join4(staged, file);
       mkdirSync2(dirname2(stagedFile), { recursive: true });
       writeFileSync2(stagedFile, content);
       files.push({ file, status: "needs_confirmation", diff: lineDiff(current, content), staged: stagedFile });

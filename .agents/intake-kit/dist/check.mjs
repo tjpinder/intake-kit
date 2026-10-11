@@ -7387,6 +7387,8 @@ var import_yaml = __toESM(require_dist(), 1);
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+
+// src/lib/check-meta.ts
 var CHECK_IDS = ["traceability", "eval_gate", "kill_criteria", "flagged_paths", "open_assumptions"];
 var CHECK_LABELS = {
   traceability: "Every SPEC and ACCEPTANCE requirement cites a real answer in the user's words",
@@ -7403,6 +7405,8 @@ var DEFAULT_CONFIG = {
   eval_command: null,
   evals_dir: "evals"
 };
+
+// src/lib/checks.ts
 var pass = (id, summary, details = []) => ({ id, status: "pass", summary, details });
 var fail = (id, summary, details = []) => ({ id, status: "fail", summary, details });
 var skip = (id, summary) => ({ id, status: "skipped", summary, details: [] });

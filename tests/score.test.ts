@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadFramework } from "../src/lib/framework.ts";
+import { loadFramework } from "../src/lib/framework-fs.ts";
 import { levelOf, quadrantOf, scoreItem, adoptionRisks, ScoringError, type Level } from "../src/lib/score.ts";
 import { makeItem } from "./helpers.ts";
 

@@ -2,7 +2,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
-import { loadFramework } from "../src/lib/framework.ts";
+import { loadFramework } from "../src/lib/framework-fs.ts";
 import { scoreAndGate, criticalAreas, gateItem, GateError } from "../src/lib/gates.ts";
 import { validateSession } from "../src/lib/schemas.ts";
 import { scoreItem } from "../src/lib/score.ts";

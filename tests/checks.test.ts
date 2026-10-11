@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
-import { loadFramework } from "../src/lib/framework.ts";
+import { loadFramework, readTemplates } from "../src/lib/framework-fs.ts";
 import { renderAll } from "../src/lib/render.ts";
 import { scoreAndGate } from "../src/lib/gates.ts";
 import { writeSession } from "../src/lib/state.ts";
@@ -28,7 +28,7 @@ function repo(session: Session = fixture()): string {
   dirs.push(dir);
   writeSession(dir, session);
   if (session.session.reflect_back?.confirmed) {
-    for (const [file, text] of renderAll(session, fw, "templates")) writeFileSync(join(dir, file), text);
+    for (const [file, text] of renderAll(session, fw, readTemplates("."))) writeFileSync(join(dir, file), text);
   }
   return dir;
 }

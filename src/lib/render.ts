@@ -8,11 +8,9 @@
 // " · ". Bullets in SPEC's Open questions cite the area only. Interviewer-written summaries are
 // blockquotes, never bullets.
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import type { Area, Framework } from "./framework.ts";
 import { adoptionRisks } from "./score.ts";
-import { CHECK_LABELS, type ChecksConfig } from "./checks.ts";
+import { CHECK_LABELS, type ChecksConfig } from "./check-meta.ts";
 import { coverageFor, type CoverageEntry, type Item, type Session } from "./session.ts";
 
 export class RenderError extends Error {}
@@ -293,8 +291,11 @@ function sectionRenderers(session: Session, fw: Framework, file: string, checks:
   }
 }
 
-/** Renders every output file that has items in scope. Throws if the session isn't gated yet. */
-export function renderAll(session: Session, fw: Framework, templatesDir: string, checks: ChecksConfig | null = null): Map<string, string> {
+/**
+ * Renders every output file that has items in scope, from templates passed in as text (keyed
+ * by file name; see readTemplates in framework-fs.ts). Throws if the session isn't gated yet.
+ */
+export function renderAll(session: Session, fw: Framework, templates: Record<string, string>, checks: ChecksConfig | null = null): Map<string, string> {
   if (!session.session.reflect_back?.confirmed || session.items.some((i) => !i.gate || !i.scoring)) {
     throw new RenderError("The session isn't scored and gated yet: confirm the reflect-back first.");
   }
@@ -304,7 +305,8 @@ export function renderAll(session: Session, fw: Framework, templatesDir: string,
     const items = scopes[file];
     if (!items?.length) continue;
     const renderers = sectionRenderers(session, fw, file, checks);
-    let text = readFileSync(join(templatesDir, file), "utf8");
+    let text = templates[file];
+    if (text == null) throw new RenderError(`no template for ${file}`);
     for (const section of sections) {
       const fn = renderers[section];
       if (!fn) throw new RenderError(`${file}: no renderer for section ${section}`);

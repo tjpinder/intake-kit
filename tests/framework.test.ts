@@ -4,7 +4,8 @@ import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync, renameSync } 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
-import { loadFramework, FrameworkError, type Framework } from "../src/lib/framework.ts";
+import { FrameworkError, type Framework } from "../src/lib/framework.ts";
+import { loadFramework } from "../src/lib/framework-fs.ts";
 
 const fw: Framework = loadFramework(".");
 

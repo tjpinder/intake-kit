@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { loadFramework } from "../src/lib/framework.ts";
+import { loadFramework } from "../src/lib/framework-fs.ts";
 import { applyTurn, type ApplyResult } from "../src/lib/apply-turn.ts";
 import { normalize, findQuote, type TranscriptEntry } from "../src/lib/grounding.ts";
 import { validateSession } from "../src/lib/schemas.ts";

@@ -18,7 +18,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { dirname, join } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
-import { loadFramework } from "../lib/framework.ts";
+import { loadFramework, readTemplates } from "../lib/framework-fs.ts";
 import { applyTurn } from "../lib/apply-turn.ts";
 import { guide, statusOf } from "../lib/guide.ts";
 import { renderAll } from "../lib/render.ts";
@@ -163,7 +163,7 @@ function renderCommand(dir: string, overwrite: string[], keep: string[]) {
   if (both.length) return out(4, { result: "bad_option", message: `Use --overwrite or --keep for a file, not both: ${both.join(", ")}` });
   const root = pluginRoot();
   const checks = existsSync(join(paths(dir).stateDir, "checks.json")) ? readConfig(dir).config : null;
-  const rendered = renderAll(session, loadFramework(root), join(root, "templates"), checks);
+  const rendered = renderAll(session, loadFramework(root), readTemplates(root), checks);
   const unknown = [...overwrite, ...keep].filter((f) => !rendered.has(f));
   if (unknown.length) return out(4, { result: "bad_option", message: `--overwrite/--keep name files this intake doesn't render: ${unknown.join(", ")}` });
 

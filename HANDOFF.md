@@ -516,6 +516,15 @@ Codex isn't installed on the build machine. Build the `.agents/skills/` mirror a
 - **Version stamping.** `doctor.mjs` and `check.mjs` report the version stamped in at build time. That fixed a crash the standalone-kit test found: `doctor.mjs` used to read `.claude-plugin/plugin.json`, which the Codex kit doesn't have.
 - **Status: untested in Codex.** Before relying on it, run `$intake` once in a real Codex session and record the result here.
 
+**Web UI decisions (Oct 11)**
+
+- **Built next**, ahead of dogfooding and Week 2. Hosting: Azure Static Web Apps with its managed Azure Functions API, in the Azure sponsorship subscription. Frontend: React, Vite and TypeScript, under `web/`; the function under `api/`. Default `*.azurestaticapps.net` URL for now.
+- **Public from day one.** Azure OpenAI on the kit's key is the default provider; visitors can bring their own Azure OpenAI or Claude key, which is passed through and never stored. Claude is bring-your-own-key only (no Anthropic key on the server). Cloudflare Turnstile (invisible) guards session starts.
+- **Caps.** $100 a month, enforced in the function from its own token counts, plus an Azure budget alert at 50% and 90% as a backstop. Default ceiling of 60 turns per session, plus a per-session dollar ceiling set from the model's pricing.
+- **"Nothing stored server-side", made precise.** The function keeps only aggregate counters in Azure Table storage: monthly tokens and dollars, and hashed-IP request counts that expire within a day. No conversation text, answers or sessions are stored; they stay in the browser and download as a zip.
+- **Same core as the plugin.** Phase 1 split the pure logic from its Node loaders: `buildFramework` takes the YAML as text, `renderAll` takes templates as text, and `src/core.ts` is the browser entry. A test bundles it for the browser platform and replays the worked example through it. Grounding is stronger in the UI than in the plugin, because the transcript is the chat itself.
+- **Azure OpenAI pattern** comes from the marketing repo (`Startvest-LLC/marketing-agent`): classic Azure OpenAI on `startvest-studio-openai` (resource group `rg-startvest-studio`), deployment-scoped chat completions with an `api-key` header and API version `2024-10-21`, raw `fetch` with no SDK, and retry on 429 and 503 honouring `Retry-After` (capped at 60 s), otherwise exponential backoff with jitter. Changes for this app: strict `json_schema` structured output (marketing uses `json_object`), a request timeout, a dedicated deployment so usage and budget are separate, and a budget gate that fails closed (a public endpoint can't fail open).
+
 **Handoff file:** Claude Code copies this spec into the repo as `HANDOFF.md`.
 
 ## Testing

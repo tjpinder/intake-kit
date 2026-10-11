@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
-import { loadFramework } from "../src/lib/framework.ts";
+import { loadFramework, readTemplates } from "../src/lib/framework-fs.ts";
 import { renderAll, RenderError } from "../src/lib/render.ts";
 import { scoreAndGate } from "../src/lib/gates.ts";
 import { lineDiff } from "../src/lib/diff.ts";
@@ -15,7 +15,7 @@ import { makeItem, makeSession, unknown, covered } from "./helpers.ts";
 
 const fw = loadFramework(".");
 const fixture = (): Session => parseYaml(readFileSync("tests/fixtures/session/pick-exception-scored.yaml", "utf8"));
-const render = (s: Session) => renderAll(s, fw, "templates");
+const render = (s: Session) => renderAll(s, fw, readTemplates("."));
 const gated = (...args: Parameters<typeof makeSession>) => scoreAndGate(makeSession(...args), fw).session;
 
 describe("golden files", () => {

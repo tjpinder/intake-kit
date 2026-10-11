@@ -2,7 +2,9 @@
 
 Turn a vague ops request into a build-ready spec in 30 minutes.
 
-intake-kit is a Claude Code plugin. It runs a guided intake interview, scores what it hears, gates each item (Go, Gather more, Don't build, Fix not build), and writes a spec pack with guardrails derived from what the user actually said.
+**Try it:** https://agreeable-hill-0ede1650f.5.azurestaticapps.net (or [watch a sample intake](https://agreeable-hill-0ede1650f.5.azurestaticapps.net/?sample), no sign-up, no model calls).
+
+intake-kit is a Claude Code plugin, a Codex kit and a web app. It runs a guided intake interview, scores what it hears, gates each item (Go, Gather more, Don't build, Fix not build), and writes a spec pack with guardrails derived from what the user actually said.
 
 > **Status:** in development. All three commands work in Claude Code. The Codex packaging is built but not yet tested in Codex. The worked example and the docs site are still to come. See [HANDOFF.md](HANDOFF.md) for the full spec.
 

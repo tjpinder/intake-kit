@@ -545,6 +545,15 @@ Codex isn't installed on the build machine. Build the `.agents/skills/` mirror a
 - **Security headers** in `web/public/staticwebapp.config.json`: a CSP limited to the app and Cloudflare Turnstile, no framing, no referrer. The CSP allows `'unsafe-eval'` because ajv compiles its validators at runtime in the browser; precompiling them with ajv's standalone mode would remove that, and is a reasonable follow-up.
 - **Verified** in headless Edge at 1400 px and with phone emulation at 390 px (no horizontal overflow), including a bring-your-own-key turn against the real Claude API with an invalid key (401 shown plainly, message restored). Not yet verified: a live interview on the kit's Azure model (needs the deployment), and Turnstile (needs keys).
 
+**Deployment (web phase 5, Oct 11)**
+
+- **Live at https://agreeable-hill-0ede1650f.5.azurestaticapps.net** (Static Web Apps, Free plan). Every push to `main` runs the typecheck and tests, then deploys (`.github/workflows/deploy.yml`, token in the `AZURE_STATIC_WEB_APPS_API_TOKEN` repo secret).
+- **Everything is in resource group `rg-intake-kit`** (East US 2) on the Microsoft Azure Sponsorship subscription: the Static Web App `intake-kit`; a dedicated Azure OpenAI resource `intakekit-openai` with deployment `intake-kit-turn` (gpt-4.1-mini 2025-04-14, GlobalStandard, 100K tokens a minute); and storage account `intakekit08c47a` for the counters table. A dedicated OpenAI resource keeps the public app's key separate from other products' keys and lets the budget see only this app's spend.
+- **App settings** on the Static Web App: `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_MODEL`, `AZURE_STORAGE_CONNECTION_STRING`, `IP_HASH_SALT`. Not yet set: `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` (bot protection is off until they are; rate limits and caps still apply).
+- **Azure budget** `intake-kit-monthly` on `rg-intake-kit`: $100 a month, alerting at 50% and 90% of actual spend and at a 100% forecast.
+- **Verified in production:** page, sample and security headers served; `/api/config` reports the kit model; a real turn ran through the deployed function (classified as broken, one rejected attempt retried, $0.0074, 4.8 s); the counters table recorded exactly that spend, with the visitor only as a hashed IP.
+- **Found by the first live call:** stripping the schema's document `title` key removed new items' real `title` property, so Azure rejected the schema. Fixed, with a test that checks every object's `required` list against its properties for both providers.
+
 **Handoff file:** Claude Code copies this spec into the repo as `HANDOFF.md`.
 
 ## Testing

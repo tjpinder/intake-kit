@@ -78,6 +78,29 @@ describe("context and history", () => {
 });
 
 describe("provider schemas", () => {
+  // Found live: stripping "title" everywhere removed new items' real title property, and Azure
+  // rejected the schema because "required" named a property that no longer existed.
+  for (const [name, schemaOf] of [["Azure", azureTurnSchema], ["Claude", claudeTurnSchema]] as const) {
+    test(`${name}: every object's required list matches its properties exactly`, () => {
+      const problems: string[] = [];
+      const walk = (node: any, path: string) => {
+        if (Array.isArray(node)) return node.forEach((n, i) => walk(n, `${path}/${i}`));
+        if (!node || typeof node !== "object") return;
+        if (node.properties) {
+          const props = Object.keys(node.properties).sort();
+          const req = [...(node.required ?? [])].sort();
+          if (JSON.stringify(props) !== JSON.stringify(req)) problems.push(`${path}: properties ${props} vs required ${req}`);
+        }
+        for (const [k, v] of Object.entries(node)) if (k !== "enum" && k !== "required") walk(v, `${path}/${k}`);
+      };
+      const schema = schemaOf();
+      walk(schema, "#");
+      assert.deepEqual(problems, []);
+      assert.ok("title" in schema.$defs.new_item.properties, "new items keep their title property");
+      assert.equal(schema.title, undefined, "the document title is stripped");
+    });
+  }
+
   test("Azure: meta keys stripped, otherwise the strict turn schema", () => {
     const s = azureTurnSchema();
     assert.equal(s.$schema, undefined);

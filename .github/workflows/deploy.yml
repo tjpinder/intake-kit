@@ -1,0 +1,42 @@
+name: Deploy web app
+
+# Builds the web UI and its API and uploads both to Azure Static Web Apps (rg-intake-kit,
+# Sponsorship subscription). Tests run first; nothing deploys if any fail.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Build the web app and its API
+        run: |
+          npm run build:web
+          npm run build:api
+      - name: Deploy to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: web/dist
+          api_location: api
+          skip_app_build: true
+          skip_api_build: true

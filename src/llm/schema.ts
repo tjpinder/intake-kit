@@ -5,22 +5,28 @@ import { turnSchema } from "../lib/schemas.ts";
 
 type Json = any;
 
-const META_KEYS = new Set(["$schema", "$id", "title"]);
+/** Document-level keys providers don't want. Only stripped at the root: "title" is also a real turn property. */
+const ROOT_META_KEYS = new Set(["$schema", "$id", "title"]);
 
 function transform(node: Json, rewrite: (n: Json) => Json): Json {
   if (Array.isArray(node)) return node.map((n) => transform(n, rewrite));
   if (node === null || typeof node !== "object") return node;
   const out: Json = {};
   for (const [k, v] of Object.entries(node)) {
-    if (META_KEYS.has(k)) continue;
-    out[k] = k === "enum" || k === "required" ? v : transform(v, rewrite);
+    // Inside "properties" and "$defs" the keys are names, not keywords: copy each value through.
+    if (k === "properties" || k === "$defs") out[k] = Object.fromEntries(Object.entries(v as object).map(([name, sub]) => [name, transform(sub, rewrite)]));
+    else out[k] = k === "enum" || k === "required" ? v : transform(v, rewrite);
   }
   return rewrite(out);
 }
 
-/** Azure OpenAI strict json_schema: the schema minus its meta keys. */
+function withoutRootMeta(schema: Json): Json {
+  return Object.fromEntries(Object.entries(schema).filter(([k]) => !ROOT_META_KEYS.has(k)));
+}
+
+/** Azure OpenAI strict json_schema: the schema minus its document-level meta keys. */
 export function azureTurnSchema(): Json {
-  return transform(turnSchema, (n) => n);
+  return withoutRootMeta(transform(turnSchema, (n) => n));
 }
 
 /**
@@ -28,12 +34,12 @@ export function azureTurnSchema(): Json {
  * ["string", "null"] rewritten as anyOf, which Claude's documented schema subset supports.
  */
 export function claudeTurnSchema(): Json {
-  return transform(turnSchema, (n) => {
+  return withoutRootMeta(transform(turnSchema, (n) => {
     if (!Array.isArray(n.type)) return n;
     const { type, description, ...rest } = n;
     return {
       ...(description ? { description } : {}),
       anyOf: (type as string[]).map((t) => (t === "null" ? { type: "null" } : { type: t, ...rest })),
     };
-  });
+  }));
 }

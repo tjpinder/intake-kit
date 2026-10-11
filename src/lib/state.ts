@@ -86,7 +86,8 @@ export function readSession(dir: string): Session | null {
 
 export function writeSession(dir: string, session: Session): void {
   const header = "# Written by intake-kit. Edit with care: every SPEC and ACCEPTANCE line is rendered from this file.\n";
-  writeFileSync(paths(dir).session, header + stringifyYaml(session, { lineWidth: 0 }));
+  // No anchors/aliases: shared arrays (e.g. evidence copied into scoring) are written out in full.
+  writeFileSync(paths(dir).session, header + stringifyYaml(session, { lineWidth: 0, aliasDuplicateObjects: false }));
 }
 
 interface RunState { consecutive_rejections: number }

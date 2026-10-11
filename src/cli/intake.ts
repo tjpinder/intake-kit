@@ -2,6 +2,8 @@
 //
 //   start [--mode stakeholder|builder] [--provider claude|codex] [--grounding transcript|unverified] [--new | --resume]
 //   apply-turn [--turn <file>]          (default: .intake-kit/turn.json)
+//   status                              what's still open, as returned after every turn
+//   guide                               the router, areas and bands, as markdown for the skill
 //
 // Options: --dir <repo> (default: current directory). Output is one JSON object on stdout.
 // Exit codes: 0 done, 2 turn rejected (retry once), 3 rejected again (don't retry),
@@ -12,6 +14,7 @@ import { randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
 import { loadFramework } from "../lib/framework.ts";
 import { applyTurn } from "../lib/apply-turn.ts";
+import { guide, statusOf } from "../lib/guide.ts";
 import {
   archive, archiveText, ensureStateDir, paths, pluginRoot, readRunState, readSession, readTranscript,
   writeRunState, writeSession, writeTranscript,
@@ -35,11 +38,7 @@ function start(dir: string, opts: { mode: string; provider: string; grounding: s
     const done = existing.session.reflect_back?.confirmed === true;
     if (opts.resume && !done) {
       if (existing.session.grounding === "transcript" && !existsSync(p.marker)) writeFileSync(p.marker, "");
-      return out(0, {
-        result: "resumed",
-        session_id: existing.session.id,
-        items: existing.items.map((i) => ({ id: i.id, title: i.title, type: i.type })),
-      });
+      return out(0, { result: "resumed", session_id: existing.session.id, status: statusOf(existing, fw) });
     }
     if (!opts.new) {
       return out(4, {
@@ -92,7 +91,7 @@ function start(dir: string, opts: { mode: string; provider: string; grounding: s
       warnings.push("No transcript has been recorded yet, so quotes can't be verified. The prompt hook may not be installed or enabled; check /hooks. Every quoted answer will be rejected until it records the user's messages.");
     }
   }
-  return out(0, { result: "started", session_id: session.session.id, session_file: p.session, warnings });
+  return out(0, { result: "started", session_id: session.session.id, session_file: p.session, warnings, status: statusOf(session, fw) });
 }
 
 function applyTurnCommand(dir: string, turnFile: string) {
@@ -108,7 +107,8 @@ function applyTurnCommand(dir: string, turnFile: string) {
     turn = { __unparseable: (err as Error).message };
   }
   const transcript = session.session.grounding === "transcript" ? (readTranscript(dir) ?? []) : null;
-  const result = applyTurn(session, turn, { fw: loadFramework(pluginRoot()), transcript, now: now() });
+  const fw = loadFramework(pluginRoot());
+  const result = applyTurn(session, turn, { fw, transcript, now: now() });
   const state = readRunState(dir);
 
   if (!result.applied) {
@@ -138,7 +138,9 @@ function applyTurnCommand(dir: string, turnFile: string) {
   return out(0, {
     result: "applied",
     scored: result.confirmed,
-    gates: result.confirmed ? result.session.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons })) : undefined,
+    ...(result.confirmed
+      ? { gates: result.session.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons, revisit_trigger: i.gate?.revisit_trigger })) }
+      : { status: statusOf(result.session, fw) }),
   });
 }
 
@@ -171,8 +173,16 @@ function main() {
       return start(dir, { mode: values.mode!, provider: values.provider!, grounding: values.grounding!, new: values.new!, resume: values.resume! });
     case "apply-turn":
       return applyTurnCommand(dir, values.turn ?? paths(dir).turn);
+    case "status": {
+      const session = readSession(dir);
+      if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
+      return out(0, { result: "status", session_id: session.session.id, status: statusOf(session, loadFramework(pluginRoot())) });
+    }
+    case "guide":
+      process.stdout.write(guide(loadFramework(pluginRoot())));
+      return;
     default:
-      return out(4, { result: "bad_command", message: "usage: intake.mjs start | apply-turn  (see the header of src/cli/intake.ts)" });
+      return out(4, { result: "bad_command", message: "usage: intake.mjs start | apply-turn | status | guide  (see the header of src/cli/intake.ts)" });
   }
 }
 

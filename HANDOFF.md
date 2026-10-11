@@ -477,6 +477,14 @@ Codex isn't installed on the build machine. Build the `.agents/skills/` mirror a
 - **`session.grounding`** is `transcript` (quotes checked) or `unverified` (no transcript, e.g. Codex without the hook; quotes aren't checked and the session says so).
 - **Bundling.** Each bundled script defines `require` via `createRequire`, because `yaml` and `ajv` are CommonJS. The CLI tests run the built `dist/` scripts, and `npm test` builds first.
 
+**Intake skill decisions (step 5, Oct 11)**
+
+- **The skill carries no framework content.** `intake.mjs guide` generates the router, every coverage area and every allowed band from the YAML, and is injected when the skill starts. After every applied turn, `apply-turn` returns a `status` block (unasked areas, critical gaps, always-ask pending, probes available, missing facts, `ready_for_reflect_back`), so the model plans the next question from code, not memory. `intake.mjs status` returns the same on demand.
+- **Permissions.** The skill's `allowed-tools` cover `node <plugin>/dist/intake.mjs` in both Bash and PowerShell, quoted and unquoted, plus `Edit(./.intake-kit/turn.json)`. A live headless run needed no permission prompts.
+- **Rules added after live testing:** covered means everything the area must capture is answered; today's manual workaround is its own `manual_process` item (with `supersede` when the new thing replaces it); a probe records the vague answer in the same turn; bands must match the guide's wording, taking the lower band when torn; every band pick is said plainly in the reflect-back; never mention files, turns or rejections to the user; a checklist before every `apply-turn`.
+- **Session file** is written without YAML anchors or aliases.
+- **Rendering** isn't built yet (step 6). After gating, the skill reports each item's outcome and stops.
+
 **Handoff file:** Claude Code copies this spec into the repo as `HANDOFF.md`.
 
 ## Testing

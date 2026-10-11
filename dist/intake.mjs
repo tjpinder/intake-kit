@@ -6358,15 +6358,15 @@ var require_parser = __commonJS({
     var node_process = __require("process");
     var cst = require_cst();
     var lexer = require_lexer();
-    function includesToken(list, type) {
-      for (let i = 0; i < list.length; ++i)
-        if (list[i].type === type)
+    function includesToken(list2, type) {
+      for (let i = 0; i < list2.length; ++i)
+        if (list2[i].type === type)
           return true;
       return false;
     }
-    function findNonEmptyIndex(list) {
-      for (let i = 0; i < list.length; ++i) {
-        switch (list[i].type) {
+    function findNonEmptyIndex(list2) {
+      for (let i = 0; i < list2.length; ++i) {
+        switch (list2[i].type) {
           case "space":
           case "comment":
           case "newline":
@@ -15338,8 +15338,8 @@ var require_dist2 = __commonJS({
         return ajv2;
       }
       const [formats, exportName] = opts.mode === "fast" ? [formats_1.fastFormats, fastName] : [formats_1.fullFormats, fullName];
-      const list = opts.formats || formats_1.formatNames;
-      addFormats2(ajv2, list, formats, exportName);
+      const list2 = opts.formats || formats_1.formatNames;
+      addFormats2(ajv2, list2, formats, exportName);
       if (opts.keywords)
         (0, limit_1.default)(ajv2);
       return ajv2;
@@ -15351,11 +15351,11 @@ var require_dist2 = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats2(ajv2, list, fs, exportName) {
+    function addFormats2(ajv2, list2, fs, exportName) {
       var _a;
       var _b;
       (_a = (_b = ajv2.opts.code).formats) !== null && _a !== void 0 ? _a : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
-      for (const f of list)
+      for (const f of list2)
         ajv2.addFormat(f, fs[f]);
     }
     module.exports = exports = formatsPlugin2;
@@ -16789,6 +16789,96 @@ function applyTurn(original, turnData, ctx) {
   return { session: result, rejections: [], applied: true, confirmed: confirmedNow };
 }
 
+// src/lib/guide.ts
+var list = (xs) => xs.map((x) => `"${x}"`).join(", ");
+function areaBlock(a) {
+  const flags = [a.critical ? "critical" : "", a.always_ask ? "always ask" : ""].filter(Boolean).join(", ");
+  const lines = [`- \`${a.id}\`${flags ? ` (${flags})` : ""}: ${a.must_capture}`, `  - Ask: ${a.probes.map((p) => `"${p}"`).join(" \xB7 ")}`];
+  for (const f of a.followup_conditions) lines.push(`  - Follow up only when ${f.when}: "${f.ask}"${f.spawns ? ` (spawns a new ${f.spawns === "item" ? "" : `${f.spawns} `}item)` : ""}`);
+  if (a.stop_at) lines.push(`  - Stop at: ${a.stop_at}`);
+  return lines.join("\n");
+}
+function guide(fw) {
+  const { router, modules, scoring } = fw;
+  const out2 = [];
+  out2.push("## Entry types", "", "Classify each distinct pain into one type. Record the user's words that triggered it.", "");
+  for (const [type, t] of Object.entries(router.types)) {
+    out2.push(`- **${type}** (${t.label}). Signals: ${list(t.signals)}. If unsure, ask: "${t.low_confidence_probe}"`);
+  }
+  out2.push("", "## Modifiers", "", "Add to any item when you hear these; each adds its own areas.", "");
+  for (const [mod, m] of Object.entries(router.modifiers)) {
+    const effect = m.effects?.risk_tier ? " Sets risk tier high." : m.effects?.gate ? " Routes the item to more discovery." : "";
+    out2.push(`- **${mod}** (${m.label}). Signals: ${list(m.signals)}.${effect}`);
+  }
+  out2.push("", `Reclassify an item when ${router.rules.reclassify_min_signals} or more new signals point to another type, or the story contradicts the label. Shared-core answers carry over.`);
+  out2.push("", "## Shared core (once per session; use item: null)", "");
+  for (const a of modules.core.areas) out2.push(areaBlock(a));
+  for (const type of Object.keys(router.types)) {
+    const m = modules[type];
+    out2.push("", `## ${type} areas`, "");
+    for (const key of ["step_tags", "candidates", "self_serve_rule"]) {
+      if (m[key]) out2.push(`${key.replace("_", " ")}: ${Array.isArray(m[key]) ? m[key].join(", ") : m[key]}`, "");
+    }
+    for (const a of m.areas) out2.push(areaBlock(a));
+  }
+  for (const mod of Object.keys(router.modifiers)) {
+    out2.push("", `## mod.${mod} areas`, "");
+    for (const a of modules[`mod.${mod}`].areas) out2.push(areaBlock(a));
+  }
+  out2.push("", "## Facts: pick a band, never a number", "", "Use only these band names. Use `unknown` when the user hasn't said.", "");
+  for (const [name, c] of Object.entries(scoring.criteria)) {
+    out2.push(`- \`${name}\` (${c.label}): ${Object.entries(c.describe).map(([b, d]) => `\`${b}\` = ${d}`).join("; ")}; \`unknown\``);
+  }
+  out2.push(`- \`${scoring.ai_overlay.applies_fact}\`: ${Object.keys(scoring.ai_overlay.applies_bands).map((b) => `\`${b}\``).join(", ")}. "yes" only when the proposed solution uses an LLM.`);
+  out2.push("", "AI overlay checks, only when ai_applies is yes. Each is `pass`, `fail` or `unknown`:", "");
+  for (const [name, c] of Object.entries(scoring.ai_overlay.checks)) out2.push(`- \`${name}\` (${c.label}): passes when ${c.passes_when}`);
+  out2.push("", `Adoption forces, for ${scoring.adoption.applies_to.join(" and ")} items: ${scoring.adoption.forces.map((f) => `\`${f}\``).join(", ")}, each ${scoring.adoption.bands.map((b) => `\`${b}\``).join(", ")}.`);
+  out2.push("", "Gate facts:", "");
+  for (const [name, bands] of Object.entries(scoring.gate_facts)) out2.push(`- \`${name}\`: ${bands.map((b) => `\`${b}\``).join(", ")}`);
+  return out2.join("\n") + "\n";
+}
+function factsFor(item, fw) {
+  const s = fw.scoring;
+  const facts = [...Object.keys(s.criteria), s.ai_overlay.applies_fact, "success_metric", "existing_asset", "decision_depends"];
+  if (item.type === "broken") facts.push("broken_cause", "workaround_permanent");
+  if (s.adoption.applies_to.includes(item.type)) facts.push(...s.adoption.forces);
+  if (item.facts[s.ai_overlay.applies_fact]?.band === "yes") facts.push(...Object.keys(s.ai_overlay.checks));
+  return facts;
+}
+function statusOf(session, fw) {
+  const rb = session.session.reflect_back;
+  const core = Object.entries(session.core).map(([key, e]) => ({
+    area: `core.${key}`,
+    status: e.status,
+    asked: !!e.updated_at,
+    probe_available: !!e.updated_at && (e.status === "assumed" || e.status === "unknown") && e.probe_count === 0
+  }));
+  const items = session.items.map((item) => {
+    const modules = [item.type, ...item.modifiers.map((m) => `mod.${m}`)];
+    const areas = modules.flatMap((m) => fw.modules[m]?.areas ?? []);
+    const asked = (id) => id.startsWith("core.") ? !!(item.core_overrides[id.slice(5)] ?? session.core[id.slice(5)])?.updated_at : !!item.coverage[id]?.updated_at;
+    const probeable = areas.map((a) => [a.id, item.coverage[a.id]]).filter(([, e]) => e?.updated_at && (e.status === "assumed" || e.status === "unknown") && e.probe_count === 0).map(([id]) => id);
+    return {
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      modifiers: item.modifiers,
+      superseded_by: item.superseded_by,
+      unasked: areas.filter((a) => !asked(a.id)).map((a) => a.id),
+      always_ask_pending: areas.filter((a) => a.always_ask && !asked(a.id)).map((a) => a.id),
+      critical_unasked: criticalAreas(item, fw).filter((id) => !asked(id)),
+      probe_available: probeable,
+      facts_missing: factsFor(item, fw).filter((f) => !item.facts[f])
+    };
+  });
+  return {
+    reflect_back: !rb ? "none" : rb.confirmed ? "confirmed" : "proposed",
+    core,
+    items,
+    ready_for_reflect_back: items.length > 0 && items.every((i) => i.critical_unasked.length === 0 && i.always_ask_pending.length === 0 && i.facts_missing.length === 0)
+  };
+}
+
 // src/lib/state.ts
 var import_yaml2 = __toESM(require_dist(), 1);
 import { appendFileSync, existsSync, mkdirSync, readFileSync as readFileSync2, renameSync, writeFileSync } from "node:fs";
@@ -16848,7 +16938,7 @@ function readSession(dir) {
 }
 function writeSession(dir, session) {
   const header = "# Written by intake-kit. Edit with care: every SPEC and ACCEPTANCE line is rendered from this file.\n";
-  writeFileSync(paths(dir).session, header + (0, import_yaml2.stringify)(session, { lineWidth: 0 }));
+  writeFileSync(paths(dir).session, header + (0, import_yaml2.stringify)(session, { lineWidth: 0, aliasDuplicateObjects: false }));
 }
 function readRunState(dir) {
   const file = paths(dir).state;
@@ -16883,11 +16973,7 @@ function start(dir, opts) {
     const done = existing.session.reflect_back?.confirmed === true;
     if (opts.resume && !done) {
       if (existing.session.grounding === "transcript" && !existsSync2(p.marker)) writeFileSync2(p.marker, "");
-      return out(0, {
-        result: "resumed",
-        session_id: existing.session.id,
-        items: existing.items.map((i) => ({ id: i.id, title: i.title, type: i.type }))
-      });
+      return out(0, { result: "resumed", session_id: existing.session.id, status: statusOf(existing, fw) });
     }
     if (!opts.new) {
       return out(4, {
@@ -16936,7 +17022,7 @@ function start(dir, opts) {
       warnings.push("No transcript has been recorded yet, so quotes can't be verified. The prompt hook may not be installed or enabled; check /hooks. Every quoted answer will be rejected until it records the user's messages.");
     }
   }
-  return out(0, { result: "started", session_id: session.session.id, session_file: p.session, warnings });
+  return out(0, { result: "started", session_id: session.session.id, session_file: p.session, warnings, status: statusOf(session, fw) });
 }
 function applyTurnCommand(dir, turnFile) {
   const p = paths(dir);
@@ -16950,7 +17036,8 @@ function applyTurnCommand(dir, turnFile) {
     turn = { __unparseable: err.message };
   }
   const transcript = session.session.grounding === "transcript" ? readTranscript(dir) ?? [] : null;
-  const result = applyTurn(session, turn, { fw: loadFramework(pluginRoot()), transcript, now: now() });
+  const fw = loadFramework(pluginRoot());
+  const result = applyTurn(session, turn, { fw, transcript, now: now() });
   const state = readRunState(dir);
   if (!result.applied) {
     const attempt = state.consecutive_rejections + 1;
@@ -16978,7 +17065,7 @@ function applyTurnCommand(dir, turnFile) {
   return out(0, {
     result: "applied",
     scored: result.confirmed,
-    gates: result.confirmed ? result.session.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons })) : void 0
+    ...result.confirmed ? { gates: result.session.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons, revisit_trigger: i.gate?.revisit_trigger })) } : { status: statusOf(result.session, fw) }
   });
 }
 function main() {
@@ -17008,8 +17095,16 @@ function main() {
       return start(dir, { mode: values.mode, provider: values.provider, grounding: values.grounding, new: values.new, resume: values.resume });
     case "apply-turn":
       return applyTurnCommand(dir, values.turn ?? paths(dir).turn);
+    case "status": {
+      const session = readSession(dir);
+      if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
+      return out(0, { result: "status", session_id: session.session.id, status: statusOf(session, loadFramework(pluginRoot())) });
+    }
+    case "guide":
+      process.stdout.write(guide(loadFramework(pluginRoot())));
+      return;
     default:
-      return out(4, { result: "bad_command", message: "usage: intake.mjs start | apply-turn  (see the header of src/cli/intake.ts)" });
+      return out(4, { result: "bad_command", message: "usage: intake.mjs start | apply-turn | status | guide  (see the header of src/cli/intake.ts)" });
   }
 }
 try {

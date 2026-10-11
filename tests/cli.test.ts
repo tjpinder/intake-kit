@@ -248,3 +248,21 @@ describe("apply-turn", () => {
     assert.equal(intake(dir, "apply-turn").status, 2);
   });
 });
+
+describe("session file", () => {
+  test("is written without YAML anchors or aliases, even when arrays are shared", async () => {
+    const { writeSession } = await import("../src/lib/state.ts");
+    const { makeItem, makeSession } = await import("./helpers.ts");
+    const { scoreAndGate } = await import("../src/lib/gates.ts");
+    const { loadFramework } = await import("../src/lib/framework.ts");
+    const item = makeItem("item-1");
+    item.facts.rule_clarity.evidence = ["data_report.definition"];
+    const scored = scoreAndGate(makeSession([item]), loadFramework(".")).session; // scoring reuses the facts' evidence arrays
+    assert.equal(scored.items[0].scoring!.criteria.rule_clarity.evidence, scored.items[0].facts.rule_clarity.evidence, "test setup: arrays should be shared");
+    const dir = repo();
+    writeSession(dir, scored);
+    const text = readFileSync(join(dir, "intake-answers.yaml"), "utf8");
+    assert.doesNotMatch(text, /[&*]a\d/);
+    assert.deepEqual(parseYaml(text), JSON.parse(JSON.stringify(scored)));
+  });
+});

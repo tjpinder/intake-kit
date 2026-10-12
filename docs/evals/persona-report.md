@@ -6,21 +6,18 @@ Rates are across runs. Completed means the user confirmed the reflect-back withi
 
 | Persona | Runs | Completed | Routed | Items | Gates | Checks | Ungrounded quotes | Retried turns | Failed turns | Avg turns | Avg cost |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| ops-supervisor-report | 3 | 100% | 100% | 67% | 0% | – | 0 | 13% | 3% | 10.3 | $0.057 |
-| orders-not-integrating | 3 | 100% | 100% | 100% | 100% | 100% | 0 | 6% | 0% | 12.0 | $0.062 |
-| invoice-matching-clerk | 3 | 100% | 100% | 100% | 100% | 67% | 0 | 18% | 11% | 9.3 | $0.061 |
-| ai-sops | 3 | 100% | 100% | 100% | 100% | 100% | 0 | 20% | 7% | 10.0 | $0.061 |
-| where-could-ai-help | 3 | 100% | 100% | 100% | 100% | – | 0 | 20% | 20% | 15.0 | $0.115 |
-| vague-impatient | 3 | 100% | 100% | 100% | 100% | 67% | 0 | 7% | 0% | 9.3 | $0.044 |
-| **All** | 18 | 100% | 100% | 94% | 83% | 83% | 0 | 14% | 8% | 11.0 | $0.066 |
+| ops-supervisor-report | 3 | 67% | 100% | 67% | 100% | – | 0 | 10% | 0% | 10.3 | $0.054 |
+| orders-not-integrating | 3 | 100% | 100% | 100% | 100% | 100% | 0 | 7% | 4% | 15.0 | $0.079 |
+| invoice-matching-clerk | 3 | 100% | 100% | 100% | 100% | 100% | 0 | 0% | 0% | 10.0 | $0.050 |
+| ai-sops | 3 | 100% | 100% | 100% | 100% | 100% | 0 | 3% | 0% | 10.3 | $0.050 |
+| where-could-ai-help | 3 | 100% | 100% | 100% | 100% | – | 0 | 8% | 0% | 12.7 | $0.067 |
+| vague-impatient | 3 | 100% | 100% | 100% | 100% | 67% | 0 | 9% | 0% | 11.7 | $0.056 |
+| **All** | 18 | 94% | 100% | 94% | 100% | 92% | 0 | 6% | 1% | 11.7 | $0.059 |
 
 ## What went wrong, per run
 
-- **ops-supervisor-report** run 1: missing items: manual_process; gates: data_report got gather_more (want go); manual_process got none (want dont_build); 1 items, want at least 2
-- **ops-supervisor-report** run 2: gates: data_report got gather_more (want go); manual_process got gather_more (want dont_build)
-- **ops-supervisor-report** run 3: gates: data_report got gather_more (want go); manual_process got gather_more (want dont_build)
-- **invoice-matching-clerk** run 1: quadrant: none
-- **vague-impatient** run 2: only 0 critical areas unknown
+- **ops-supervisor-report** run 1: didn't complete; interviewer: Azure OpenAI didn't answer within 60s.; missing items: manual_process; 1 items, want at least 2
+- **vague-impatient** run 1: only 1 critical areas unknown
 
 ## Not run
 

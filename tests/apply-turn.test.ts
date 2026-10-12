@@ -553,6 +553,14 @@ describe("answer capture (from the persona evals)", () => {
     assert.equal(r.session.core.outcome.value, ANSWER);
   });
 
+  test("a don't-know reply is captured as unknown, with their words, never as an assumption", () => {
+    const dunno = [{ role: "user" as const, text: "Not sure. Maybe finance or whoever handles numbers.", at: T0 }];
+    const r = run(emptyTurn(), { session: asked("core.outcome"), transcript: dunno });
+    assert.equal(r.session.core.outcome.status, "unknown");
+    assert.equal(r.session.core.outcome.value, null);
+    assert.deepEqual(r.session.core.outcome.quotes, ["Not sure. Maybe finance or whoever handles numbers."]);
+  });
+
   test("each applied turn remembers what it asked", () => {
     const t = emptyTurn();
     t.next_target = { item: null, area: "core.trust", is_probe: false };

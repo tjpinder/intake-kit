@@ -348,7 +348,13 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
       if (item && (module === item.type || item.modifiers.some((m) => `mod.${m}` === module))) target = item.coverage;
     }
     if (target && (!target[key]?.updated_at || target[key].status === "unknown")) {
-      target[key] = { status: "assumed", value: lastUser.text.trim(), quotes: [lastUser.text.trim()], probe_count: target[key]?.probe_count ?? 0, updated_at: now };
+      // "I don't know" is an answer too, but an unknown one, never an assumption (the vague
+      // persona's don't-knows were being stored as assumed answers).
+      const text = lastUser.text.trim();
+      const dontKnow = /\b(don'?t|do not) know\b|\bnot sure\b|\bno idea\b|\bunsure\b/i.test(text);
+      target[key] = dontKnow
+        ? { status: "unknown", value: null, quotes: [text], probe_count: target[key]?.probe_count ?? 0, updated_at: now }
+        : { status: "assumed", value: text, quotes: [text], probe_count: target[key]?.probe_count ?? 0, updated_at: now };
       warnings.push(`${asked.area} recorded from the user's reply: the turn didn't record the answer to the question it asked`);
     }
   }

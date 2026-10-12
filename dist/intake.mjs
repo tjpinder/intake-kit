@@ -16942,7 +16942,9 @@ function applyTurn(original, turnData, ctx) {
       if (item && (module === item.type || item.modifiers.some((m) => `mod.${m}` === module))) target = item.coverage;
     }
     if (target && (!target[key]?.updated_at || target[key].status === "unknown")) {
-      target[key] = { status: "assumed", value: lastUser.text.trim(), quotes: [lastUser.text.trim()], probe_count: target[key]?.probe_count ?? 0, updated_at: now2 };
+      const text = lastUser.text.trim();
+      const dontKnow = /\b(don'?t|do not) know\b|\bnot sure\b|\bno idea\b|\bunsure\b/i.test(text);
+      target[key] = dontKnow ? { status: "unknown", value: null, quotes: [text], probe_count: target[key]?.probe_count ?? 0, updated_at: now2 } : { status: "assumed", value: text, quotes: [text], probe_count: target[key]?.probe_count ?? 0, updated_at: now2 };
       warnings.push(`${asked.area} recorded from the user's reply: the turn didn't record the answer to the question it asked`);
     }
   }

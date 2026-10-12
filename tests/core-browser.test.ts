@@ -1,6 +1,7 @@
 // The web app runs src/core.ts in the browser. Bundle it for the browser platform and run it
 // the way the app will: framework from YAML text, the worked example replayed, files rendered.
 
+import { parse as parseYaml } from "yaml";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { build } from "esbuild";
@@ -25,7 +26,7 @@ test("src/core.ts bundles for the browser with no Node built-ins", async () => {
 test("the browser core runs a full intake from YAML text: replay, score, gate, render", async () => {
   // Import the core exactly as the app will (no fs inside it); the test reads the files.
   const core = await import("../src/core.ts");
-  const fw = core.buildFramework(readFrameworkSources("."));
+  const fw = core.buildFramework(readFrameworkSources("."), { parseYaml });
   const convo = JSON.parse(readFileSync("tests/fixtures/conversations/pick-exception.json", "utf8"));
 
   let session: import("../src/core.ts").Session = {

@@ -3,11 +3,8 @@
 // for the plugin and CLI at runtime, so tuning scoring.yaml there needs no rebuild. Any problem
 // throws with every issue listed, so a bad edit can't silently change how the intake behaves.
 
-import { parse as parseYaml } from "yaml";
-import { Ajv2020 } from "ajv/dist/2020.js";
-import frameworkSchema from "../../schema/framework.schema.json" with { type: "json" };
-import turnSchema from "../../schema/turn.schema.json" with { type: "json" };
-import sessionSchema from "../../schema/session.schema.json" with { type: "json" };
+import type { ValidateFunction } from "ajv";
+import { coreAreas, factNames } from "./generated/schema-facts.js";
 
 export type ItemType = "broken" | "manual_process" | "known_idea" | "exploratory" | "data_report";
 export type Modifier = "integration" | "compliance" | "migration";
@@ -103,46 +100,61 @@ export class FrameworkError extends Error {
   }
 }
 
-const ajv = new Ajv2020({ strict: true, allErrors: true });
-ajv.addSchema(frameworkSchema);
-const schemaId = (frameworkSchema as { $id: string }).$id;
-const validators = {
-  router: ajv.getSchema(`${schemaId}#/$defs/router`)!,
-  module: ajv.getSchema(`${schemaId}#/$defs/module`)!,
-  scoring: ajv.getSchema(`${schemaId}#/$defs/scoring`)!,
-  sections: ajv.getSchema(`${schemaId}#/$defs/sections`)!,
-};
+/**
+ * The framework's JSON Schema validators (src/lib/generated/framework-validators.js). Node callers
+ * pass them; the browser doesn't need to, since it only ever builds the framework from the YAML
+ * bundled into it, which the tests and CI already validate. The cross-checks below always run.
+ */
+export type FrameworkSchemaValidators = Record<"router" | "module" | "scoring" | "sections", ValidateFunction>;
 
-function check(kind: keyof typeof validators, data: unknown, file: string, issues: string[]): void {
-  const fn = validators[kind];
-  if (!fn(data)) {
+function check(validators: FrameworkSchemaValidators | undefined, kind: keyof FrameworkSchemaValidators, data: unknown, file: string, issues: string[]): void {
+  const fn = validators?.[kind];
+  if (fn && !fn(data)) {
     for (const e of fn.errors ?? []) issues.push(`${file}: ${e.instancePath || "/"} ${e.message ?? e.keyword}`);
   }
 }
 
 /** The fact names the turn and session schemas allow. All three lists must agree. */
 export function schemaFactNames(): { turn: string[]; session: string[] } {
-  const turn = (turnSchema as any).$defs.fact.properties.fact.enum as string[];
-  const session = (sessionSchema as any).$defs.item.properties.facts.propertyNames.enum as string[];
-  return { turn, session };
+  return { turn: factNames.turn, session: factNames.session };
 }
 
 /** The framework's YAML, as text. The Node loader reads it from disk; the web app bundles it. */
+/**
+ * Each source is YAML text, or the value it parses to. The web app passes parsed values (its
+ * build parses the YAML), so the browser doesn't need a YAML parser at startup.
+ */
 export interface FrameworkSources {
-  router: string;
-  scoring: string;
-  sections: string;
+  router: string | object;
+  scoring: string | object;
+  sections: string | object;
   /** Module YAML keyed by file name, e.g. "core.yaml". */
-  modules: Record<string, string>;
+  modules: Record<string, string | object>;
 }
 
 /**
  * Builds and checks the framework from its YAML text. Pure: no file system, so it runs in a
  * browser too. Throws FrameworkError listing every problem found.
  */
-export function buildFramework(sources: FrameworkSources): Framework {
+/**
+ * Node callers pass the YAML parser and the schema validators; the browser passes neither. It
+ * hands over values its build already parsed from YAML the tests and CI validate, so it needs no
+ * YAML parser or validators at startup. Keeping both as options keeps them out of its bundle.
+ */
+export interface BuildOptions {
+  parseYaml?: (text: string) => unknown;
+  schemas?: FrameworkSchemaValidators;
+}
+
+export function buildFramework(sources: FrameworkSources, options: BuildOptions = {}): Framework {
+  const { parseYaml, schemas } = options;
   const issues: string[] = [];
-  const parse = (text: string, file: string): unknown => {
+  const parse = (text: string | object, file: string): unknown => {
+    if (typeof text !== "string") return structuredClone(text);
+    if (!parseYaml) {
+      issues.push(`${file}: YAML text was given without a YAML parser (pass options.parseYaml)`);
+      return null;
+    }
     try {
       return parseYaml(text);
     } catch (err) {
@@ -152,18 +164,18 @@ export function buildFramework(sources: FrameworkSources): Framework {
   };
 
   const router = parse(sources.router, "router.yaml") as Router;
-  check("router", router, "router.yaml", issues);
+  check(schemas, "router", router, "router.yaml", issues);
 
   const scoring = parse(sources.scoring, "scoring.yaml") as Scoring;
-  check("scoring", scoring, "scoring.yaml", issues);
+  check(schemas, "scoring", scoring, "scoring.yaml", issues);
 
   const sections = parse(sources.sections, "templates/sections.yaml") as Sections;
-  check("sections", sections, "templates/sections.yaml", issues);
+  check(schemas, "sections", sections, "templates/sections.yaml", issues);
 
   const modules: Record<string, Module> = {};
   for (const file of Object.keys(sources.modules).filter((f) => f.endsWith(".yaml")).sort()) {
     const mod = parse(sources.modules[file], `modules/${file}`) as Module;
-    check("module", mod, `modules/${file}`, issues);
+    check(schemas, "module", mod, `modules/${file}`, issues);
     if (mod?.module) {
       if (`${mod.module}.yaml` !== file) issues.push(`modules/${file}: module "${mod.module}" doesn't match its file name`);
       modules[mod.module] = mod;
@@ -206,7 +218,7 @@ export function buildFramework(sources: FrameworkSources): Framework {
       }
     }
   }
-  const coreIds = (sessionSchema as any).properties.core.required.map((a: string) => `core.${a}`) as string[];
+  const coreIds = coreAreas.map((a) => `core.${a}`);
   const moduleCore = modules.core?.areas.map((a) => a.id) ?? [];
   if (JSON.stringify([...moduleCore].sort()) !== JSON.stringify([...coreIds].sort())) {
     issues.push(`modules/core.yaml areas (${moduleCore.join(", ")}) must match the session schema's core (${coreIds.join(", ")})`);

@@ -1,6 +1,8 @@
 // Node-side loaders: read the framework YAML and templates from a kit root, then hand the text
 // to the pure builders. The web app bundles the same files instead.
 
+import * as frameworkValidators from "./generated/framework-validators.js";
+import { parse as parseYaml } from "yaml";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { buildFramework, type Framework, type FrameworkSources } from "./framework.ts";
@@ -26,7 +28,7 @@ export function readFrameworkSources(root: string): FrameworkSources {
 
 /** Loads the framework from a kit root. Throws FrameworkError listing every problem found. */
 export function loadFramework(root: string): Framework {
-  return buildFramework(readFrameworkSources(root));
+  return buildFramework(readFrameworkSources(root), { parseYaml, schemas: frameworkValidators });
 }
 
 /** Every template in templates/, keyed by file name. */

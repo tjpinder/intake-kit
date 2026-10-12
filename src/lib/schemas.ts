@@ -1,29 +1,16 @@
-// Compiled validators for the two data contracts. Both schemas are bundled into dist/, so the
-// plugin never reads schema files at runtime.
+// Validators for the two data contracts, generated at build time (scripts/build-validators.mjs)
+// so nothing compiles code at runtime: the web app's CSP needs no 'unsafe-eval'.
 
-import { Ajv2020 } from "ajv/dist/2020.js";
-import { Ajv, type ErrorObject, type ValidateFunction } from "ajv";
-import formatsPlugin from "ajv-formats";
+import type { ErrorObject, ValidateFunction } from "ajv";
+import { validateSession as validateSessionFn } from "./generated/session-validator.js";
+import { validateTurn as validateTurnFn } from "./generated/turn-validator.js";
 import sessionSchema from "../../schema/session.schema.json" with { type: "json" };
 import turnSchema from "../../schema/turn.schema.json" with { type: "json" };
-
-// ajv-formats is CommonJS; under ESM its function may sit on .default.
-type AddFormats = (ajv: Ajv | Ajv2020) => unknown;
-const formatsModule = formatsPlugin as unknown as AddFormats & { default?: AddFormats };
-const addFormats: AddFormats = formatsModule.default ?? formatsModule;
 
 export interface ValidationResult {
   ok: boolean;
   errors: string[];
 }
-
-function compile(ajv: Ajv | Ajv2020, schema: object): ValidateFunction {
-  addFormats(ajv);
-  return ajv.compile(schema);
-}
-
-const validateSessionFn = compile(new Ajv2020({ strict: true, allErrors: true }), sessionSchema);
-const validateTurnFn = compile(new Ajv({ strict: true, allErrors: true }), turnSchema);
 
 function run(fn: ValidateFunction, data: unknown): ValidationResult {
   const ok = fn(data) as boolean;

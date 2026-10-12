@@ -1,4 +1,4 @@
-// Bundles each src/cli/*.ts entry, with yaml and ajv inlined, into a self-contained
+// Bundles each src/cli/*.ts entry, with yaml and the generated validators inlined, into a self-contained
 // dist/<name>.mjs. dist/ is committed so users never install or build anything.
 
 import { build } from "esbuild";
@@ -23,7 +23,7 @@ for (const entry of entries) {
     format: "esm",
     target: "node22",
     define: { __INTAKE_KIT_VERSION__: JSON.stringify(JSON.parse(readFileSync(".claude-plugin/plugin.json", "utf8")).version) },
-    // yaml and ajv are CommonJS and call require() internally; an ESM bundle has no require,
+    // yaml is CommonJS and calls require() internally; an ESM bundle has no require,
     // so give it one.
     banner: {
       js: [

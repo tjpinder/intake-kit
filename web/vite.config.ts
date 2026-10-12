@@ -9,6 +9,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv, type Plugin } from "vite";
+import { parse as parseYaml } from "yaml";
 import { loadFramework } from "../src/lib/framework-fs.ts";
 import { readServerConfig } from "../src/server/config.ts";
 import { configResponse, handleTurn } from "../src/server/handler.ts";
@@ -55,9 +56,23 @@ function devApi(env: Record<string, string>): Plugin {
   };
 }
 
+/** `import x from "file.yaml?parsed"` gives the parsed value, so the YAML parser stays out of the bundle. */
+function parsedYaml(): Plugin {
+  return {
+    name: "intake-kit:parsed-yaml",
+    enforce: "pre",
+    load(id) {
+      if (!id.endsWith(".yaml?parsed")) return null;
+      const file = id.slice(0, -"?parsed".length);
+      this.addWatchFile(file);
+      return `export default ${JSON.stringify(parseYaml(readFileSync(file, "utf8")))};`;
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => ({
   root: resolve(repoRoot, "web"),
-  plugins: [react(), devApi(loadEnv(mode, repoRoot, ""))],
+  plugins: [parsedYaml(), react(), devApi(loadEnv(mode, repoRoot, ""))],
   server: { fs: { allow: [repoRoot] } },
   build: { outDir: resolve(repoRoot, "web/dist"), emptyOutDir: true },
 }));

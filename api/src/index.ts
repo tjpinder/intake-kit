@@ -3,6 +3,8 @@
 //   GET  /api/config  what the UI can offer
 // Everything Azure-specific is here; the logic lives in src/server and is tested without Azure.
 
+import * as frameworkValidators from "../../src/lib/generated/framework-validators.js";
+import { parse as parseYaml } from "yaml";
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from "@azure/functions";
 import { buildFramework } from "../../src/lib/framework.ts";
 import { readServerConfig } from "../../src/server/config.ts";
@@ -12,7 +14,7 @@ import { sources, skill } from "./bundled.ts";
 import { TableStore, UnavailableStore } from "./table-store.ts";
 
 const config = readServerConfig(process.env);
-const fw = buildFramework(sources);
+const fw = buildFramework(sources, { parseYaml, schemas: frameworkValidators });
 const connection = process.env.AZURE_STORAGE_CONNECTION_STRING;
 const store: CounterStore = connection
   ? TableStore.fromConnectionString(connection)

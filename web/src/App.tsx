@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, fetchConfig, sendTurn, type AppConfig, type ProviderSettings } from "./api.ts";
 import { Chat } from "./components/Chat.tsx";
-import { Review } from "./components/Review.tsx";
 import { Settings, loadProvider } from "./components/Settings.tsx";
 import { Sidebar } from "./components/Sidebar.tsx";
-import { clearState, freshState, isComplete, loadState, nextSampleMessage, playSampleStep, saveState, type IntakeState } from "./state.ts";
+import { clearState, freshState, isComplete, loadState, saveState, type IntakeState } from "./state.ts";
 import { getTurnstileToken } from "./turnstile.ts";
+
+// The review panel builds the spec pack (YAML writer, zip), so it loads only when an intake is done.
+const Review = lazy(() => import("./components/Review.tsx").then((m) => ({ default: m.Review })));
 
 interface Notice {
   text: string;
@@ -90,6 +92,7 @@ export function App() {
     let s = freshState("sample");
     setState(s);
     setNotice(null);
+    const { nextSampleMessage, playSampleStep } = await import("./sample.ts");
     for (let next = nextSampleMessage(s); next && playing.current; next = nextSampleMessage(s)) {
       setPending(next);
       await sleep(900);
@@ -138,7 +141,9 @@ export function App() {
 
       <main className={complete ? "layout review-layout" : "layout"}>
         {complete ? (
-          <Review session={state.session} onNewIntake={() => startOver("live")} />
+          <Suspense fallback={<div className="notice">Preparing the spec pack…</div>}>
+            <Review session={state.session} onNewIntake={() => startOver("live")} />
+          </Suspense>
         ) : (
           <Chat
             transcript={state.transcript}

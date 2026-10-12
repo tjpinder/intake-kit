@@ -8,7 +8,7 @@ intake-kit turns a plain-language intake interview into a build-ready spec pack 
 
 ## Rules
 
-- **One source.** Everything in `.agents/` and `dist/` is generated. Edit `src/`, `skills/`, `templates/` and `schema/`, then run `npm run build`. Never hand-edit generated files.
+- **One source.** Everything in `.agents/`, `dist/` and `src/lib/generated/` is generated. Edit `src/`, `skills/`, `templates/` and `schema/`, then run `npm run build`. Never hand-edit generated files.
 - **The model never scores.** Scores, quadrants and gates are computed by code from `skills/intake/scoring.yaml`. Don't add a turn field that lets a model set them.
 - **Every quote is the user's words.** Don't weaken grounding (`src/lib/grounding.ts`) or the citation rule in rendered files.
 - **Never overwrite a user's file without asking.** Rendering and `/guardrails` stage changes and ask.

@@ -2,14 +2,15 @@
 // helpers the UI needs. Same core as the plugin and the API (src/core.ts).
 
 import { buildFramework, type Framework, type Session } from "../../src/core.ts";
-import router from "../../skills/intake/router.yaml?raw";
-import scoring from "../../skills/intake/scoring.yaml?raw";
-import sections from "../../templates/sections.yaml?raw";
+// The framework YAML is parsed at build time (?parsed), so no YAML parser loads at startup.
+import router from "../../skills/intake/router.yaml?parsed";
+import scoring from "../../skills/intake/scoring.yaml?parsed";
+import sections from "../../templates/sections.yaml?parsed";
 
-const byName = (files: Record<string, string>) =>
-  Object.fromEntries(Object.entries(files).map(([path, text]) => [path.split("/").pop()!, text]));
+const byName = <T>(files: Record<string, T>) =>
+  Object.fromEntries(Object.entries(files).map(([path, value]) => [path.split("/").pop()!, value]));
 
-const modules = byName(import.meta.glob("../../skills/intake/modules/*.yaml", { query: "?raw", import: "default", eager: true }));
+const modules = byName(import.meta.glob<object>("../../skills/intake/modules/*.yaml", { query: "?parsed", import: "default", eager: true }));
 export const templates: Record<string, string> = byName(import.meta.glob("../../templates/*.md", { query: "?raw", import: "default", eager: true }));
 
 export const fw: Framework = buildFramework({ router, scoring, sections, modules });

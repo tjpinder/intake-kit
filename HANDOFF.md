@@ -542,7 +542,7 @@ Codex isn't installed on the build machine. Build the `.agents/skills/` mirror a
 - **State stays in the browser.** The intake lives in `localStorage` on the visitor's device; a bring-your-own key lives in `sessionStorage` (this tab only) and is sent in a header with each message. The server stores neither.
 - **Errors keep the visitor's words.** A failed turn puts their message back in the box and explains what happened: rate limit (with the wait), budget used up (with a link to use their own key), or a rejected key (with a link to the key settings).
 - **Local development.** `npm run dev:web` serves the UI and runs the real API handler in the Vite dev server with in-memory counters. Put `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY` in `.env.local` (gitignored) for live interviews locally.
-- **Security headers** in `web/public/staticwebapp.config.json`: a CSP limited to the app and Cloudflare Turnstile, no framing, no referrer. The CSP allows `'unsafe-eval'` because ajv compiles its validators at runtime in the browser; precompiling them with ajv's standalone mode would remove that, and is a reasonable follow-up.
+- **Security headers** in `web/public/staticwebapp.config.json`: a CSP limited to the app and Cloudflare Turnstile, no framing, no referrer. No `'unsafe-eval'`: the JSON Schema validators are generated as plain code at build time (`scripts/build-validators.mjs`, Ajv's standalone mode, into `src/lib/generated/`), so nothing compiles code at runtime. See "Bundle and CSP" below.
 - **Verified** in headless Edge at 1400 px and with phone emulation at 390 px (no horizontal overflow), including a bring-your-own-key turn against the real Claude API with an invalid key (401 shown plainly, message restored). Not yet verified: a live interview on the kit's Azure model (needs the deployment), and Turnstile (needs keys).
 
 **Deployment (web phase 5, Oct 11)**
@@ -645,3 +645,11 @@ The framework adapts these. The docs site must cite them; weights marked "adapte
 - [Google SRE: Postmortem culture](https://sre.google/sre-book/postmortem-culture/)
 - [OpenAI: Build skills (Codex)](https://learn.chatgpt.com/docs/build-skills)
 - The Mom Test (Rob Fitzpatrick), Contextual Design (Beyer and Holtzblatt), ITIL 4 problem management: cited as methods, no single URL.
+
+## Build decisions: bundle and CSP
+
+- **Validators are generated, not compiled at runtime.** `scripts/build-validators.mjs` (run by `npm run build`) uses Ajv's standalone mode to write the session, turn and framework validators into `src/lib/generated/` as plain ESM, with declarations. The few runtime helpers Ajv's output needs (deep equal, string length, the `date-time` format) come from `src/lib/schema-runtime.ts` instead of Ajv's CommonJS files, which Node and bundlers resolve differently. CI fails if the generated files are stale. The web CSP no longer allows `'unsafe-eval'`, and no bundle (web, API or plugin) contains `new Function`.
+- **The browser loads only what it uses.** `buildFramework` takes the YAML parser and the framework schema validators as options: Node callers (CLI, API, tests) pass both; the web app passes neither, because its build parses the framework YAML (`?parsed` imports, a small Vite plugin) and the tests already validate it. The offline sample (which applies turns, so needs the turn and session validators) and the review panel (YAML writer, zip) are separate chunks loaded on demand. `package.json` marks modules side-effect free (except CSS) so unused re-exports drop out.
+- **Result:** the initial web bundle went from 605 kB (184 kB gzipped) to 289 kB (91 kB). The sample chunk is 174 kB (23 kB gzipped), the review chunk 70 kB (26 kB). Checked in headless Edge with the production CSP served: the sample plays to the end and the review panel renders with no errors, while page code calling `eval` is blocked.
+- **Trade-off:** generated validators are larger than Ajv's compiler before minification, so the plugin's `dist/intake.mjs` grew from 690 kB to 808 kB. It's left unminified so CLI stack traces stay readable; whitespace minification would bring it to about 560 kB if that ever matters.
+

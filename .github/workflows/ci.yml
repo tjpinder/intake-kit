@@ -21,8 +21,8 @@ jobs:
       - run: npm run typecheck
       # npm test builds dist/ first, then runs unit, golden-file, grounding and end-to-end tests.
       - run: npm test
-      - name: dist/ is committed and up to date
-        run: git diff --exit-code -- dist/
+      - name: dist/ and the generated validators are committed and up to date
+        run: git diff --exit-code -- dist/ src/lib/generated/
       - name: The web API bundles
         run: npm run build:api
       - name: The web app typechecks and builds

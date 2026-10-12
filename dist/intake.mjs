@@ -15605,6 +15605,11 @@ var framework_schema_default = {
           type: "object",
           additionalProperties: { $ref: "#/$defs/band_list" }
         },
+        gate_fact_notes: {
+          type: "object",
+          description: "How to pick a gate fact when its band names don't say enough. Shown in the guide.",
+          additionalProperties: { type: "string", minLength: 1 }
+        },
         gates: {
           type: "object",
           additionalProperties: false,
@@ -16344,6 +16349,9 @@ function buildFramework(sources) {
     if (factBands.has(name)) issues.push(`scoring.yaml: fact ${name} is defined twice`);
     factBands.set(name, bands);
   }
+  for (const name of Object.keys(scoring.gate_fact_notes ?? {})) {
+    if (!scoring.gate_facts[name]) issues.push(`scoring.yaml: gate_fact_notes names unknown gate fact ${name}`);
+  }
   const fromScoring = [...factBands.keys()].sort();
   const { turn, session } = schemaFactNames();
   if (JSON.stringify(fromScoring) !== JSON.stringify([...turn].sort())) {
@@ -17010,7 +17018,10 @@ function guide(fw) {
   for (const [name, c] of Object.entries(scoring.ai_overlay.checks)) out2.push(`- \`${name}\` (${c.label}): passes when ${c.passes_when}`);
   out2.push("", `Adoption forces, for ${scoring.adoption.applies_to.join(" and ")} items: ${scoring.adoption.forces.map((f) => `\`${f}\``).join(", ")}, each ${scoring.adoption.bands.map((b) => `\`${b}\``).join(", ")}.`);
   out2.push("", "Gate facts:", "");
-  for (const [name, bands] of Object.entries(scoring.gate_facts)) out2.push(`- \`${name}\`: ${bands.map((b) => `\`${b}\``).join(", ")}`);
+  for (const [name, bands] of Object.entries(scoring.gate_facts)) {
+    const note = scoring.gate_fact_notes?.[name];
+    out2.push(`- \`${name}\`: ${bands.map((b) => `\`${b}\``).join(", ")}${note ? `. ${note}` : ""}`);
+  }
   return out2.join("\n") + "\n";
 }
 function factsFor(item, fw) {
@@ -17023,6 +17034,16 @@ function factsFor(item, fw) {
 }
 function needsAcceptance(i) {
   return i.superseded_by == null && i.type !== "exploratory" && !i.light_pass;
+}
+function bandSourcesUnasked(item, fw, asked) {
+  const modules = /* @__PURE__ */ new Set([item.type, ...item.modifiers.map((m) => `mod.${m}`)]);
+  const applies = (id) => id.startsWith("core.") || modules.has(id.startsWith("mod.") ? id.split(".").slice(0, 2).join(".") : id.split(".")[0]);
+  const out2 = /* @__PURE__ */ new Set();
+  for (const c of Object.values(fw.scoring.criteria)) {
+    const sources = c.usually_from.filter(applies);
+    if (sources.length && !sources.some(asked)) out2.add(sources[0]);
+  }
+  return [...out2];
 }
 function needsBands(i) {
   return i.superseded_by == null && !i.light_pass && i.type !== "exploratory";
@@ -17079,6 +17100,7 @@ function statusOf(session, fw, transcript = []) {
       unasked: areas.filter((a) => !asked(a.id)).map((a) => a.id),
       always_ask_pending: light ? [] : areas.filter((a) => a.always_ask && !asked(a.id)).map((a) => a.id),
       critical_unasked: light ? [] : criticalAreas(item, fw).filter((id) => !asked(id)),
+      band_sources_unasked: light || item.superseded_by || item.type === "exploratory" ? [] : bandSourcesUnasked(item, fw, asked),
       probe_available: probeable,
       facts_missing: factsMissing,
       acceptance: {
@@ -17093,13 +17115,13 @@ function statusOf(session, fw, transcript = []) {
       }
     };
   });
-  const interviewComplete = items.length > 0 && items.every((i) => i.critical_unasked.length === 0 && i.always_ask_pending.length === 0);
+  const interviewComplete = items.length > 0 && items.every((i) => i.critical_unasked.length === 0 && i.always_ask_pending.length === 0 && i.band_sources_unasked.length === 0);
   const writeUpComplete = items.every(
     (i) => (!needsBands(i) || i.facts_missing.length === 0) && (!needsAcceptance(i) || i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)
   );
   const reflect = !rb ? "none" : rb.confirmed ? "confirmed" : "proposed";
   const primary = items.find((i) => !i.superseded_by);
-  const primaryInterviewed = !!primary && primary.critical_unasked.length === 0 && primary.always_ask_pending.length === 0;
+  const primaryInterviewed = !!primary && primary.critical_unasked.length === 0 && primary.always_ask_pending.length === 0 && primary.band_sources_unasked.length === 0;
   const hints = reflect === "none" ? structureHints(session, fw, transcript, { primaryInterviewed }) : [];
   return {
     reflect_back: reflect,
@@ -17123,7 +17145,7 @@ function nextStep(reflect, interviewComplete, items, hints) {
   if (items.length === 0) return "Create the first item from the user's opening statement and ask your first question.";
   const check2 = hints.length ? ` Also check: ${hints.join(" ")}` : "";
   if (!interviewComplete) {
-    const open = items.flatMap((i) => [...i.critical_unasked, ...i.always_ask_pending]);
+    const open = items.flatMap((i) => [...i.critical_unasked, ...i.always_ask_pending, ...i.band_sources_unasked]);
     return `Keep interviewing. Still to ask (in whatever order follows the conversation): ${[...new Set(open)].join(", ")}. Record every answer the user gives as you go.${check2}`;
   }
   return [

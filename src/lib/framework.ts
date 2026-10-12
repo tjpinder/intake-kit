@@ -55,6 +55,7 @@ export interface Scoring {
   };
   adoption: { applies_to: ItemType[]; forces: string[]; bands: Band[]; risk_when: Record<string, Band[]> };
   gate_facts: Record<string, Band[]>;
+  gate_fact_notes?: Record<string, string>;
   gates: {
     go_requires_core: string[];
     precedence: string[];
@@ -221,6 +222,9 @@ export function buildFramework(sources: FrameworkSources): Framework {
   for (const [name, bands] of Object.entries(scoring.gate_facts)) {
     if (factBands.has(name)) issues.push(`scoring.yaml: fact ${name} is defined twice`);
     factBands.set(name, bands);
+  }
+  for (const name of Object.keys(scoring.gate_fact_notes ?? {})) {
+    if (!scoring.gate_facts[name]) issues.push(`scoring.yaml: gate_fact_notes names unknown gate fact ${name}`);
   }
   const fromScoring = [...factBands.keys()].sort();
   const { turn, session } = schemaFactNames();

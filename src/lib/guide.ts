@@ -57,7 +57,10 @@ export function guide(fw: Framework): string {
   for (const [name, c] of Object.entries(scoring.ai_overlay.checks)) out.push(`- \`${name}\` (${c.label}): passes when ${c.passes_when}`);
   out.push("", `Adoption forces, for ${scoring.adoption.applies_to.join(" and ")} items: ${scoring.adoption.forces.map((f) => `\`${f}\``).join(", ")}, each ${scoring.adoption.bands.map((b) => `\`${b}\``).join(", ")}.`);
   out.push("", "Gate facts:", "");
-  for (const [name, bands] of Object.entries(scoring.gate_facts)) out.push(`- \`${name}\`: ${bands.map((b) => `\`${b}\``).join(", ")}`);
+  for (const [name, bands] of Object.entries(scoring.gate_facts)) {
+    const note = scoring.gate_fact_notes?.[name];
+    out.push(`- \`${name}\`: ${bands.map((b) => `\`${b}\``).join(", ")}${note ? `. ${note}` : ""}`);
+  }
   return out.join("\n") + "\n";
 }
 
@@ -86,6 +89,12 @@ export interface ItemStatus {
   unasked: string[];
   /** Always-ask areas not yet asked. */
   always_ask_pending: string[];
+  /**
+   * For items scored on their own: an area to ask for each scored band that has no answered
+   * source yet. Without one, the honest band is unknown and the composite can't be scored (the
+   * ops persona never reached Go because core.systems, the source of three ease bands, was never asked).
+   */
+  band_sources_unasked: string[];
   /** Critical areas not yet asked. */
   critical_unasked: string[];
   /** Answered vaguely (assumed or unknown) with their one probe still unused. */
@@ -113,6 +122,18 @@ export interface Status {
 /** Items that could be built need acceptance criteria and guardrails; superseded and exploratory ones don't. */
 function needsAcceptance(i: ItemStatus): boolean {
   return i.superseded_by == null && i.type !== "exploratory" && !i.light_pass;
+}
+
+/** For each scored band with no answered source area that applies to the item, the first applicable source. */
+function bandSourcesUnasked(item: Item, fw: Framework, asked: (id: string) => boolean): string[] {
+  const modules = new Set([item.type, ...item.modifiers.map((m) => `mod.${m}`)]);
+  const applies = (id: string) => id.startsWith("core.") || modules.has(id.startsWith("mod.") ? id.split(".").slice(0, 2).join(".") : id.split(".")[0]);
+  const out = new Set<string>();
+  for (const c of Object.values(fw.scoring.criteria)) {
+    const sources = c.usually_from.filter(applies);
+    if (sources.length && !sources.some(asked)) out.add(sources[0]);
+  }
+  return [...out];
 }
 
 /** Items scored on their own need band picks; superseded, light-pass and exploratory ones don't. */
@@ -189,6 +210,7 @@ export function statusOf(session: Session, fw: Framework, transcript: Transcript
       unasked: areas.filter((a) => !asked(a.id)).map((a) => a.id),
       always_ask_pending: light ? [] : areas.filter((a) => a.always_ask && !asked(a.id)).map((a) => a.id),
       critical_unasked: light ? [] : criticalAreas(item, fw).filter((id) => !asked(id)),
+      band_sources_unasked: light || item.superseded_by || item.type === "exploratory" ? [] : bandSourcesUnasked(item, fw, asked),
       probe_available: probeable,
       facts_missing: factsMissing,
       acceptance: {
@@ -204,7 +226,7 @@ export function statusOf(session: Session, fw: Framework, transcript: Transcript
     };
   });
 
-  const interviewComplete = items.length > 0 && items.every((i) => i.critical_unasked.length === 0 && i.always_ask_pending.length === 0);
+  const interviewComplete = items.length > 0 && items.every((i) => i.critical_unasked.length === 0 && i.always_ask_pending.length === 0 && i.band_sources_unasked.length === 0);
   // A superseded item needs no band picks: if its replacement doesn't reach Go, it's gated on
   // its unknowns, which honestly lands it in Gather more.
   const writeUpComplete = items.every(
@@ -214,7 +236,7 @@ export function statusOf(session: Session, fw: Framework, transcript: Transcript
   );
   const reflect = !rb ? "none" : rb.confirmed ? "confirmed" : "proposed";
   const primary = items.find((i) => !i.superseded_by);
-  const primaryInterviewed = !!primary && primary.critical_unasked.length === 0 && primary.always_ask_pending.length === 0;
+  const primaryInterviewed = !!primary && primary.critical_unasked.length === 0 && primary.always_ask_pending.length === 0 && primary.band_sources_unasked.length === 0;
   const hints = reflect === "none" ? structureHints(session, fw, transcript, { primaryInterviewed }) : [];
   return {
     reflect_back: reflect,
@@ -246,7 +268,7 @@ function nextStep(reflect: Status["reflect_back"], interviewComplete: boolean, i
   if (items.length === 0) return "Create the first item from the user's opening statement and ask your first question.";
   const check = hints.length ? ` Also check: ${hints.join(" ")}` : "";
   if (!interviewComplete) {
-    const open = items.flatMap((i) => [...i.critical_unasked, ...i.always_ask_pending]);
+    const open = items.flatMap((i) => [...i.critical_unasked, ...i.always_ask_pending, ...i.band_sources_unasked]);
     return `Keep interviewing. Still to ask (in whatever order follows the conversation): ${[...new Set(open)].join(", ")}. Record every answer the user gives as you go.${check}`;
   }
   return [

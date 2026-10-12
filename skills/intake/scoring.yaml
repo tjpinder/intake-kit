@@ -124,6 +124,13 @@ gate_facts:
   workaround_permanent: ["yes", "no", unknown]
   success_metric: [measurable_with_baseline, measurable_no_baseline, vague, unknown]
 
+# How to pick gate facts the band names don't explain on their own. Shown in the guide.
+gate_fact_notes:
+  success_metric: >-
+    A time, count or cost the user gave for how things are today ("four hours every Monday",
+    "about 50 a day") is a baseline. Use measurable_with_baseline when they also said what would
+    show it worked; measurable_no_baseline only when nothing about today was measured.
+
 gates:
   # Areas that must be covered or confirmed-assumed for Go. Module areas marked
   # `critical: true` are added to this list for items of that type.

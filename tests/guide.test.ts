@@ -3,7 +3,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { loadFramework } from "../src/lib/framework-fs.ts";
-import { statusOf, structureHints } from "../src/lib/guide.ts";
+import { guide, statusOf, structureHints } from "../src/lib/guide.ts";
 import type { Item, Session } from "../src/lib/session.ts";
 
 
@@ -82,5 +82,36 @@ describe("the write-up asks for bands only where they're scored", () => {
     assert.equal(st.interview_complete, true);
     assert.equal(st.ready_for_reflect_back, true);
     assert.match(st.next_step, /facts_missing for no item/);
+  });
+});
+
+describe("band sources (from the persona evals)", () => {
+  test("a scored item isn't interviewed until each scored band has a source area asked", () => {
+    const fwS = loadFramework(".");
+    const answered = { status: "covered" as const, value: "v", quotes: ["q"], probe_count: 0, updated_at: "t" };
+    const s: Session = {
+      schema_version: 1,
+      framework_version: "0.1.0",
+      session: { id: "2026-10-12-abcd", started_at: "2026-10-12T00:00:00.000Z", mode: "stakeholder", provider: "azure-openai", grounding: "transcript", reflect_back: null },
+      core: Object.fromEntries(["users", "outcome", "data", "systems", "constraints", "trust"].map((k) => [k, k === "systems" ? { status: "unknown", value: null, quotes: [], probe_count: 0 } : answered])) as unknown as Session["core"],
+      items: [{
+        id: "item-1", title: "Report", type: "data_report", confidence: "high", trigger_quote: "q", modifiers: [], spawned_from: null, superseded_by: null,
+        type_history: [{ from: null, to: "data_report", reason: "opening", quote: "q", at: "t" }],
+        core_overrides: {}, coverage: { "data_report.decision": answered, "data_report.definition": answered, "data_report.existing": answered },
+        facts: {}, prose: {}, acceptance: [], guardrails: [], scoring: null, gate: null, open_questions: [],
+      }],
+    };
+    let st = statusOf(s, fwS, []);
+    assert.deepEqual(st.items[0].band_sources_unasked, ["core.systems"]);
+    assert.equal(st.interview_complete, false);
+    assert.match(st.next_step, /Still to ask.*core\.systems/);
+    s.core.systems = answered;
+    st = statusOf(s, fwS, []);
+    assert.deepEqual(st.items[0].band_sources_unasked, []);
+    assert.equal(st.interview_complete, true);
+  });
+
+  test("the guide explains what counts as a baseline", () => {
+    assert.match(guide(loadFramework(".")), /success_metric.*"four hours every Monday".*is a baseline/);
   });
 });

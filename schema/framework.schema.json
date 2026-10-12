@@ -228,6 +228,11 @@
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/band_list" }
         },
+        "gate_fact_notes": {
+          "type": "object",
+          "description": "How to pick a gate fact when its band names don't say enough. Shown in the guide.",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        },
         "gates": {
           "type": "object",
           "additionalProperties": false,

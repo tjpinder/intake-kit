@@ -17,7 +17,7 @@ types:
     module: manual_process
   known_idea:
     label: Known idea
-    signals: ["can we automate", "could AI do", "a named solution", "we should build", "what if we had a bot"]
+    signals: ["can we automate", "could AI", "can AI", "could AI do", "a named solution", "we should build", "what if we had a bot"]
     low_confidence_probe: "What happens today when this gets done?"
     output: feasibility_spec
     module: known_idea

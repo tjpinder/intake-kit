@@ -3,7 +3,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { loadFramework } from "../src/lib/framework-fs.ts";
-import { guide, statusOf, structureHints } from "../src/lib/guide.ts";
+import { guide, routingHint, statusOf, structureHints } from "../src/lib/guide.ts";
 import type { Item, Session } from "../src/lib/session.ts";
 
 
@@ -81,7 +81,7 @@ describe("the write-up asks for bands only where they're scored", () => {
     const st = statusOf(s, fwB, []);
     assert.equal(st.interview_complete, true);
     assert.equal(st.ready_for_reflect_back, true);
-    assert.match(st.next_step, /facts_missing for no item/);
+    assert.doesNotMatch(st.next_step, /facts_missing|for no item/, "no band clause when no item needs bands");
   });
 });
 
@@ -113,5 +113,19 @@ describe("band sources (from the persona evals)", () => {
 
   test("the guide explains what counts as a baseline", () => {
     assert.match(guide(loadFramework(".")), /success_metric.*"four hours every Monday".*is a baseline/);
+  });
+});
+
+describe("routing hint (from the persona evals)", () => {
+  const fwR = loadFramework(".");
+  const opening = (text: string) => [{ role: "user" as const, text, at: "t" }];
+  test("an idea-first opening points at known_idea", () => {
+    assert.match(routingHint(fwR, opening("Could AI write our standard operating procedures? Ours are a mess."))!, /"could AI".*`known_idea`/);
+  });
+  test("the most specific signal wins: where could AI help is exploratory", () => {
+    assert.match(routingHint(fwR, opening("Where could AI help us in our warehouse operation?"))!, /"where could AI help".*`exploratory`/);
+  });
+  test("no signal, no hint; and it only shows before the first item", () => {
+    assert.equal(routingHint(fwR, opening("Hello there.")), null);
   });
 });

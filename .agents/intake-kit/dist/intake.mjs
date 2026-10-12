@@ -17630,6 +17630,19 @@ function said(signal, text) {
   const esc = normalize(signal).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   return new RegExp(`(^|[^a-z0-9])${esc}([^a-z0-9]|$)`).test(text);
 }
+function routingHint(fw, transcript) {
+  const opening = transcript.find((t) => t.role === "user");
+  if (!opening) return null;
+  const text = normalize(opening.text);
+  let best = null;
+  for (const [type, def] of Object.entries(fw.router.types)) {
+    for (const signal of def.signals) {
+      if (said(signal, text) && (!best || signal.length > best.signal.length)) best = { type, signal };
+    }
+  }
+  if (!best) return null;
+  return `The opening says "${best.signal}", a ${fw.router.types[best.type].label.toLowerCase()} signal: start with a \`${best.type}\` item unless the user's words clearly point elsewhere.`;
+}
 function structureHints(session, fw, transcript, opts = {}) {
   const live = session.items.filter((i) => !i.superseded_by);
   if (live.length === 0) return [];
@@ -17706,11 +17719,11 @@ function statusOf(session, fw, transcript = []) {
     items,
     interview_complete: interviewComplete,
     ready_for_reflect_back: interviewComplete && writeUpComplete,
-    next_step: nextStep(reflect, interviewComplete, items, hints),
+    next_step: nextStep(reflect, interviewComplete, items, hints, items.length === 0 ? routingHint(fw, transcript) : null),
     hints
   };
 }
-function nextStep(reflect, interviewComplete, items, hints) {
+function nextStep(reflect, interviewComplete, items, hints, routing = null) {
   if (reflect === "confirmed") return "The intake is complete. Thank the user briefly.";
   if (reflect === "proposed") {
     const review = items.filter((i) => i.preview_quadrant === "review" && !i.has_mitigation && !i.superseded_by);
@@ -17719,17 +17732,19 @@ function nextStep(reflect, interviewComplete, items, hints) {
       ...review.length ? [`${review.map((i) => i.id).join(", ")} would score in the Review quadrant, which can't reach Go without a written mitigation: add a one-line \`mitigation\` prose for it from what the user said would reduce the risk (their fallback or review step), or ask them if they haven't said.`] : []
     ].join(" ");
   }
-  if (items.length === 0) return "Create the first item from the user's opening statement and ask your first question.";
+  if (items.length === 0) return ["Create the first item from the user's opening statement and ask your first question.", ...routing ? [routing] : []].join(" ");
   const check2 = hints.length ? ` Also check: ${hints.join(" ")}` : "";
   if (!interviewComplete) {
     const open = items.flatMap((i) => [...i.critical_unasked, ...i.always_ask_pending, ...i.band_sources_unasked]);
     return `Keep interviewing. Still to ask (in whatever order follows the conversation): ${[...new Set(open)].join(", ")}. Record every answer the user gives as you go.${check2}`;
   }
+  const banded = items.filter(needsBands).map((i) => i.id);
+  const buildable = items.filter(needsAcceptance).map((i) => i.id);
   return [
     ...hints.length ? [`First check: ${hints.join(" ")} If one applies, add it and ask about it instead of writing up. Otherwise:`] : [],
     "Every needed area has been asked, so stop asking questions now. In this one turn:",
-    `add a band for every fact listed in facts_missing for ${items.filter(needsBands).map((i) => i.id).join(", ") || "no item"} (skip the other items), picked from what the user already said (use \`unknown\` where they didn't say), in \`facts\` only, never in \`updates\`; a band's quote is optional, so leave it null unless you copy the user's exact words;`,
-    `write acceptance criteria (at least one criterion and one error case) and guardrails (at least a kill criterion and a fallback) for ${items.filter(needsAcceptance).map((i) => i.id).join(", ") || "no item"}, from what you heard;`,
+    ...banded.length ? [`add a band for every fact listed in facts_missing for ${banded.join(", ")} (skip the other items), picked from what the user already said (use \`unknown\` where they didn't say), in \`facts\` only, never in \`updates\`; a band's quote is optional, so leave it null unless you copy the user's exact words;`] : [],
+    ...buildable.length ? [`write acceptance criteria (at least one criterion and one error case) and guardrails (at least a kill criterion and a fallback) for ${buildable.join(", ")}, from what you heard;`] : [],
     "write a one-line `mitigation` prose for any item where the user described how a risk is handled (a fallback, someone checking);",
     "and propose the reflect-back."
   ].join(" ");

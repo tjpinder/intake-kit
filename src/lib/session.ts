@@ -127,7 +127,7 @@ export interface Session {
     last_target?: { item: string | null; area: string; reply?: string } | null;
     /**
      * When each area was first asked about, stamped by code from each applied turn's
-     * next_target: "core.users" for shared areas, "item-1:known_idea.push" for an item's own.
+     * chosen question area: "core.users" for shared areas, "item-1:known_idea.push" for an item's own.
      * Readiness counts an area as asked only if it was asked, or answered in full; an inference
      * from the opening or an unknown marked before asking doesn't count. Sessions started
      * before this existed don't have it and fall back to "anything recorded".

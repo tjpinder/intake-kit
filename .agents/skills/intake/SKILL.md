@@ -44,7 +44,7 @@ The user's opening statement is their first message (or the text after the comma
 ## Before you send a turn
 
 - Follow `status.next_step`. When it passes on a hint (`status.hints`: something the user said that the items don't reflect yet, like a manual workaround or an integration), decide whether it applies and act on it: add the item or modifier, or carry on if it doesn't fit.
-- `updates` records every area the user's latest message answers, always including the area your previous question asked about, even when the answer is "I don't know" (record that as `unknown`). An empty `updates` is almost always a mistake: if they answered anything, record it before asking the next question.
+- `updates` records every area the user's latest message answers, always including the area your previous question was about, even when the answer is "I don't know" (record that as `unknown`). An empty `updates` is almost always a mistake: if they answered anything, record it before asking the next question.
 - Every field is present, including inside each update, fact, open question and item (`[]` or `null` when empty).
 - `covered` has a value and a quote. `assumed` has a quote. `unknown` has `"value": null` (put their words, if any, in the quote, never in the value).
 - Every quote is copied character for character from one message the user sent.
@@ -55,8 +55,8 @@ The user's opening statement is their first message (or the text after the comma
 These are tested behaviour, not suggestions.
 
 - **One question per message.** Never stack questions. Keep messages short.
-- **Follow their thread first.** Ask only about gaps the story hasn't already covered. Use `status.unasked` and `status.critical_unasked` to find them; don't march down the list in order.
-- **Anchor vague answers to the past, once.** "Usually", "would", "normally", "I think" get one follow-up: "Tell me about the last time…". In that same turn, record the vague answer (`assumed` with their words, or `unknown`) and set `next_target.is_probe: true` on the follow-up. A probe needs an answer on record to probe, and you get one per area; `apply-turn` rejects a second. Any second question on an area you already asked counts as its follow-up, flagged or not, so each area gets at most two questions.
+- **Ask what `status.next_step` says to ask.** The app chooses the area of every question (`status.next_question`): the primary, or the alternate if the user's latest message already answers the primary in full. Word the question for their situation, ask nothing else, and don't report which area you asked; the app works it out. It also chooses the one follow-up on a vague answer ("Tell me about the last time…"), and never asks an area a third time.
+- **Record vague answers honestly.** "Usually", "would", "normally", "I think": record them as `assumed` with their words, or `unknown`. The app follows up once.
 - **Still vague after the probe?** Record it as `assumed`, with their words as the quote, or as `unknown`. Never answer for the user, never suggest an answer, and never record your own guess.
 - **Blameless.** When something went wrong, ask what about the setup made it easy to go wrong, not who did it.
 - **Plain language.** Don't say "coverage area", "quadrant", "modifier", "band" or "gate" to the user. Say what you mean.
@@ -98,7 +98,7 @@ Add an `open_question` for anything left `unknown` that matters: what to ask, wh
 
 When `status.interview_complete` is true (`status.next_step` says to stop asking), or the user wants to wrap up, write up and play back in the same turn: fill every missing band from what you heard, write the acceptance criteria and guardrails, then:
 
-1. Propose it (`reflect_back.status: "proposed"`), on a turn of its own: no new items, no other question, `next_target.area` null. The app builds the summary the user sees from what's recorded (each item's problem, answers, every band pick in plain language, criteria and guardrails) and shows it with your reply, so your reply only introduces it in a sentence and asks whether you got it right. Put a short version of the same playback in `reflect_back.text`. Answers marked as captured are the user's words taken as typed; ask them to check those.
+1. Propose it (`reflect_back.status: "proposed"`), on a turn of its own: no new items and no other question. The app builds the summary the user sees from what's recorded (each item's problem, answers, every band pick in plain language, criteria and guardrails) and shows it with your reply, so your reply only introduces it in a sentence and asks whether you got it right. Put a short version of the same playback in `reflect_back.text`. Answers marked as captured are the user's words taken as typed; ask them to check those.
 2. On their answer: `confirmed` if they agree. If they say they can't see a summary, say it's just above and ask again; never describe a summary you haven't proposed. `corrected` (with each correction listed) if they change anything; fix the affected updates and facts in the same turn, then propose again.
 3. Once confirmed, `apply-turn` scores and gates every item and returns `gates`. Tell the user the outcome for each item in a sentence or two, using the reasons it returned, and the revisit trigger for anything not going ahead. "Don't build" and "fix, not build" are good outcomes when they're right; say so plainly.
 
@@ -146,8 +146,7 @@ Every field is required, every time. Use `[]` and `null` for empty.
   "open_questions": [
     { "item": "item-1", "area": "data_report.truth", "question": "Which count is right when the dashboard and the export disagree?", "who_can_answer": "WMS admin", "artifact_needed": "One day where the two differ" }
   ],
-  "reflect_back": null,
-  "next_target": { "item": "item-1", "area": "data_report.definition", "is_probe": false }
+  "reflect_back": null
 }
 ```
 
@@ -155,7 +154,6 @@ Every field is required, every time. Use `[]` and `null` for empty.
 - Module areas (`data_report.*`, `mod.integration.*`, …) need the item they belong to, and only fit items of that type or with that modifier.
 - Item IDs are `item-1`, `item-2`, … Create an item before (or in the same turn as) anything that refers to it.
 - `router.supersede` when the user says one item would replace another ("if I had that I'd stop doing the Monday thing"). `router.drop` (`{ "item", "reason", "quote" }`) when an item turns out not to apply. `router.remove_modifiers` (`[{ "item", "modifier", "reason" }]`) when a modifier doesn't fit.
-- `next_target` is the area your reply asks about (`null` for the reflect-back); `is_probe` only for the one follow-up on a vague answer.
 - `reflect_back`: `null`, or `{ "text", "status": "proposed" | "confirmed" | "corrected", "corrections": [] }`.
 
 ## Guide

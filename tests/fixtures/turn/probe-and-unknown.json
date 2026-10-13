@@ -30,10 +30,5 @@
       "artifact_needed": "One day where the two numbers differ"
     }
   ],
-  "reflect_back": null,
-  "next_target": {
-    "item": "item-1",
-    "area": "data_report.truth",
-    "is_probe": true
-  }
+  "reflect_back": null
 }

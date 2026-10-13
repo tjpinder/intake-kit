@@ -11473,15 +11473,27 @@ function bandOf(item, fact, fw) {
   if (!allowed.includes(band)) throw new ScoringError(`${item.id}: "${band}" isn't a band of ${fact} (allowed: ${allowed.join(", ")})`);
   return band;
 }
-function usableBand(session, item, fact) {
+var NUMBER = /\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|dozen|half|once|twice|percent)\b/i;
+function bandCheck(session, item, fact) {
   const f = item.facts[fact];
-  if (!f) return "unknown";
+  if (!f) return { band: "unknown", reason: null };
   const answered = f.evidence.map((id) => coverageFor(session, item, id)).filter((e) => e?.updated_at);
-  return answered.length > 0 && answered.every(isCaptured) ? "unknown" : f.band;
+  if (answered.length > 0 && answered.every(isCaptured)) return { band: "unknown", reason: f.band === "unknown" ? null : "captured" };
+  if (fact === "success_metric" && f.band === "measurable_with_baseline") {
+    const quotes = [...f.quotes, ...answered.filter((e) => !isCaptured(e)).flatMap((e) => e.quotes)];
+    if (!quotes.some((q) => NUMBER.test(q))) return { band: "vague", reason: "no_number" };
+  }
+  return { band: f.band, reason: null };
 }
+var usableBand = (session, item, fact) => bandCheck(session, item, fact).band;
 function scoringView(session, item) {
-  const facts = Object.fromEntries(Object.entries(item.facts).filter(([fact]) => usableBand(session, item, fact) === item.facts[fact].band));
-  return Object.keys(facts).length === Object.keys(item.facts).length ? item : { ...item, facts };
+  let changed = false;
+  const facts = Object.fromEntries(Object.entries(item.facts).map(([fact, f]) => {
+    const band = usableBand(session, item, fact);
+    if (band !== f.band) changed = true;
+    return [fact, band === f.band ? f : { ...f, band }];
+  }));
+  return changed ? { ...item, facts } : item;
 }
 function levelOf(mean, fw) {
   const pct = Math.round((mean - 1) / 4 * 1e6) / 1e6;
@@ -11706,9 +11718,268 @@ function scoreAndGate(session, fw) {
   return { session: out2, scored: true };
 }
 
+// src/lib/guide.ts
+var list = (xs) => xs.map((x) => `"${x}"`).join(", ");
+function areaBlock(a) {
+  const flags = [a.critical ? "critical" : "", a.always_ask ? "always ask" : ""].filter(Boolean).join(", ");
+  const lines = [`- \`${a.id}\`${flags ? ` (${flags})` : ""}: ${a.must_capture}`, `  - Ask: ${a.probes.map((p) => `"${p}"`).join(" \xB7 ")}`];
+  for (const f of a.followup_conditions) lines.push(`  - Follow up only when ${f.when}: "${f.ask}"${f.spawns ? ` (spawns a new ${f.spawns === "item" ? "" : `${f.spawns} `}item)` : ""}`);
+  if (a.stop_at) lines.push(`  - Stop at: ${a.stop_at}`);
+  return lines.join("\n");
+}
+function guide(fw) {
+  const { router: router2, modules, scoring: scoring2 } = fw;
+  const out2 = [];
+  out2.push("## Entry types", "", "Classify each distinct pain into one type. Record the user's words that triggered it.", "");
+  for (const [type, t] of Object.entries(router2.types)) {
+    out2.push(`- **${type}** (${t.label}). Signals: ${list(t.signals)}. If unsure, ask: "${t.low_confidence_probe}"`);
+  }
+  out2.push("", "## Modifiers", "", "Add to any item when you hear these; each adds its own areas.", "");
+  for (const [mod, m] of Object.entries(router2.modifiers)) {
+    const effect = m.effects?.risk_tier ? " Sets risk tier high." : m.effects?.gate ? " Routes the item to more discovery." : "";
+    out2.push(`- **${mod}** (${m.label}). Signals: ${list(m.signals)}.${effect}`);
+  }
+  out2.push("", `Reclassify an item when ${router2.rules.reclassify_min_signals} or more new signals point to another type, or the story contradicts the label. Shared-core answers carry over.`);
+  out2.push("", "## Shared core (once per session; use item: null)", "");
+  for (const a of modules.core.areas) out2.push(areaBlock(a));
+  for (const type of Object.keys(router2.types)) {
+    const m = modules[type];
+    out2.push("", `## ${type} areas`, "");
+    for (const key of ["step_tags", "candidates", "self_serve_rule"]) {
+      if (m[key]) out2.push(`${key.replace("_", " ")}: ${Array.isArray(m[key]) ? m[key].join(", ") : m[key]}`, "");
+    }
+    for (const a of m.areas) out2.push(areaBlock(a));
+  }
+  for (const mod of Object.keys(router2.modifiers)) {
+    out2.push("", `## mod.${mod} areas`, "");
+    for (const a of modules[`mod.${mod}`].areas) out2.push(areaBlock(a));
+  }
+  out2.push("", "## Facts: pick a band, never a number", "", "Use only these band names. Infer each from the answers it usually comes from; use `unknown` only when nothing the user said bears on it.", "");
+  for (const [name, c] of Object.entries(scoring2.criteria)) {
+    out2.push(`- \`${name}\` (${c.label}): ${Object.entries(c.describe).map(([b, d]) => `\`${b}\` = ${d}`).join("; ")}; \`unknown\`. Usually from: ${c.usually_from.join(", ")}`);
+  }
+  out2.push(`- \`${scoring2.ai_overlay.applies_fact}\`: ${Object.keys(scoring2.ai_overlay.applies_bands).map((b) => `\`${b}\``).join(", ")}. "yes" only when the proposed solution uses an LLM.`);
+  out2.push("", "AI overlay checks, only when ai_applies is yes. Each is `pass`, `fail` or `unknown`:", "");
+  for (const [name, c] of Object.entries(scoring2.ai_overlay.checks)) out2.push(`- \`${name}\` (${c.label}): passes when ${c.passes_when}`);
+  const forceSources = Object.entries(scoring2.adoption.usually_from ?? {}).map(([f, ids]) => `\`${f}\` from ${ids.join(", ")}`);
+  out2.push("", `Adoption forces, for ${scoring2.adoption.applies_to.join(" and ")} items: ${scoring2.adoption.forces.map((f) => `\`${f}\``).join(", ")}, each ${scoring2.adoption.bands.map((b) => `\`${b}\``).join(", ")}.${forceSources.length ? ` Usually from: ${forceSources.join("; ")}.` : ""}`);
+  out2.push("", "Gate facts:", "");
+  for (const [name, bands] of Object.entries(scoring2.gate_facts)) {
+    const note = scoring2.gate_fact_notes?.[name];
+    out2.push(`- \`${name}\`: ${bands.map((b) => `\`${b}\``).join(", ")}${note ? `. ${note}` : ""}`);
+  }
+  return out2.join("\n") + "\n";
+}
+function factsFor(item, fw) {
+  const s = fw.scoring;
+  const facts = [...Object.keys(s.criteria), s.ai_overlay.applies_fact, "success_metric", "existing_asset", "decision_depends"];
+  if (item.type === "broken") facts.push("broken_cause", "workaround_permanent");
+  if (s.adoption.applies_to.includes(item.type)) facts.push(...s.adoption.forces);
+  if (item.facts[s.ai_overlay.applies_fact]?.band === "yes") facts.push(...Object.keys(s.ai_overlay.checks));
+  return facts;
+}
+function needsAcceptance(i) {
+  return i.superseded_by == null && !i.dropped && i.type !== "exploratory" && !i.light_pass;
+}
+function bandSourcesUnasked(item, fw, asked) {
+  const modules = /* @__PURE__ */ new Set([item.type, ...item.modifiers.map((m) => `mod.${m}`)]);
+  const applies = (id) => id.startsWith("core.") || modules.has(id.startsWith("mod.") ? id.split(".").slice(0, 2).join(".") : id.split(".")[0]);
+  const out2 = /* @__PURE__ */ new Set();
+  for (const c of Object.values(fw.scoring.criteria)) {
+    const sources = c.usually_from.filter(applies);
+    if (sources.length && !sources.some(asked)) out2.add(sources[0]);
+  }
+  return [...out2];
+}
+function needsBands(i) {
+  return i.superseded_by == null && !i.dropped && !i.light_pass && i.type !== "exploratory";
+}
+function said(signal, text) {
+  if (/^an? /.test(signal)) return false;
+  const esc = normalize(signal).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(^|[^a-z0-9])${esc}(?=[^a-z0-9]|$)`, "g");
+  for (const m of text.matchAll(re)) {
+    const before = text.slice(0, m.index + m[1].length).split(/[.;:!?\n]/).pop().trim().split(/[\s,]+/).slice(-5);
+    if (!before.some((w) => NEGATION.test(w))) return true;
+  }
+  return false;
+}
+var NEGATION = /^(no|not|without|never|nor|none|isn't|aren't|don't|doesn't|didn't|isnt|arent|dont|doesnt|didnt)$/;
+function routingHint(fw, transcript) {
+  const opening = transcript.find((t) => t.role === "user");
+  if (!opening) return null;
+  const text = normalize(opening.text);
+  let best = null;
+  for (const [type, def] of Object.entries(fw.router.types)) {
+    for (const signal of def.signals) {
+      if (said(signal, text) && (!best || signal.length > best.signal.length)) best = { type, signal };
+    }
+  }
+  if (!best) return null;
+  return `The opening says "${best.signal}", a ${fw.router.types[best.type].label.toLowerCase()} signal: start with a \`${best.type}\` item unless the user's words clearly point elsewhere.`;
+}
+function structureHints(session, fw, transcript, opts = {}) {
+  const live = session.items.filter((i) => !i.superseded_by && !i.dropped);
+  if (live.length === 0) return [];
+  const text = normalize(transcript.filter((t) => t.role === "user").map((t) => t.text).join("\n"));
+  const hints = [];
+  const primary = live[0];
+  for (const [mod, def] of Object.entries(fw.router.modifiers)) {
+    const m = mod;
+    if (live.some((i) => i.modifiers.includes(m)) || session.items.some((i) => i.modifiers_removed?.includes(m))) continue;
+    const heard = def.signals.filter((sig) => said(sig, text));
+    if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}: if it's part of ${primary.id}, add the \`${mod}\` modifier (set it in that item's \`modifiers\`) and cover its areas.`);
+  }
+  if (opts.primaryInterviewed && primary.type !== "manual_process" && primary.type !== "exploratory" && !session.items.some((i) => i.type === "manual_process")) {
+    const heard = fw.router.types.manual_process.signals.filter((sig) => said(sig, text));
+    if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}. If that might be manual work they do today that ${primary.id} would replace (not just what they'd fall back to if something failed), ask whether it happens today and when it last did. Only once they describe it happening, add it as one \`manual_process\` item with spawned_from "${primary.id}", and supersede it by ${primary.id} (router.supersede) once they say it would go away; it needs only a light pass (how often, how long). If they say it doesn't apply, add nothing, or drop the item (router.drop) if you already added it.`);
+  }
+  if (live.some((i) => i.type === "exploratory") && live.length < 4) {
+    hints.push("This is an exploratory intake: for each concrete example the user gives, add its own item with spawned_from the exploratory item and the type that fits the example (usually manual_process; never exploratory), and ask only one or two things about it (the last time it happened, roughly what it costs a week). Don't interview any one example in depth; aim for three or more.");
+  }
+  return hints;
+}
+function statusOf(session, fw, transcript = []) {
+  const rb = session.session.reflect_back;
+  const core = Object.entries(session.core).map(([key, e]) => ({
+    area: `core.${key}`,
+    status: e.status,
+    asked: wasAsked(session, null, `core.${key}`),
+    probe_available: !!e.updated_at && (e.status === "assumed" || e.status === "unknown") && e.probe_count === 0
+  }));
+  const items = session.items.map((item) => {
+    const modules = [item.type, ...item.modifiers.map((m) => `mod.${m}`)];
+    const areas = modules.flatMap((m) => fw.modules[m]?.areas ?? []);
+    const asked = (id) => wasAsked(session, item, id);
+    const asksCore = modules.flatMap((m) => fw.modules[m]?.asks_core ?? []);
+    const critical = criticalAreas(item, fw);
+    const probeable = areas.map((a) => [a.id, item.coverage[a.id]]).filter(([, e]) => e?.updated_at && (e.status === "assumed" || e.status === "unknown") && e.probe_count === 0).map(([id]) => id);
+    const light = item.spawned_from != null || !!item.dropped;
+    const factsMissing = factsFor(item, fw).filter((f) => !item.facts[f]);
+    return {
+      id: item.id,
+      title: item.title,
+      type: item.type,
+      modifiers: item.modifiers,
+      superseded_by: item.superseded_by,
+      dropped: !!item.dropped,
+      light_pass: item.spawned_from != null,
+      preview_quadrant: factsMissing.length === 0 ? scoreItem(scoringView(session, item), fw).quadrant ?? null : null,
+      has_mitigation: !!item.prose.mitigation,
+      unasked: areas.filter((a) => !asked(a.id)).map((a) => a.id),
+      always_ask_pending: light ? [] : [...areas.filter((a) => a.always_ask).map((a) => a.id), ...asksCore].filter((id) => !asked(id)),
+      critical_unasked: light ? [] : critical.filter((id) => !asked(id)),
+      critical_unprobed: light ? [] : critical.filter((id) => {
+        const e = coverageFor(session, item, id);
+        return asked(id) && e?.status === "assumed" && e.probe_count === 0;
+      }),
+      band_sources_unasked: light || item.superseded_by || item.type === "exploratory" ? [] : bandSourcesUnasked(item, fw, asked),
+      probe_available: probeable,
+      facts_missing: factsMissing,
+      acceptance: {
+        criteria: item.acceptance.filter((a) => a.kind === "criterion").length,
+        error_cases: item.acceptance.filter((a) => a.kind === "error_case").length
+      },
+      guardrails: {
+        kill_criterion: item.guardrails.filter((g) => g.kind === "kill_criterion").length,
+        fallback: item.guardrails.filter((g) => g.kind === "fallback").length,
+        review_point: item.guardrails.filter((g) => g.kind === "review_point").length,
+        data_rule: item.guardrails.filter((g) => g.kind === "data_rule").length
+      }
+    };
+  });
+  const interviewed = (i) => i.critical_unasked.length === 0 && i.critical_unprobed.length === 0 && i.always_ask_pending.length === 0 && i.band_sources_unasked.length === 0;
+  const interviewComplete = items.length > 0 && items.every(interviewed);
+  const writeUpComplete = items.every(
+    (i) => (!needsBands(i) || i.facts_missing.length === 0) && (!needsAcceptance(i) || i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)
+  );
+  const reflect = !rb ? "none" : rb.confirmed ? "confirmed" : "proposed";
+  const primary = items.find((i) => !i.superseded_by && !i.dropped);
+  const primaryInterviewed = !!primary && interviewed(primary);
+  const hints = reflect === "none" ? structureHints(session, fw, transcript, { primaryInterviewed }) : [];
+  const plan = reflect === "none" ? planFrom(session, fw, items) : { primary: null, alternate: null };
+  return {
+    reflect_back: reflect,
+    core,
+    items,
+    interview_complete: interviewComplete,
+    ready_for_reflect_back: interviewComplete && writeUpComplete,
+    next_step: nextStep(reflect, interviewComplete, items, hints, items.length === 0 ? routingHint(fw, transcript) : null, plan, fw),
+    next_question: plan,
+    hints
+  };
+}
+function nextStep(reflect, interviewComplete, items, hints, routing = null, plan = { primary: null, alternate: null }, fw) {
+  if (reflect === "confirmed") return "The intake is complete. Thank the user briefly.";
+  if (reflect === "proposed") {
+    const review = items.filter((i) => i.preview_quadrant === "review" && !i.has_mitigation && !i.superseded_by);
+    return [
+      `You've played back a summary. If the user's latest message agrees with it (yes, that's right, that captures it), send \`reflect_back\` with status "confirmed" and the same text; don't propose it again. If they corrected something, send status "corrected" with the corrections listed.`,
+      ...review.length ? [`${review.map((i) => i.id).join(", ")} would score in the Review quadrant, which can't reach Go without a written mitigation: add a one-line \`mitigation\` prose for it from what the user has already said would reduce the risk (their fallback, review step or rule). Ask only if they've said nothing at all about how risk is handled, and not about core.trust once it has had its question and follow-up.`] : []
+    ].join(" ");
+  }
+  if (items.length === 0) return ["Create the first item from the user's opening statement and ask your first question.", ...routing ? [routing] : []].join(" ");
+  const check2 = hints.length ? ` Also check: ${hints.join(" ")}` : "";
+  if (!interviewComplete && plan.primary && fw) {
+    return [
+      `Keep interviewing. Record every answer in the user's latest message, then ask about ${describeTarget(fw, plan.primary)}`,
+      ...plan.alternate ? [`If their latest message already answers that in full, record it and ask instead about ${describeTarget(fw, plan.alternate)}`] : [],
+      `Ask nothing else.${check2}`
+    ].join(" ");
+  }
+  if (!interviewComplete) return `Keep interviewing. Record every answer the user gives as you go.${check2}`;
+  const banded = items.filter(needsBands).map((i) => i.id);
+  const buildable = items.filter(needsAcceptance).map((i) => i.id);
+  return [
+    ...hints.length ? [`First check: ${hints.join(" ")} If one applies, add it and ask about it instead of writing up. Otherwise:`] : [],
+    "Every needed area has been asked, so stop asking questions now. In this one turn:",
+    ...banded.length ? [`add a band for every fact listed in facts_missing for ${banded.join(", ")} (skip the other items), picked from what the user already said (use \`unknown\` where they didn't say), in \`facts\` only, never in \`updates\`; a band's quote is optional, so leave it null unless you copy the user's exact words;`] : [],
+    ...buildable.length ? [`write acceptance criteria (at least one criterion and one error case) and guardrails (at least a kill criterion and a fallback) for ${buildable.join(", ")}, from what you heard;`] : [],
+    "write a one-line `mitigation` prose for any item where the user described how a risk is handled (a fallback, someone checking);",
+    "and propose the reflect-back."
+  ].join(" ");
+}
+var CORE_ORDER = ["core.outcome", "core.data", "core.users", "core.trust", "core.systems", "core.constraints"];
+function planTargets(session, fw) {
+  return planFrom(session, fw, statusOf(session, fw).items);
+}
+function planFrom(session, fw, items) {
+  const plan = [];
+  const seen = /* @__PURE__ */ new Set();
+  const add = (item, area, probe = false) => {
+    const core = area.startsWith("core.");
+    const key = core ? area : `${item}:${area}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    plan.push({ item: core ? null : item, area, probe });
+  };
+  const live = items.filter((i) => !i.superseded_by && !i.dropped);
+  const byOrder = (ids) => [...ids].sort((a, b) => (CORE_ORDER.indexOf(a) + 1 || 99) - (CORE_ORDER.indexOf(b) + 1 || 99));
+  for (const i of live.filter((x) => !x.light_pass)) {
+    for (const id of i.critical_unasked.filter((id2) => !id2.startsWith("core."))) add(i.id, id);
+    for (const id of byOrder(i.critical_unasked.filter((id2) => id2.startsWith("core.")))) add(i.id, id);
+    for (const id of byOrder(i.band_sources_unasked)) add(i.id, id);
+    for (const id of i.always_ask_pending) add(i.id, id);
+  }
+  for (const i of live.filter((x) => x.light_pass)) {
+    const item = session.items.find((x) => x.id === i.id);
+    const first = criticalAreas(item, fw).find((id) => !id.startsWith("core."));
+    if (first && !wasAsked(session, item, first)) add(i.id, first);
+  }
+  for (const i of live) for (const id of i.critical_unprobed) add(i.id, id, true);
+  return { primary: plan[0] ?? null, alternate: plan[1] ?? null };
+}
+function describeTarget(fw, t) {
+  const area = fw.areas.get(t.area);
+  const whose = t.item ? ` for ${t.item}` : "";
+  if (!area) return `${t.area}${whose}`;
+  if (t.probe) return `${t.area}${whose}: they answered vaguely, so ask once about the last time it actually happened (what exactly happened, who was involved).`;
+  return `${t.area}${whose}: find out ${area.must_capture.charAt(0).toLowerCase()}${area.must_capture.slice(1)}. For example: "${area.probes[0]}" (adapt the wording to their situation).`;
+}
+
 // src/lib/generated/session-validator.js
 var validateSession = validate52;
-var schema19 = { "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://github.com/tjpinder/intake-kit/schema/session.schema.json", "title": "Intake session file, intake-answers.yaml (schema_version 1)", "description": "The source of truth every output is rendered from. Only apply-turn writes coverage, facts, router and prose fields; only code writes scoring and gate. Never written by the model directly.", "type": "object", "additionalProperties": false, "required": ["schema_version", "framework_version", "session", "core", "items"], "properties": { "schema_version": { "const": 1 }, "framework_version": { "$ref": "#/$defs/semver", "description": "Version of the router, module and scoring YAML used." }, "session": { "type": "object", "additionalProperties": false, "required": ["id", "started_at", "mode", "provider", "grounding", "reflect_back"], "properties": { "id": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}-[0-9a-f]{4,}$" }, "started_at": { "type": "string", "format": "date-time" }, "mode": { "enum": ["stakeholder", "builder"] }, "provider": { "enum": ["claude", "azure-openai", "openai", "codex"] }, "grounding": { "enum": ["transcript", "unverified"], "description": "transcript: every quote was checked against the user's recorded words. unverified: no transcript was available (e.g. Codex without the hook), so quotes weren't checked." }, "reflect_back": { "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["text", "confirmed", "corrections"], "properties": { "text": { "type": "string", "minLength": 1 }, "confirmed": { "type": "boolean" }, "corrections": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "proposed_at": { "type": "string", "format": "date-time" } } }] }, "last_target": { "description": "The area the last applied turn asked about, and the reply that asked it. If the next turn doesn't record the area, the user's reply is captured as an assumed answer, but only when that reply is the one the user saw.", "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["item", "area"], "properties": { "item": { "type": ["string", "null"] }, "area": { "type": "string" }, "reply": { "type": "string" } } }] }, "asked": { "description": "When each area was first asked about, stamped by code from each applied turn's next_target: core areas by ID, an item's own areas as <item>:<area>. Readiness counts an area as asked only if it's here or was answered in full.", "type": "object", "propertyNames": { "pattern": "^(core\\.[a-z_]+|item-\\d+:[a-z_.]+)$" }, "additionalProperties": { "type": "string", "format": "date-time" } } } }, "core": { "type": "object", "additionalProperties": false, "required": ["users", "outcome", "data", "systems", "constraints", "trust"], "properties": { "users": { "$ref": "#/$defs/coverage_entry" }, "outcome": { "$ref": "#/$defs/coverage_entry" }, "data": { "$ref": "#/$defs/coverage_entry" }, "systems": { "$ref": "#/$defs/coverage_entry" }, "constraints": { "$ref": "#/$defs/coverage_entry" }, "trust": { "$ref": "#/$defs/coverage_entry" } } }, "items": { "type": "array", "items": { "$ref": "#/$defs/item" } } }, "$defs": { "semver": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }, "item_id": { "type": "string", "pattern": "^item-\\d+$" }, "core_area": { "enum": ["users", "outcome", "data", "systems", "constraints", "trust"] }, "coverage_id": { "type": "string", "pattern": "^(core|broken|manual_process|known_idea|exploratory|data_report)\\.[a-z][a-z0-9_]*$|^mod\\.(integration|compliance|migration)\\.[a-z][a-z0-9_]*$" }, "item_type": { "enum": ["broken", "manual_process", "known_idea", "exploratory", "data_report"] }, "quote": { "type": "string", "minLength": 1 }, "coverage_entry": { "description": "Status rules: covered needs a value and at least one quote; assumed needs a quote; unknown has a null value; probe_count is at most 1.", "type": "object", "additionalProperties": false, "required": ["status", "value", "quotes", "probe_count"], "properties": { "status": { "enum": ["covered", "assumed", "unknown", "not_applicable"] }, "value": { "type": ["string", "null"] }, "quotes": { "type": "array", "items": { "$ref": "#/$defs/quote" } }, "probe_count": { "type": "integer", "minimum": 0, "maximum": 1 }, "updated_at": { "type": "string", "format": "date-time" }, "source": { "enum": ["captured"], "description": "captured: the user's reply stored word for word because the interviewer didn't record the answer to its own question. Shown for confirmation, never used as scoring evidence." } }, "allOf": [{ "if": { "properties": { "status": { "const": "covered" } } }, "then": { "properties": { "value": { "type": "string", "minLength": 1 }, "quotes": { "type": "array", "minItems": 1 } } } }, { "if": { "properties": { "status": { "const": "assumed" } } }, "then": { "properties": { "quotes": { "type": "array", "minItems": 1 } } } }, { "if": { "properties": { "status": { "const": "unknown" } } }, "then": { "properties": { "value": { "type": "null" } } } }] }, "fact_entry": { "description": "A band the model picked, with its evidence. scoring.yaml maps bands to scores; the band name itself is checked against scoring.yaml by code.", "type": "object", "additionalProperties": false, "required": ["band", "evidence", "quotes"], "properties": { "band": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_+-]*$" }, "evidence": { "type": "array", "items": { "$ref": "#/$defs/coverage_id" } }, "quotes": { "type": "array", "items": { "$ref": "#/$defs/quote" } } } }, "item": { "type": "object", "additionalProperties": false, "required": ["id", "title", "type", "confidence", "trigger_quote", "modifiers", "spawned_from", "superseded_by", "type_history", "core_overrides", "coverage", "facts", "prose", "acceptance", "guardrails", "scoring", "gate", "open_questions"], "properties": { "id": { "$ref": "#/$defs/item_id" }, "title": { "type": "string", "minLength": 1 }, "type": { "$ref": "#/$defs/item_type" }, "confidence": { "enum": ["high", "med", "low"] }, "trigger_quote": { "$ref": "#/$defs/quote" }, "modifiers": { "type": "array", "uniqueItems": true, "items": { "enum": ["integration", "compliance", "migration"] } }, "spawned_from": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/item_id" }] }, "superseded_by": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/item_id" }] }, "modifiers_removed": { "description": "Modifiers taken back during the interview, so they aren't suggested again.", "type": "array", "items": { "enum": ["integration", "compliance", "migration"] } }, "dropped": { "description": "Set when the item turned out not to apply (the user said so). Gated Don't build with the reason; never confused with being replaced by another item.", "type": "object", "additionalProperties": false, "required": ["reason", "quote", "at"], "properties": { "reason": { "type": "string", "minLength": 1 }, "quote": { "$ref": "#/$defs/quote" }, "at": { "type": "string", "format": "date-time" } } }, "type_history": { "type": "array", "minItems": 1, "items": { "type": "object", "additionalProperties": false, "required": ["from", "to", "reason", "quote", "at"], "properties": { "from": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/item_type" }] }, "to": { "$ref": "#/$defs/item_type" }, "reason": { "type": "string", "minLength": 1 }, "quote": { "$ref": "#/$defs/quote" }, "at": { "type": "string", "format": "date-time" } } } }, "core_overrides": { "type": "object", "propertyNames": { "$ref": "#/$defs/core_area" }, "additionalProperties": { "$ref": "#/$defs/coverage_entry" } }, "coverage": { "type": "object", "propertyNames": { "$ref": "#/$defs/coverage_id", "not": { "pattern": "^core\\." } }, "additionalProperties": { "$ref": "#/$defs/coverage_entry" } }, "facts": { "type": "object", "propertyNames": { "enum": ["rule_clarity", "input_digital", "input_structured", "ways_done", "stability", "documentation", "steps_apps", "access", "value", "ai_applies", "eval_ability", "error_cost", "human_review", "simpler_option", "fallback", "sensitive_data", "push", "pull", "anxiety", "habit", "existing_asset", "decision_depends", "broken_cause", "workaround_permanent", "success_metric"] }, "additionalProperties": { "$ref": "#/$defs/fact_entry" } }, "prose": { "type": "object", "additionalProperties": false, "properties": { "problem_statement": { "type": "string", "minLength": 1 }, "current_state": { "type": "string", "minLength": 1 }, "mvp": { "type": "string", "minLength": 1 }, "out_of_scope": { "type": "string", "minLength": 1 }, "mitigation": { "type": "string", "minLength": 1 } } }, "acceptance": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["kind", "given", "when", "then", "evidence"], "properties": { "kind": { "enum": ["criterion", "error_case"] }, "given": { "type": "string", "minLength": 1 }, "when": { "type": "string", "minLength": 1 }, "then": { "type": "string", "minLength": 1 }, "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/coverage_id" } } } } }, "guardrails": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["kind", "text", "evidence"], "properties": { "kind": { "enum": ["kill_criterion", "fallback", "review_point", "data_rule"] }, "text": { "type": "string", "minLength": 1 }, "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/coverage_id" } } } } }, "scoring": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/scoring" }], "description": "Written by code only. Null until the reflect-back is confirmed." }, "gate": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/gate" }], "description": "Written by code only. Null until scored." }, "open_questions": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["area", "question", "who_can_answer", "artifact_needed"], "properties": { "area": { "$ref": "#/$defs/coverage_id" }, "question": { "type": "string", "minLength": 1 }, "who_can_answer": { "type": ["string", "null"] }, "artifact_needed": { "type": ["string", "null"] } } } } }, "allOf": [{ "description": "A gate needs scoring first.", "if": { "properties": { "gate": { "type": "object" } }, "required": ["gate"] }, "then": { "properties": { "scoring": { "type": "object" } } } }] }, "scoring": { "type": "object", "additionalProperties": false, "required": ["criteria", "automation_potential", "ease", "quadrant", "ai_overlay", "adoption", "rules_version"], "properties": { "criteria": { "type": "object", "propertyNames": { "enum": ["rule_clarity", "input_digital", "input_structured", "ways_done", "stability", "documentation", "steps_apps", "access", "value"] }, "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["score", "band", "evidence"], "properties": { "score": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 }, "band": { "type": "string" }, "evidence": { "type": "array", "items": { "$ref": "#/$defs/coverage_id" } } } } }, "automation_potential": { "type": ["number", "null"], "minimum": 1, "maximum": 5 }, "ease": { "type": ["number", "null"], "minimum": 1, "maximum": 5 }, "quadrant": { "enum": ["prioritize", "review", "defer", null] }, "ai_overlay": { "type": "object", "additionalProperties": false, "required": ["applies", "checks"], "properties": { "applies": { "type": "boolean" }, "checks": { "type": "object", "propertyNames": { "enum": ["eval_ability", "error_cost", "human_review", "simpler_option", "fallback", "sensitive_data"] }, "additionalProperties": { "enum": ["pass", "fail", "unknown"] } } } }, "adoption": { "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["push", "pull", "anxiety", "habit"], "properties": { "push": { "enum": ["low", "med", "high", "unknown"] }, "pull": { "enum": ["low", "med", "high", "unknown"] }, "anxiety": { "enum": ["low", "med", "high", "unknown"] }, "habit": { "enum": ["low", "med", "high", "unknown"] } } }] }, "rules_version": { "$ref": "#/$defs/semver" } } }, "gate": { "type": "object", "additionalProperties": false, "required": ["decision", "reasons", "revisit_trigger", "rules_version"], "properties": { "decision": { "enum": ["go", "gather_more", "dont_build", "fix_not_build"] }, "reasons": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }, "revisit_trigger": { "type": ["string", "null"] }, "rules_version": { "$ref": "#/$defs/semver" } }, "allOf": [{ "description": "Don't build always records what would make it worth revisiting.", "if": { "properties": { "decision": { "const": "dont_build" } } }, "then": { "properties": { "revisit_trigger": { "type": "string", "minLength": 1 } } } }] } } };
+var schema19 = { "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://github.com/tjpinder/intake-kit/schema/session.schema.json", "title": "Intake session file, intake-answers.yaml (schema_version 1)", "description": "The source of truth every output is rendered from. Only apply-turn writes coverage, facts, router and prose fields; only code writes scoring and gate. Never written by the model directly.", "type": "object", "additionalProperties": false, "required": ["schema_version", "framework_version", "session", "core", "items"], "properties": { "schema_version": { "const": 1 }, "framework_version": { "$ref": "#/$defs/semver", "description": "Version of the router, module and scoring YAML used." }, "session": { "type": "object", "additionalProperties": false, "required": ["id", "started_at", "mode", "provider", "grounding", "reflect_back"], "properties": { "id": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}-[0-9a-f]{4,}$" }, "started_at": { "type": "string", "format": "date-time" }, "mode": { "enum": ["stakeholder", "builder"] }, "provider": { "enum": ["claude", "azure-openai", "openai", "codex"] }, "grounding": { "enum": ["transcript", "unverified"], "description": "transcript: every quote was checked against the user's recorded words. unverified: no transcript was available (e.g. Codex without the hook), so quotes weren't checked." }, "reflect_back": { "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["text", "confirmed", "corrections"], "properties": { "text": { "type": "string", "minLength": 1 }, "confirmed": { "type": "boolean" }, "corrections": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "proposed_at": { "type": "string", "format": "date-time" } } }] }, "last_target": { "description": "The area the last applied turn asked about, and the reply that asked it. If the next turn doesn't record the area, the user's reply is captured as an assumed answer, but only when that reply is the one the user saw.", "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["item", "area"], "properties": { "item": { "type": ["string", "null"] }, "area": { "type": "string" }, "reply": { "type": "string" } } }] }, "asked": { "description": "When each area was first asked about, stamped by code from the area it chose for each applied turn's question: core areas by ID, an item's own areas as <item>:<area>. Readiness counts an area as asked only if it's here or was answered in full.", "type": "object", "propertyNames": { "pattern": "^(core\\.[a-z_]+|item-\\d+:[a-z_.]+)$" }, "additionalProperties": { "type": "string", "format": "date-time" } } } }, "core": { "type": "object", "additionalProperties": false, "required": ["users", "outcome", "data", "systems", "constraints", "trust"], "properties": { "users": { "$ref": "#/$defs/coverage_entry" }, "outcome": { "$ref": "#/$defs/coverage_entry" }, "data": { "$ref": "#/$defs/coverage_entry" }, "systems": { "$ref": "#/$defs/coverage_entry" }, "constraints": { "$ref": "#/$defs/coverage_entry" }, "trust": { "$ref": "#/$defs/coverage_entry" } } }, "items": { "type": "array", "items": { "$ref": "#/$defs/item" } } }, "$defs": { "semver": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }, "item_id": { "type": "string", "pattern": "^item-\\d+$" }, "core_area": { "enum": ["users", "outcome", "data", "systems", "constraints", "trust"] }, "coverage_id": { "type": "string", "pattern": "^(core|broken|manual_process|known_idea|exploratory|data_report)\\.[a-z][a-z0-9_]*$|^mod\\.(integration|compliance|migration)\\.[a-z][a-z0-9_]*$" }, "item_type": { "enum": ["broken", "manual_process", "known_idea", "exploratory", "data_report"] }, "quote": { "type": "string", "minLength": 1 }, "coverage_entry": { "description": "Status rules: covered needs a value and at least one quote; assumed needs a quote; unknown has a null value; probe_count is at most 1.", "type": "object", "additionalProperties": false, "required": ["status", "value", "quotes", "probe_count"], "properties": { "status": { "enum": ["covered", "assumed", "unknown", "not_applicable"] }, "value": { "type": ["string", "null"] }, "quotes": { "type": "array", "items": { "$ref": "#/$defs/quote" } }, "probe_count": { "type": "integer", "minimum": 0, "maximum": 1 }, "updated_at": { "type": "string", "format": "date-time" }, "source": { "enum": ["captured"], "description": "captured: the user's reply stored word for word because the interviewer didn't record the answer to its own question. Shown for confirmation, never used as scoring evidence." } }, "allOf": [{ "if": { "properties": { "status": { "const": "covered" } } }, "then": { "properties": { "value": { "type": "string", "minLength": 1 }, "quotes": { "type": "array", "minItems": 1 } } } }, { "if": { "properties": { "status": { "const": "assumed" } } }, "then": { "properties": { "quotes": { "type": "array", "minItems": 1 } } } }, { "if": { "properties": { "status": { "const": "unknown" } } }, "then": { "properties": { "value": { "type": "null" } } } }] }, "fact_entry": { "description": "A band the model picked, with its evidence. scoring.yaml maps bands to scores; the band name itself is checked against scoring.yaml by code.", "type": "object", "additionalProperties": false, "required": ["band", "evidence", "quotes"], "properties": { "band": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_+-]*$" }, "evidence": { "type": "array", "items": { "$ref": "#/$defs/coverage_id" } }, "quotes": { "type": "array", "items": { "$ref": "#/$defs/quote" } } } }, "item": { "type": "object", "additionalProperties": false, "required": ["id", "title", "type", "confidence", "trigger_quote", "modifiers", "spawned_from", "superseded_by", "type_history", "core_overrides", "coverage", "facts", "prose", "acceptance", "guardrails", "scoring", "gate", "open_questions"], "properties": { "id": { "$ref": "#/$defs/item_id" }, "title": { "type": "string", "minLength": 1 }, "type": { "$ref": "#/$defs/item_type" }, "confidence": { "enum": ["high", "med", "low"] }, "trigger_quote": { "$ref": "#/$defs/quote" }, "modifiers": { "type": "array", "uniqueItems": true, "items": { "enum": ["integration", "compliance", "migration"] } }, "spawned_from": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/item_id" }] }, "superseded_by": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/item_id" }] }, "modifiers_removed": { "description": "Modifiers taken back during the interview, so they aren't suggested again.", "type": "array", "items": { "enum": ["integration", "compliance", "migration"] } }, "dropped": { "description": "Set when the item turned out not to apply (the user said so). Gated Don't build with the reason; never confused with being replaced by another item.", "type": "object", "additionalProperties": false, "required": ["reason", "quote", "at"], "properties": { "reason": { "type": "string", "minLength": 1 }, "quote": { "$ref": "#/$defs/quote" }, "at": { "type": "string", "format": "date-time" } } }, "type_history": { "type": "array", "minItems": 1, "items": { "type": "object", "additionalProperties": false, "required": ["from", "to", "reason", "quote", "at"], "properties": { "from": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/item_type" }] }, "to": { "$ref": "#/$defs/item_type" }, "reason": { "type": "string", "minLength": 1 }, "quote": { "$ref": "#/$defs/quote" }, "at": { "type": "string", "format": "date-time" } } } }, "core_overrides": { "type": "object", "propertyNames": { "$ref": "#/$defs/core_area" }, "additionalProperties": { "$ref": "#/$defs/coverage_entry" } }, "coverage": { "type": "object", "propertyNames": { "$ref": "#/$defs/coverage_id", "not": { "pattern": "^core\\." } }, "additionalProperties": { "$ref": "#/$defs/coverage_entry" } }, "facts": { "type": "object", "propertyNames": { "enum": ["rule_clarity", "input_digital", "input_structured", "ways_done", "stability", "documentation", "steps_apps", "access", "value", "ai_applies", "eval_ability", "error_cost", "human_review", "simpler_option", "fallback", "sensitive_data", "push", "pull", "anxiety", "habit", "existing_asset", "decision_depends", "broken_cause", "workaround_permanent", "success_metric"] }, "additionalProperties": { "$ref": "#/$defs/fact_entry" } }, "prose": { "type": "object", "additionalProperties": false, "properties": { "problem_statement": { "type": "string", "minLength": 1 }, "current_state": { "type": "string", "minLength": 1 }, "mvp": { "type": "string", "minLength": 1 }, "out_of_scope": { "type": "string", "minLength": 1 }, "mitigation": { "type": "string", "minLength": 1 } } }, "acceptance": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["kind", "given", "when", "then", "evidence"], "properties": { "kind": { "enum": ["criterion", "error_case"] }, "given": { "type": "string", "minLength": 1 }, "when": { "type": "string", "minLength": 1 }, "then": { "type": "string", "minLength": 1 }, "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/coverage_id" } } } } }, "guardrails": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["kind", "text", "evidence"], "properties": { "kind": { "enum": ["kill_criterion", "fallback", "review_point", "data_rule"] }, "text": { "type": "string", "minLength": 1 }, "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/coverage_id" } } } } }, "scoring": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/scoring" }], "description": "Written by code only. Null until the reflect-back is confirmed." }, "gate": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/gate" }], "description": "Written by code only. Null until scored." }, "open_questions": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["area", "question", "who_can_answer", "artifact_needed"], "properties": { "area": { "$ref": "#/$defs/coverage_id" }, "question": { "type": "string", "minLength": 1 }, "who_can_answer": { "type": ["string", "null"] }, "artifact_needed": { "type": ["string", "null"] } } } } }, "allOf": [{ "description": "A gate needs scoring first.", "if": { "properties": { "gate": { "type": "object" } }, "required": ["gate"] }, "then": { "properties": { "scoring": { "type": "object" } } } }] }, "scoring": { "type": "object", "additionalProperties": false, "required": ["criteria", "automation_potential", "ease", "quadrant", "ai_overlay", "adoption", "rules_version"], "properties": { "criteria": { "type": "object", "propertyNames": { "enum": ["rule_clarity", "input_digital", "input_structured", "ways_done", "stability", "documentation", "steps_apps", "access", "value"] }, "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["score", "band", "evidence"], "properties": { "score": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 }, "band": { "type": "string" }, "evidence": { "type": "array", "items": { "$ref": "#/$defs/coverage_id" } } } } }, "automation_potential": { "type": ["number", "null"], "minimum": 1, "maximum": 5 }, "ease": { "type": ["number", "null"], "minimum": 1, "maximum": 5 }, "quadrant": { "enum": ["prioritize", "review", "defer", null] }, "ai_overlay": { "type": "object", "additionalProperties": false, "required": ["applies", "checks"], "properties": { "applies": { "type": "boolean" }, "checks": { "type": "object", "propertyNames": { "enum": ["eval_ability", "error_cost", "human_review", "simpler_option", "fallback", "sensitive_data"] }, "additionalProperties": { "enum": ["pass", "fail", "unknown"] } } } }, "adoption": { "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["push", "pull", "anxiety", "habit"], "properties": { "push": { "enum": ["low", "med", "high", "unknown"] }, "pull": { "enum": ["low", "med", "high", "unknown"] }, "anxiety": { "enum": ["low", "med", "high", "unknown"] }, "habit": { "enum": ["low", "med", "high", "unknown"] } } }] }, "rules_version": { "$ref": "#/$defs/semver" } } }, "gate": { "type": "object", "additionalProperties": false, "required": ["decision", "reasons", "revisit_trigger", "rules_version"], "properties": { "decision": { "enum": ["go", "gather_more", "dont_build", "fix_not_build"] }, "reasons": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }, "revisit_trigger": { "type": ["string", "null"] }, "rules_version": { "$ref": "#/$defs/semver" } }, "allOf": [{ "description": "Don't build always records what would make it worth revisiting.", "if": { "properties": { "decision": { "const": "dont_build" } } }, "then": { "properties": { "revisit_trigger": { "type": "string", "minLength": 1 } } } }] } } };
 var pattern32 = new RegExp("^\\d+\\.\\d+\\.\\d+$", "u");
 function validate532(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   let vErrors = null;
@@ -15633,7 +15904,7 @@ validate52.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": f
 
 // src/lib/generated/turn-validator.js
 var validateTurn = validate21;
-var schema6 = { "$schema": "http://json-schema.org/draft-07/schema#", "$id": "https://github.com/tjpinder/intake-kit/schema/turn.schema.json", "title": "Intake turn (schema_version 1)", "description": "What the model returns every turn. Written to the strict structured-output subset shared by Azure OpenAI and the Claude API: every property required, additionalProperties false, nullable fields as type unions, no dynamic keys, no pattern/length/count keywords. Rules this subset can't express (ID formats, band names, quote grounding, one probe per area) are enforced by apply-turn against scoring.yaml and the transcript. There is deliberately no field for scores, composites, quadrants or gates.", "type": "object", "additionalProperties": false, "required": ["reply", "updates", "facts", "router", "prose", "acceptance", "guardrails", "open_questions", "reflect_back", "next_target"], "properties": { "reply": { "type": "string", "description": "The next thing said to the user: one question, or the reflect-back." }, "updates": { "type": "array", "description": "Coverage changes heard this turn.", "items": { "$ref": "#/$defs/update" } }, "facts": { "type": "array", "description": "Band picks for scoring criteria, AI overlay checks, adoption and gate facts. The model picks a band name; code maps it to a score via scoring.yaml.", "items": { "$ref": "#/$defs/fact" } }, "router": { "$ref": "#/$defs/router" }, "prose": { "type": "array", "description": "Prose the spec pack needs that isn't a single coverage answer. Captured into the session file before rendering.", "items": { "$ref": "#/$defs/prose" } }, "acceptance": { "type": "array", "description": "Acceptance criteria and error cases in Given/When/Then form. Each cites the coverage IDs it rests on; code attaches the user's quote when rendering.", "items": { "$ref": "#/$defs/acceptance" } }, "guardrails": { "type": "array", "description": "Guardrail statements drawn from what the user said about trust, data and risk. Each cites the coverage IDs it rests on.", "items": { "$ref": "#/$defs/guardrail" } }, "open_questions": { "type": "array", "items": { "$ref": "#/$defs/open_question" } }, "reflect_back": { "description": "Null until the model is ready to reflect back. 'proposed' when presenting it; 'confirmed' or 'corrected' once the user has answered.", "anyOf": [{ "$ref": "#/$defs/reflect_back" }, { "type": "null" }] }, "next_target": { "$ref": "#/$defs/next_target" } }, "$defs": { "update": { "type": "object", "additionalProperties": false, "required": ["item", "area", "status", "value", "quote"], "properties": { "item": { "type": ["string", "null"], "description": "Item ID, or null for a shared-core area." }, "area": { "type": "string", "description": "Namespaced coverage ID, e.g. core.users, data_report.grain, mod.integration.payload." }, "status": { "type": "string", "enum": ["covered", "assumed", "unknown", "not_applicable"] }, "value": { "type": ["string", "null"], "description": "Summary in plain words. Null when status is unknown." }, "quote": { "type": ["string", "null"], "description": "The user's exact words supporting this update. Required for covered and assumed." } } }, "fact": { "type": "object", "additionalProperties": false, "required": ["item", "fact", "band", "evidence", "quote"], "properties": { "item": { "type": "string" }, "fact": { "type": "string", "enum": ["rule_clarity", "input_digital", "input_structured", "ways_done", "stability", "documentation", "steps_apps", "access", "value", "ai_applies", "eval_ability", "error_cost", "human_review", "simpler_option", "fallback", "sensitive_data", "push", "pull", "anxiety", "habit", "existing_asset", "decision_depends", "broken_cause", "workaround_permanent", "success_metric"] }, "band": { "type": "string", "description": "One of the band names scoring.yaml defines for this fact." }, "evidence": { "type": "array", "items": { "type": "string" }, "description": "Coverage IDs the band was derived from." }, "quote": { "type": ["string", "null"], "description": "The user's words behind the band, when there is one." } } }, "router": { "type": "object", "additionalProperties": false, "required": ["new_items", "reclassify", "add_modifiers", "remove_modifiers", "supersede", "drop"], "properties": { "new_items": { "type": "array", "items": { "$ref": "#/$defs/new_item" } }, "reclassify": { "anyOf": [{ "$ref": "#/$defs/reclassify" }, { "type": "null" }] }, "add_modifiers": { "type": "array", "items": { "$ref": "#/$defs/add_modifier" } }, "remove_modifiers": { "type": "array", "items": { "$ref": "#/$defs/remove_modifier" } }, "supersede": { "anyOf": [{ "$ref": "#/$defs/supersede" }, { "type": "null" }] }, "drop": { "anyOf": [{ "$ref": "#/$defs/drop" }, { "type": "null" }] } } }, "new_item": { "type": "object", "additionalProperties": false, "required": ["id", "type", "confidence", "title", "trigger_quote", "spawned_from"], "properties": { "id": { "type": "string" }, "type": { "$ref": "#/$defs/item_type" }, "confidence": { "type": "string", "enum": ["high", "med", "low"] }, "title": { "type": "string" }, "trigger_quote": { "type": "string" }, "spawned_from": { "type": ["string", "null"] } } }, "reclassify": { "type": "object", "additionalProperties": false, "required": ["item", "to", "reason", "quote"], "properties": { "item": { "type": "string" }, "to": { "$ref": "#/$defs/item_type" }, "reason": { "type": "string" }, "quote": { "type": "string" } } }, "add_modifier": { "type": "object", "additionalProperties": false, "required": ["item", "modifier", "quote"], "properties": { "item": { "type": "string" }, "modifier": { "type": "string", "enum": ["integration", "compliance", "migration"] }, "quote": { "type": "string" } } }, "remove_modifier": { "type": "object", "additionalProperties": false, "required": ["item", "modifier", "reason"], "properties": { "item": { "type": "string" }, "modifier": { "type": "string", "enum": ["integration", "compliance", "migration"] }, "reason": { "type": "string", "description": "Why it doesn't apply, e.g. the user said there's no API." } } }, "drop": { "type": "object", "additionalProperties": false, "required": ["item", "reason", "quote"], "properties": { "item": { "type": "string", "description": "An item that turned out not to apply. Not for an item the new one replaces: that's supersede." }, "reason": { "type": "string" }, "quote": { "type": "string", "description": "The user's words saying it doesn't apply." } } }, "supersede": { "type": "object", "additionalProperties": false, "required": ["item", "by", "quote"], "properties": { "item": { "type": "string", "description": "The item that would be replaced." }, "by": { "type": "string", "description": "The item that replaces it if it reaches Go." }, "quote": { "type": "string" } } }, "prose": { "type": "object", "additionalProperties": false, "required": ["item", "field", "text"], "properties": { "item": { "type": ["string", "null"] }, "field": { "type": "string", "enum": ["problem_statement", "current_state", "mvp", "out_of_scope", "mitigation"] }, "text": { "type": "string" } } }, "acceptance": { "type": "object", "additionalProperties": false, "required": ["item", "kind", "given", "when", "then", "evidence"], "properties": { "item": { "type": "string" }, "kind": { "type": "string", "enum": ["criterion", "error_case"] }, "given": { "type": "string" }, "when": { "type": "string" }, "then": { "type": "string" }, "evidence": { "type": "array", "items": { "type": "string" }, "description": "Coverage IDs with a recorded answer and quote." } } }, "guardrail": { "type": "object", "additionalProperties": false, "required": ["item", "kind", "text", "evidence"], "properties": { "item": { "type": "string" }, "kind": { "type": "string", "enum": ["kill_criterion", "fallback", "review_point", "data_rule"] }, "text": { "type": "string" }, "evidence": { "type": "array", "items": { "type": "string" } } } }, "open_question": { "type": "object", "additionalProperties": false, "required": ["item", "area", "question", "who_can_answer", "artifact_needed"], "properties": { "item": { "type": ["string", "null"] }, "area": { "type": "string" }, "question": { "type": "string" }, "who_can_answer": { "type": ["string", "null"] }, "artifact_needed": { "type": ["string", "null"] } } }, "reflect_back": { "type": "object", "additionalProperties": false, "required": ["text", "status", "corrections"], "properties": { "text": { "type": "string" }, "status": { "type": "string", "enum": ["proposed", "confirmed", "corrected"] }, "corrections": { "type": "array", "items": { "type": "string" } } } }, "next_target": { "type": "object", "additionalProperties": false, "required": ["item", "area", "is_probe"], "properties": { "item": { "type": ["string", "null"] }, "area": { "type": ["string", "null"], "description": "The coverage ID the reply asks about, or null for the reflect-back." }, "is_probe": { "type": "boolean", "description": "True when the reply re-asks an area the user already answered vaguely. apply-turn allows one probe per area." } } }, "item_type": { "type": "string", "enum": ["broken", "manual_process", "known_idea", "exploratory", "data_report"] } } };
+var schema6 = { "$schema": "http://json-schema.org/draft-07/schema#", "$id": "https://github.com/tjpinder/intake-kit/schema/turn.schema.json", "title": "Intake turn (schema_version 1)", "description": "What the model returns every turn. Written to the strict structured-output subset shared by Azure OpenAI and the Claude API: every property required, additionalProperties false, nullable fields as type unions, no dynamic keys, no pattern/length/count keywords. Rules this subset can't express (ID formats, band names, quote grounding, one probe per area) are enforced by apply-turn against scoring.yaml and the transcript. There is deliberately no field for scores, composites, quadrants or gates.", "type": "object", "additionalProperties": false, "required": ["reply", "updates", "facts", "router", "prose", "acceptance", "guardrails", "open_questions", "reflect_back"], "properties": { "reply": { "type": "string", "description": "The next thing said to the user: one question, or the reflect-back." }, "updates": { "type": "array", "description": "Coverage changes heard this turn.", "items": { "$ref": "#/$defs/update" } }, "facts": { "type": "array", "description": "Band picks for scoring criteria, AI overlay checks, adoption and gate facts. The model picks a band name; code maps it to a score via scoring.yaml.", "items": { "$ref": "#/$defs/fact" } }, "router": { "$ref": "#/$defs/router" }, "prose": { "type": "array", "description": "Prose the spec pack needs that isn't a single coverage answer. Captured into the session file before rendering.", "items": { "$ref": "#/$defs/prose" } }, "acceptance": { "type": "array", "description": "Acceptance criteria and error cases in Given/When/Then form. Each cites the coverage IDs it rests on; code attaches the user's quote when rendering.", "items": { "$ref": "#/$defs/acceptance" } }, "guardrails": { "type": "array", "description": "Guardrail statements drawn from what the user said about trust, data and risk. Each cites the coverage IDs it rests on.", "items": { "$ref": "#/$defs/guardrail" } }, "open_questions": { "type": "array", "items": { "$ref": "#/$defs/open_question" } }, "reflect_back": { "description": "Null until the model is ready to reflect back. 'proposed' when presenting it; 'confirmed' or 'corrected' once the user has answered.", "anyOf": [{ "$ref": "#/$defs/reflect_back" }, { "type": "null" }] } }, "$defs": { "update": { "type": "object", "additionalProperties": false, "required": ["item", "area", "status", "value", "quote"], "properties": { "item": { "type": ["string", "null"], "description": "Item ID, or null for a shared-core area." }, "area": { "type": "string", "description": "Namespaced coverage ID, e.g. core.users, data_report.grain, mod.integration.payload." }, "status": { "type": "string", "enum": ["covered", "assumed", "unknown", "not_applicable"] }, "value": { "type": ["string", "null"], "description": "Summary in plain words. Null when status is unknown." }, "quote": { "type": ["string", "null"], "description": "The user's exact words supporting this update. Required for covered and assumed." } } }, "fact": { "type": "object", "additionalProperties": false, "required": ["item", "fact", "band", "evidence", "quote"], "properties": { "item": { "type": "string" }, "fact": { "type": "string", "enum": ["rule_clarity", "input_digital", "input_structured", "ways_done", "stability", "documentation", "steps_apps", "access", "value", "ai_applies", "eval_ability", "error_cost", "human_review", "simpler_option", "fallback", "sensitive_data", "push", "pull", "anxiety", "habit", "existing_asset", "decision_depends", "broken_cause", "workaround_permanent", "success_metric"] }, "band": { "type": "string", "description": "One of the band names scoring.yaml defines for this fact." }, "evidence": { "type": "array", "items": { "type": "string" }, "description": "Coverage IDs the band was derived from." }, "quote": { "type": ["string", "null"], "description": "The user's words behind the band, when there is one." } } }, "router": { "type": "object", "additionalProperties": false, "required": ["new_items", "reclassify", "add_modifiers", "remove_modifiers", "supersede", "drop"], "properties": { "new_items": { "type": "array", "items": { "$ref": "#/$defs/new_item" } }, "reclassify": { "anyOf": [{ "$ref": "#/$defs/reclassify" }, { "type": "null" }] }, "add_modifiers": { "type": "array", "items": { "$ref": "#/$defs/add_modifier" } }, "remove_modifiers": { "type": "array", "items": { "$ref": "#/$defs/remove_modifier" } }, "supersede": { "anyOf": [{ "$ref": "#/$defs/supersede" }, { "type": "null" }] }, "drop": { "anyOf": [{ "$ref": "#/$defs/drop" }, { "type": "null" }] } } }, "new_item": { "type": "object", "additionalProperties": false, "required": ["id", "type", "confidence", "title", "trigger_quote", "spawned_from"], "properties": { "id": { "type": "string" }, "type": { "$ref": "#/$defs/item_type" }, "confidence": { "type": "string", "enum": ["high", "med", "low"] }, "title": { "type": "string" }, "trigger_quote": { "type": "string" }, "spawned_from": { "type": ["string", "null"] } } }, "reclassify": { "type": "object", "additionalProperties": false, "required": ["item", "to", "reason", "quote"], "properties": { "item": { "type": "string" }, "to": { "$ref": "#/$defs/item_type" }, "reason": { "type": "string" }, "quote": { "type": "string" } } }, "add_modifier": { "type": "object", "additionalProperties": false, "required": ["item", "modifier", "quote"], "properties": { "item": { "type": "string" }, "modifier": { "type": "string", "enum": ["integration", "compliance", "migration"] }, "quote": { "type": "string" } } }, "remove_modifier": { "type": "object", "additionalProperties": false, "required": ["item", "modifier", "reason"], "properties": { "item": { "type": "string" }, "modifier": { "type": "string", "enum": ["integration", "compliance", "migration"] }, "reason": { "type": "string", "description": "Why it doesn't apply, e.g. the user said there's no API." } } }, "drop": { "type": "object", "additionalProperties": false, "required": ["item", "reason", "quote"], "properties": { "item": { "type": "string", "description": "An item that turned out not to apply. Not for an item the new one replaces: that's supersede." }, "reason": { "type": "string" }, "quote": { "type": "string", "description": "The user's words saying it doesn't apply." } } }, "supersede": { "type": "object", "additionalProperties": false, "required": ["item", "by", "quote"], "properties": { "item": { "type": "string", "description": "The item that would be replaced." }, "by": { "type": "string", "description": "The item that replaces it if it reaches Go." }, "quote": { "type": "string" } } }, "prose": { "type": "object", "additionalProperties": false, "required": ["item", "field", "text"], "properties": { "item": { "type": ["string", "null"] }, "field": { "type": "string", "enum": ["problem_statement", "current_state", "mvp", "out_of_scope", "mitigation"] }, "text": { "type": "string" } } }, "acceptance": { "type": "object", "additionalProperties": false, "required": ["item", "kind", "given", "when", "then", "evidence"], "properties": { "item": { "type": "string" }, "kind": { "type": "string", "enum": ["criterion", "error_case"] }, "given": { "type": "string" }, "when": { "type": "string" }, "then": { "type": "string" }, "evidence": { "type": "array", "items": { "type": "string" }, "description": "Coverage IDs with a recorded answer and quote." } } }, "guardrail": { "type": "object", "additionalProperties": false, "required": ["item", "kind", "text", "evidence"], "properties": { "item": { "type": "string" }, "kind": { "type": "string", "enum": ["kill_criterion", "fallback", "review_point", "data_rule"] }, "text": { "type": "string" }, "evidence": { "type": "array", "items": { "type": "string" } } } }, "open_question": { "type": "object", "additionalProperties": false, "required": ["item", "area", "question", "who_can_answer", "artifact_needed"], "properties": { "item": { "type": ["string", "null"] }, "area": { "type": "string" }, "question": { "type": "string" }, "who_can_answer": { "type": ["string", "null"] }, "artifact_needed": { "type": ["string", "null"] } } }, "reflect_back": { "type": "object", "additionalProperties": false, "required": ["text", "status", "corrections"], "properties": { "text": { "type": "string" }, "status": { "type": "string", "enum": ["proposed", "confirmed", "corrected"] }, "corrections": { "type": "array", "items": { "type": "string" } } } }, "item_type": { "type": "string", "enum": ["broken", "manual_process", "known_idea", "exploratory", "data_report"] } } };
 var func2 = Object.prototype.hasOwnProperty;
 var schema7 = { "type": "object", "additionalProperties": false, "required": ["item", "area", "status", "value", "quote"], "properties": { "item": { "type": ["string", "null"], "description": "Item ID, or null for a shared-core area." }, "area": { "type": "string", "description": "Namespaced coverage ID, e.g. core.users, data_report.grain, mod.integration.payload." }, "status": { "type": "string", "enum": ["covered", "assumed", "unknown", "not_applicable"] }, "value": { "type": ["string", "null"], "description": "Summary in plain words. Null when status is unknown." }, "quote": { "type": ["string", "null"], "description": "The user's exact words supporting this update. Required for covered and assumed." } } };
 function validate22(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
@@ -17499,96 +17770,6 @@ function validate51(data, { instancePath = "", parentData, parentDataProperty, r
   validate51.errors = vErrors;
   return errors === 0;
 }
-var schema222 = { "type": "object", "additionalProperties": false, "required": ["item", "area", "is_probe"], "properties": { "item": { "type": ["string", "null"] }, "area": { "type": ["string", "null"], "description": "The coverage ID the reply asks about, or null for the reflect-back." }, "is_probe": { "type": "boolean", "description": "True when the reply re-asks an area the user already answered vaguely. apply-turn allows one probe per area." } } };
-function validate533(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.item === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.area === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "area" }, message: "must have required property 'area'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.is_probe === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "is_probe" }, message: "must have required property 'is_probe'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "item" || key0 === "area" || key0 === "is_probe")) {
-        const err3 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err3];
-        } else {
-          vErrors.push(err3);
-        }
-        errors++;
-      }
-    }
-    if (data.item !== void 0) {
-      let data0 = data.item;
-      if (typeof data0 !== "string" && data0 !== null) {
-        const err4 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: schema222.properties.item.type }, message: "must be string,null" };
-        if (vErrors === null) {
-          vErrors = [err4];
-        } else {
-          vErrors.push(err4);
-        }
-        errors++;
-      }
-    }
-    if (data.area !== void 0) {
-      let data1 = data.area;
-      if (typeof data1 !== "string" && data1 !== null) {
-        const err5 = { instancePath: instancePath + "/area", schemaPath: "#/properties/area/type", keyword: "type", params: { type: schema222.properties.area.type }, message: "must be string,null" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-    }
-    if (data.is_probe !== void 0) {
-      if (typeof data.is_probe !== "boolean") {
-        const err6 = { instancePath: instancePath + "/is_probe", schemaPath: "#/properties/is_probe/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err7 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err7];
-    } else {
-      vErrors.push(err7);
-    }
-    errors++;
-  }
-  validate533.errors = vErrors;
-  return errors === 0;
-}
 function validate21(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   ;
   let vErrors = null;
@@ -17675,33 +17856,24 @@ function validate21(data, { instancePath = "", parentData, parentDataProperty, r
       }
       errors++;
     }
-    if (data.next_target === void 0) {
-      const err9 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "next_target" }, message: "must have required property 'next_target'" };
-      if (vErrors === null) {
-        vErrors = [err9];
-      } else {
-        vErrors.push(err9);
-      }
-      errors++;
-    }
     for (const key0 in data) {
       if (!func2.call(schema6.properties, key0)) {
-        const err10 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        const err9 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
-          vErrors = [err10];
+          vErrors = [err9];
         } else {
-          vErrors.push(err10);
+          vErrors.push(err9);
         }
         errors++;
       }
     }
     if (data.reply !== void 0) {
       if (typeof data.reply !== "string") {
-        const err11 = { instancePath: instancePath + "/reply", schemaPath: "#/properties/reply/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        const err10 = { instancePath: instancePath + "/reply", schemaPath: "#/properties/reply/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         if (vErrors === null) {
-          vErrors = [err11];
+          vErrors = [err10];
         } else {
-          vErrors.push(err11);
+          vErrors.push(err10);
         }
         errors++;
       }
@@ -17717,11 +17889,11 @@ function validate21(data, { instancePath = "", parentData, parentDataProperty, r
           }
         }
       } else {
-        const err12 = { instancePath: instancePath + "/updates", schemaPath: "#/properties/updates/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err11 = { instancePath: instancePath + "/updates", schemaPath: "#/properties/updates/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err12];
+          vErrors = [err11];
         } else {
-          vErrors.push(err12);
+          vErrors.push(err11);
         }
         errors++;
       }
@@ -17737,11 +17909,11 @@ function validate21(data, { instancePath = "", parentData, parentDataProperty, r
           }
         }
       } else {
-        const err13 = { instancePath: instancePath + "/facts", schemaPath: "#/properties/facts/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err12 = { instancePath: instancePath + "/facts", schemaPath: "#/properties/facts/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err13];
+          vErrors = [err12];
         } else {
-          vErrors.push(err13);
+          vErrors.push(err12);
         }
         errors++;
       }
@@ -17763,11 +17935,11 @@ function validate21(data, { instancePath = "", parentData, parentDataProperty, r
           }
         }
       } else {
-        const err14 = { instancePath: instancePath + "/prose", schemaPath: "#/properties/prose/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err13 = { instancePath: instancePath + "/prose", schemaPath: "#/properties/prose/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err14];
+          vErrors = [err13];
         } else {
-          vErrors.push(err14);
+          vErrors.push(err13);
         }
         errors++;
       }
@@ -17783,11 +17955,11 @@ function validate21(data, { instancePath = "", parentData, parentDataProperty, r
           }
         }
       } else {
-        const err15 = { instancePath: instancePath + "/acceptance", schemaPath: "#/properties/acceptance/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err14 = { instancePath: instancePath + "/acceptance", schemaPath: "#/properties/acceptance/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err15];
+          vErrors = [err14];
         } else {
-          vErrors.push(err15);
+          vErrors.push(err14);
         }
         errors++;
       }
@@ -17803,11 +17975,11 @@ function validate21(data, { instancePath = "", parentData, parentDataProperty, r
           }
         }
       } else {
-        const err16 = { instancePath: instancePath + "/guardrails", schemaPath: "#/properties/guardrails/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err15 = { instancePath: instancePath + "/guardrails", schemaPath: "#/properties/guardrails/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err16];
+          vErrors = [err15];
         } else {
-          vErrors.push(err16);
+          vErrors.push(err15);
         }
         errors++;
       }
@@ -17823,11 +17995,11 @@ function validate21(data, { instancePath = "", parentData, parentDataProperty, r
           }
         }
       } else {
-        const err17 = { instancePath: instancePath + "/open_questions", schemaPath: "#/properties/open_questions/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err16 = { instancePath: instancePath + "/open_questions", schemaPath: "#/properties/open_questions/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err17];
+          vErrors = [err16];
         } else {
-          vErrors.push(err17);
+          vErrors.push(err16);
         }
         errors++;
       }
@@ -17846,11 +18018,11 @@ function validate21(data, { instancePath = "", parentData, parentDataProperty, r
       if (!valid13) {
         const _errs26 = errors;
         if (data14 !== null) {
-          const err18 = { instancePath: instancePath + "/reflect_back", schemaPath: "#/properties/reflect_back/anyOf/1/type", keyword: "type", params: { type: "null" }, message: "must be null" };
+          const err17 = { instancePath: instancePath + "/reflect_back", schemaPath: "#/properties/reflect_back/anyOf/1/type", keyword: "type", params: { type: "null" }, message: "must be null" };
           if (vErrors === null) {
-            vErrors = [err18];
+            vErrors = [err17];
           } else {
-            vErrors.push(err18);
+            vErrors.push(err17);
           }
           errors++;
         }
@@ -17858,11 +18030,11 @@ function validate21(data, { instancePath = "", parentData, parentDataProperty, r
         valid13 = valid13 || _valid0;
       }
       if (!valid13) {
-        const err19 = { instancePath: instancePath + "/reflect_back", schemaPath: "#/properties/reflect_back/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
+        const err18 = { instancePath: instancePath + "/reflect_back", schemaPath: "#/properties/reflect_back/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
         if (vErrors === null) {
-          vErrors = [err19];
+          vErrors = [err18];
         } else {
-          vErrors.push(err19);
+          vErrors.push(err18);
         }
         errors++;
       } else {
@@ -17876,18 +18048,12 @@ function validate21(data, { instancePath = "", parentData, parentDataProperty, r
         }
       }
     }
-    if (data.next_target !== void 0) {
-      if (!validate533(data.next_target, { instancePath: instancePath + "/next_target", parentData: data, parentDataProperty: "next_target", rootData })) {
-        vErrors = vErrors === null ? validate533.errors : vErrors.concat(validate533.errors);
-        errors = vErrors.length;
-      }
-    }
   } else {
-    const err20 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err19 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err20];
+      vErrors = [err19];
     } else {
-      vErrors.push(err20);
+      vErrors.push(err19);
     }
     errors++;
   }
@@ -18128,40 +18294,9 @@ function applyTurn(original, turnData, ctx) {
       item.open_questions.push({ area: q.area, question: q.question, who_can_answer: q.who_can_answer, artifact_needed: q.artifact_needed });
     }
   });
-  const nt = turn.next_target;
-  if (nt.item != null) needItem("/next_target/item", nt.item);
-  if (nt.area != null && knownArea("/next_target/area", nt.area) && nt.item != null && items.has(nt.item) && !nt.area.startsWith("core.")) {
-    areaFits("/next_target/area", items.get(nt.item), nt.area);
-  }
-  const targetEntry = () => {
-    if (nt.area == null) return void 0;
-    if (nt.area.startsWith("core.")) {
-      const key = nt.area.slice(5);
-      return (nt.item != null ? items.get(nt.item)?.core_overrides[key] : void 0) ?? session.core[key];
-    }
-    return nt.item != null ? items.get(nt.item)?.coverage[nt.area] : void 0;
-  };
-  const askedBefore = !!nt.area && !!original.session.asked && !!original.session.asked[askedKey(nt.item, nt.area) ?? ""];
-  if (askedBefore && !nt.is_probe && fw.areas.has(nt.area)) {
-    const entry = targetEntry();
-    if (entry?.updated_at) {
-      if (entry.probe_count >= 1) fail("/next_target/area", `${nt.area} has had its question and one follow-up already. Record what the user said (assumed or unknown if it's still vague) and ask about something else; anything still missing goes in open_questions.`);
-      else entry.probe_count = 1;
-    }
-  }
-  if (nt.is_probe) {
-    if (nt.area == null) fail("/next_target/is_probe", "a probe has to target an area");
-    else if (fw.areas.has(nt.area)) {
-      const entry = targetEntry();
-      if (!entry || !entry.updated_at) {
-        fail("/next_target/is_probe", `${nt.area} hasn't been answered yet, so this is a first ask, not a probe`);
-      } else if (entry.probe_count >= 1) {
-        fail("/next_target/is_probe", `${nt.area} has already been probed once. Record it as assumed (in the user's words) or unknown, and move on.`);
-      } else {
-        entry.probe_count = 1;
-      }
-    }
-  }
+  const plan = original.session.reflect_back ? { primary: null, alternate: null } : planTargets(original, fw);
+  const coveredNow = (t) => turn.updates.some((u) => u.area === t.area && u.status === "covered" && (t.area.startsWith("core.") || u.item === t.item));
+  let chosen = plan.primary && coveredNow(plan.primary) ? plan.alternate : plan.primary;
   const rb = turn.reflect_back;
   let confirmedNow = false;
   if (rb) {
@@ -18170,7 +18305,7 @@ function applyTurn(original, turnData, ctx) {
     if (rb.status === "proposed") {
       if (items.size === 0) fail("/reflect_back", "there's nothing to reflect back yet: no items");
       if (turn.router.new_items.length) fail("/reflect_back", "a reflect-back can't be proposed in the same turn as adding items: add the item and ask about it now, and propose once its questions are done");
-      if (nt.area != null) fail("/next_target/area", "a reflect-back proposal asks only whether the summary is right: set next_target.area to null and ask no other question in the reply");
+      chosen = null;
       session.session.reflect_back = { text: rb.text, confirmed: false, corrections: prior?.corrections ?? [], proposed_at: now2 };
     } else if (!prior?.proposed_at) {
       fail("/reflect_back/status", `can't mark the reflect-back ${rb.status} before it has been proposed to the user`);
@@ -18215,11 +18350,14 @@ function applyTurn(original, turnData, ctx) {
       warnings.push(`${asked.area} captured from the user's reply: the turn didn't record the answer to the question it asked`);
     }
   }
-  if (session.session.asked && nt.area && fw.areas.has(nt.area) && rb?.status !== "proposed") {
-    const key = askedKey(nt.item, nt.area);
-    if (key && !session.session.asked[key]) session.session.asked = { ...session.session.asked, [key]: now2 };
+  if (chosen) {
+    const key = askedKey(chosen.item, chosen.area);
+    if (session.session.asked && key && !session.session.asked[key]) session.session.asked = { ...session.session.asked, [key]: now2 };
+    const k = chosen.area.slice(5);
+    const entry = chosen.area.startsWith("core.") ? (chosen.item ? items.get(chosen.item)?.core_overrides[k] : void 0) ?? session.core[k] : chosen.item ? items.get(chosen.item)?.coverage[chosen.area] : void 0;
+    if (entry && (chosen.probe || entry.updated_at && entry.quotes.length > 0)) entry.probe_count = 1;
   }
-  session.session.last_target = turn.next_target.area ? { item: turn.next_target.item, area: turn.next_target.area, reply: turn.reply } : null;
+  session.session.last_target = chosen ? { item: chosen.item, area: chosen.area, reply: turn.reply } : null;
   if (!turn.reply.trim()) fail("/reply", "the reply to the user can't be empty");
   if (rejections.length) return reject(rejections);
   session.items = [...items.values()];
@@ -18234,228 +18372,6 @@ function applyTurn(original, turnData, ctx) {
   const valid = validateSession2(result);
   if (!valid.ok) return reject(valid.errors.map((e) => ({ path: "/", reason: `the result wouldn't be a valid session: ${e}` })));
   return { session: result, rejections: [], applied: true, confirmed: confirmedNow, warnings };
-}
-
-// src/lib/guide.ts
-var list = (xs) => xs.map((x) => `"${x}"`).join(", ");
-function areaBlock(a) {
-  const flags = [a.critical ? "critical" : "", a.always_ask ? "always ask" : ""].filter(Boolean).join(", ");
-  const lines = [`- \`${a.id}\`${flags ? ` (${flags})` : ""}: ${a.must_capture}`, `  - Ask: ${a.probes.map((p) => `"${p}"`).join(" \xB7 ")}`];
-  for (const f of a.followup_conditions) lines.push(`  - Follow up only when ${f.when}: "${f.ask}"${f.spawns ? ` (spawns a new ${f.spawns === "item" ? "" : `${f.spawns} `}item)` : ""}`);
-  if (a.stop_at) lines.push(`  - Stop at: ${a.stop_at}`);
-  return lines.join("\n");
-}
-function guide(fw) {
-  const { router: router2, modules, scoring: scoring2 } = fw;
-  const out2 = [];
-  out2.push("## Entry types", "", "Classify each distinct pain into one type. Record the user's words that triggered it.", "");
-  for (const [type, t] of Object.entries(router2.types)) {
-    out2.push(`- **${type}** (${t.label}). Signals: ${list(t.signals)}. If unsure, ask: "${t.low_confidence_probe}"`);
-  }
-  out2.push("", "## Modifiers", "", "Add to any item when you hear these; each adds its own areas.", "");
-  for (const [mod, m] of Object.entries(router2.modifiers)) {
-    const effect = m.effects?.risk_tier ? " Sets risk tier high." : m.effects?.gate ? " Routes the item to more discovery." : "";
-    out2.push(`- **${mod}** (${m.label}). Signals: ${list(m.signals)}.${effect}`);
-  }
-  out2.push("", `Reclassify an item when ${router2.rules.reclassify_min_signals} or more new signals point to another type, or the story contradicts the label. Shared-core answers carry over.`);
-  out2.push("", "## Shared core (once per session; use item: null)", "");
-  for (const a of modules.core.areas) out2.push(areaBlock(a));
-  for (const type of Object.keys(router2.types)) {
-    const m = modules[type];
-    out2.push("", `## ${type} areas`, "");
-    for (const key of ["step_tags", "candidates", "self_serve_rule"]) {
-      if (m[key]) out2.push(`${key.replace("_", " ")}: ${Array.isArray(m[key]) ? m[key].join(", ") : m[key]}`, "");
-    }
-    for (const a of m.areas) out2.push(areaBlock(a));
-  }
-  for (const mod of Object.keys(router2.modifiers)) {
-    out2.push("", `## mod.${mod} areas`, "");
-    for (const a of modules[`mod.${mod}`].areas) out2.push(areaBlock(a));
-  }
-  out2.push("", "## Facts: pick a band, never a number", "", "Use only these band names. Infer each from the answers it usually comes from; use `unknown` only when nothing the user said bears on it.", "");
-  for (const [name, c] of Object.entries(scoring2.criteria)) {
-    out2.push(`- \`${name}\` (${c.label}): ${Object.entries(c.describe).map(([b, d]) => `\`${b}\` = ${d}`).join("; ")}; \`unknown\`. Usually from: ${c.usually_from.join(", ")}`);
-  }
-  out2.push(`- \`${scoring2.ai_overlay.applies_fact}\`: ${Object.keys(scoring2.ai_overlay.applies_bands).map((b) => `\`${b}\``).join(", ")}. "yes" only when the proposed solution uses an LLM.`);
-  out2.push("", "AI overlay checks, only when ai_applies is yes. Each is `pass`, `fail` or `unknown`:", "");
-  for (const [name, c] of Object.entries(scoring2.ai_overlay.checks)) out2.push(`- \`${name}\` (${c.label}): passes when ${c.passes_when}`);
-  const forceSources = Object.entries(scoring2.adoption.usually_from ?? {}).map(([f, ids]) => `\`${f}\` from ${ids.join(", ")}`);
-  out2.push("", `Adoption forces, for ${scoring2.adoption.applies_to.join(" and ")} items: ${scoring2.adoption.forces.map((f) => `\`${f}\``).join(", ")}, each ${scoring2.adoption.bands.map((b) => `\`${b}\``).join(", ")}.${forceSources.length ? ` Usually from: ${forceSources.join("; ")}.` : ""}`);
-  out2.push("", "Gate facts:", "");
-  for (const [name, bands] of Object.entries(scoring2.gate_facts)) {
-    const note = scoring2.gate_fact_notes?.[name];
-    out2.push(`- \`${name}\`: ${bands.map((b) => `\`${b}\``).join(", ")}${note ? `. ${note}` : ""}`);
-  }
-  return out2.join("\n") + "\n";
-}
-function factsFor(item, fw) {
-  const s = fw.scoring;
-  const facts = [...Object.keys(s.criteria), s.ai_overlay.applies_fact, "success_metric", "existing_asset", "decision_depends"];
-  if (item.type === "broken") facts.push("broken_cause", "workaround_permanent");
-  if (s.adoption.applies_to.includes(item.type)) facts.push(...s.adoption.forces);
-  if (item.facts[s.ai_overlay.applies_fact]?.band === "yes") facts.push(...Object.keys(s.ai_overlay.checks));
-  return facts;
-}
-function needsAcceptance(i) {
-  return i.superseded_by == null && !i.dropped && i.type !== "exploratory" && !i.light_pass;
-}
-function bandSourcesUnasked(item, fw, asked) {
-  const modules = /* @__PURE__ */ new Set([item.type, ...item.modifiers.map((m) => `mod.${m}`)]);
-  const applies = (id) => id.startsWith("core.") || modules.has(id.startsWith("mod.") ? id.split(".").slice(0, 2).join(".") : id.split(".")[0]);
-  const out2 = /* @__PURE__ */ new Set();
-  for (const c of Object.values(fw.scoring.criteria)) {
-    const sources = c.usually_from.filter(applies);
-    if (sources.length && !sources.some(asked)) out2.add(sources[0]);
-  }
-  return [...out2];
-}
-function needsBands(i) {
-  return i.superseded_by == null && !i.dropped && !i.light_pass && i.type !== "exploratory";
-}
-function said(signal, text) {
-  if (/^an? /.test(signal)) return false;
-  const esc = normalize(signal).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const re = new RegExp(`(^|[^a-z0-9])${esc}(?=[^a-z0-9]|$)`, "g");
-  for (const m of text.matchAll(re)) {
-    const before = text.slice(0, m.index + m[1].length).split(/[.;:!?\n]/).pop().trim().split(/[\s,]+/).slice(-5);
-    if (!before.some((w) => NEGATION.test(w))) return true;
-  }
-  return false;
-}
-var NEGATION = /^(no|not|without|never|nor|none|isn't|aren't|don't|doesn't|didn't|isnt|arent|dont|doesnt|didnt)$/;
-function routingHint(fw, transcript) {
-  const opening = transcript.find((t) => t.role === "user");
-  if (!opening) return null;
-  const text = normalize(opening.text);
-  let best = null;
-  for (const [type, def] of Object.entries(fw.router.types)) {
-    for (const signal of def.signals) {
-      if (said(signal, text) && (!best || signal.length > best.signal.length)) best = { type, signal };
-    }
-  }
-  if (!best) return null;
-  return `The opening says "${best.signal}", a ${fw.router.types[best.type].label.toLowerCase()} signal: start with a \`${best.type}\` item unless the user's words clearly point elsewhere.`;
-}
-function structureHints(session, fw, transcript, opts = {}) {
-  const live = session.items.filter((i) => !i.superseded_by && !i.dropped);
-  if (live.length === 0) return [];
-  const text = normalize(transcript.filter((t) => t.role === "user").map((t) => t.text).join("\n"));
-  const hints = [];
-  const primary = live[0];
-  for (const [mod, def] of Object.entries(fw.router.modifiers)) {
-    const m = mod;
-    if (live.some((i) => i.modifiers.includes(m)) || session.items.some((i) => i.modifiers_removed?.includes(m))) continue;
-    const heard = def.signals.filter((sig) => said(sig, text));
-    if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}: if it's part of ${primary.id}, add the \`${mod}\` modifier (set it in that item's \`modifiers\`) and cover its areas.`);
-  }
-  if (opts.primaryInterviewed && primary.type !== "manual_process" && primary.type !== "exploratory" && !session.items.some((i) => i.type === "manual_process")) {
-    const heard = fw.router.types.manual_process.signals.filter((sig) => said(sig, text));
-    if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}. If that might be manual work they do today that ${primary.id} would replace (not just what they'd fall back to if something failed), ask whether it happens today and when it last did. Only once they describe it happening, add it as one \`manual_process\` item with spawned_from "${primary.id}", and supersede it by ${primary.id} (router.supersede) once they say it would go away; it needs only a light pass (how often, how long). If they say it doesn't apply, add nothing, or drop the item (router.drop) if you already added it.`);
-  }
-  if (live.some((i) => i.type === "exploratory") && live.length < 4) {
-    hints.push("This is an exploratory intake: for each concrete example the user gives, add its own item with spawned_from the exploratory item and the type that fits the example (usually manual_process; never exploratory), and ask only one or two things about it (the last time it happened, roughly what it costs a week). Don't interview any one example in depth; aim for three or more.");
-  }
-  return hints;
-}
-function statusOf(session, fw, transcript = []) {
-  const rb = session.session.reflect_back;
-  const core = Object.entries(session.core).map(([key, e]) => ({
-    area: `core.${key}`,
-    status: e.status,
-    asked: wasAsked(session, null, `core.${key}`),
-    probe_available: !!e.updated_at && (e.status === "assumed" || e.status === "unknown") && e.probe_count === 0
-  }));
-  const items = session.items.map((item) => {
-    const modules = [item.type, ...item.modifiers.map((m) => `mod.${m}`)];
-    const areas = modules.flatMap((m) => fw.modules[m]?.areas ?? []);
-    const asked = (id) => wasAsked(session, item, id);
-    const asksCore = modules.flatMap((m) => fw.modules[m]?.asks_core ?? []);
-    const critical = criticalAreas(item, fw);
-    const probeable = areas.map((a) => [a.id, item.coverage[a.id]]).filter(([, e]) => e?.updated_at && (e.status === "assumed" || e.status === "unknown") && e.probe_count === 0).map(([id]) => id);
-    const light = item.spawned_from != null || !!item.dropped;
-    const factsMissing = factsFor(item, fw).filter((f) => !item.facts[f]);
-    return {
-      id: item.id,
-      title: item.title,
-      type: item.type,
-      modifiers: item.modifiers,
-      superseded_by: item.superseded_by,
-      dropped: !!item.dropped,
-      light_pass: item.spawned_from != null,
-      preview_quadrant: factsMissing.length === 0 ? scoreItem(scoringView(session, item), fw).quadrant ?? null : null,
-      has_mitigation: !!item.prose.mitigation,
-      unasked: areas.filter((a) => !asked(a.id)).map((a) => a.id),
-      always_ask_pending: light ? [] : [...areas.filter((a) => a.always_ask).map((a) => a.id), ...asksCore].filter((id) => !asked(id)),
-      critical_unasked: light ? [] : critical.filter((id) => !asked(id)),
-      critical_unprobed: light ? [] : critical.filter((id) => {
-        const e = coverageFor(session, item, id);
-        return asked(id) && e?.status === "assumed" && e.probe_count === 0;
-      }),
-      band_sources_unasked: light || item.superseded_by || item.type === "exploratory" ? [] : bandSourcesUnasked(item, fw, asked),
-      probe_available: probeable,
-      facts_missing: factsMissing,
-      acceptance: {
-        criteria: item.acceptance.filter((a) => a.kind === "criterion").length,
-        error_cases: item.acceptance.filter((a) => a.kind === "error_case").length
-      },
-      guardrails: {
-        kill_criterion: item.guardrails.filter((g) => g.kind === "kill_criterion").length,
-        fallback: item.guardrails.filter((g) => g.kind === "fallback").length,
-        review_point: item.guardrails.filter((g) => g.kind === "review_point").length,
-        data_rule: item.guardrails.filter((g) => g.kind === "data_rule").length
-      }
-    };
-  });
-  const interviewed = (i) => i.critical_unasked.length === 0 && i.critical_unprobed.length === 0 && i.always_ask_pending.length === 0 && i.band_sources_unasked.length === 0;
-  const interviewComplete = items.length > 0 && items.every(interviewed);
-  const writeUpComplete = items.every(
-    (i) => (!needsBands(i) || i.facts_missing.length === 0) && (!needsAcceptance(i) || i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)
-  );
-  const reflect = !rb ? "none" : rb.confirmed ? "confirmed" : "proposed";
-  const primary = items.find((i) => !i.superseded_by && !i.dropped);
-  const primaryInterviewed = !!primary && interviewed(primary);
-  const hints = reflect === "none" ? structureHints(session, fw, transcript, { primaryInterviewed }) : [];
-  return {
-    reflect_back: reflect,
-    core,
-    items,
-    interview_complete: interviewComplete,
-    ready_for_reflect_back: interviewComplete && writeUpComplete,
-    next_step: nextStep(reflect, interviewComplete, items, hints, items.length === 0 ? routingHint(fw, transcript) : null),
-    hints
-  };
-}
-function nextStep(reflect, interviewComplete, items, hints, routing = null) {
-  if (reflect === "confirmed") return "The intake is complete. Thank the user briefly.";
-  if (reflect === "proposed") {
-    const review = items.filter((i) => i.preview_quadrant === "review" && !i.has_mitigation && !i.superseded_by);
-    return [
-      `You've played back a summary. If the user's latest message agrees with it (yes, that's right, that captures it), send \`reflect_back\` with status "confirmed" and the same text; don't propose it again. If they corrected something, send status "corrected" with the corrections listed.`,
-      ...review.length ? [`${review.map((i) => i.id).join(", ")} would score in the Review quadrant, which can't reach Go without a written mitigation: add a one-line \`mitigation\` prose for it from what the user has already said would reduce the risk (their fallback, review step or rule). Ask only if they've said nothing at all about how risk is handled, and not about core.trust once it has had its question and follow-up.`] : []
-    ].join(" ");
-  }
-  if (items.length === 0) return ["Create the first item from the user's opening statement and ask your first question.", ...routing ? [routing] : []].join(" ");
-  const check2 = hints.length ? ` Also check: ${hints.join(" ")}` : "";
-  if (!interviewComplete) {
-    const open = [...new Set(items.flatMap((i) => [...i.critical_unasked, ...i.always_ask_pending, ...i.band_sources_unasked]))];
-    const probe = [...new Set(items.flatMap((i) => i.critical_unprobed))].filter((id) => !open.includes(id));
-    return [
-      "Keep interviewing.",
-      ...open.length ? [`Still to ask (in whatever order follows the conversation; set next_target to the area you ask): ${open.join(", ")}.`] : [],
-      ...probe.length ? [`Answered only vaguely, so ask once about the last time it happened (is_probe true): ${probe.join(", ")}.`] : [],
-      `Record every answer the user gives as you go.${check2}`
-    ].join(" ");
-  }
-  const banded = items.filter(needsBands).map((i) => i.id);
-  const buildable = items.filter(needsAcceptance).map((i) => i.id);
-  return [
-    ...hints.length ? [`First check: ${hints.join(" ")} If one applies, add it and ask about it instead of writing up. Otherwise:`] : [],
-    "Every needed area has been asked, so stop asking questions now. In this one turn:",
-    ...banded.length ? [`add a band for every fact listed in facts_missing for ${banded.join(", ")} (skip the other items), picked from what the user already said (use \`unknown\` where they didn't say), in \`facts\` only, never in \`updates\`; a band's quote is optional, so leave it null unless you copy the user's exact words;`] : [],
-    ...buildable.length ? [`write acceptance criteria (at least one criterion and one error case) and guardrails (at least a kill criterion and a fallback) for ${buildable.join(", ")}, from what you heard;`] : [],
-    "write a one-line `mitigation` prose for any item where the user described how a risk is handled (a fallback, someone checking);",
-    "and propose the reflect-back."
-  ].join(" ");
 }
 
 // src/lib/check-meta.ts
@@ -18790,14 +18706,13 @@ function summarizeItem(session, item, fw) {
     }
   }
   const bands = Object.entries(item.facts).map(([fact, f]) => {
-    const band = usableBand(session, item, fact);
-    const dropped = band === "unknown" && f.band !== "unknown";
+    const { band, reason } = bandCheck(session, item, fact);
     return {
       fact,
       label: factLabel(fw, fact),
       text: bandText(fw, fact, band),
       unknown: band === "unknown",
-      note: dropped ? `Left as not known: it rested only on a reply I didn't record properly (I'd have said "${bandText(fw, fact, f.band)}").` : null
+      note: reason === "captured" ? `Left as not known: it rested only on a reply I didn't record properly (I'd have said "${bandText(fw, fact, f.band)}").` : reason === "no_number" ? "Shown as vague: nothing you said about it has a number to measure against." : null
     };
   });
   return {

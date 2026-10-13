@@ -38,10 +38,5 @@
   "acceptance": [],
   "guardrails": [],
   "open_questions": [],
-  "reflect_back": null,
-  "next_target": {
-    "item": "item-1",
-    "area": "data_report.definition",
-    "is_probe": false
-  }
+  "reflect_back": null
 }

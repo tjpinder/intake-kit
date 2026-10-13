@@ -5,7 +5,7 @@
   "description": "What the model returns every turn. Written to the strict structured-output subset shared by Azure OpenAI and the Claude API: every property required, additionalProperties false, nullable fields as type unions, no dynamic keys, no pattern/length/count keywords. Rules this subset can't express (ID formats, band names, quote grounding, one probe per area) are enforced by apply-turn against scoring.yaml and the transcript. There is deliberately no field for scores, composites, quadrants or gates.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["reply", "updates", "facts", "router", "prose", "acceptance", "guardrails", "open_questions", "reflect_back", "next_target"],
+  "required": ["reply", "updates", "facts", "router", "prose", "acceptance", "guardrails", "open_questions", "reflect_back"],
   "properties": {
     "reply": {
       "type": "string",
@@ -44,8 +44,7 @@
     "reflect_back": {
       "description": "Null until the model is ready to reflect back. 'proposed' when presenting it; 'confirmed' or 'corrected' once the user has answered.",
       "anyOf": [{ "$ref": "#/$defs/reflect_back" }, { "type": "null" }]
-    },
-    "next_target": { "$ref": "#/$defs/next_target" }
+    }
   },
   "$defs": {
     "update": {
@@ -211,16 +210,6 @@
         "text": { "type": "string" },
         "status": { "type": "string", "enum": ["proposed", "confirmed", "corrected"] },
         "corrections": { "type": "array", "items": { "type": "string" } }
-      }
-    },
-    "next_target": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["item", "area", "is_probe"],
-      "properties": {
-        "item": { "type": ["string", "null"] },
-        "area": { "type": ["string", "null"], "description": "The coverage ID the reply asks about, or null for the reflect-back." },
-        "is_probe": { "type": "boolean", "description": "True when the reply re-asks an area the user already answered vaguely. apply-turn allows one probe per area." }
       }
     },
     "item_type": { "type": "string", "enum": ["broken", "manual_process", "known_idea", "exploratory", "data_report"] }

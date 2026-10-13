@@ -104,7 +104,7 @@ describe("band sources (from the persona evals)", () => {
     let st = statusOf(s, fwS, []);
     assert.deepEqual(st.items[0].band_sources_unasked, ["core.systems"]);
     assert.equal(st.interview_complete, false);
-    assert.match(st.next_step, /Still to ask.*core\.systems/);
+    assert.match(st.next_step, /then ask about core.systems: find out/);
     s.core.systems = answered;
     st = statusOf(s, fwS, []);
     assert.deepEqual(st.items[0].band_sources_unasked, []);
@@ -183,7 +183,7 @@ describe("readiness counts what was asked, not what was recorded (first live tes
     let st = statusOf(s, fw);
     assert.deepEqual(st.items[0].critical_unprobed, ["core.outcome"]);
     assert.equal(st.interview_complete, false);
-    assert.match(st.next_step, /ask once about the last time it happened \(is_probe true\): core\.outcome/);
+    assert.match(st.next_step, /then ask about core.outcome: they answered vaguely, so ask once about the last time/);
     s.core.outcome.probe_count = 1;
     st = statusOf(s, fw);
     assert.equal(st.interview_complete, true);

@@ -6,6 +6,7 @@
 import type { Framework, ItemType, Modifier } from "./framework.ts";
 import { findQuote, type TranscriptEntry } from "./grounding.ts";
 import { scoreAndGate } from "./gates.ts";
+import { planTargets, type Target } from "./guide.ts";
 import { validateSession, validateTurn } from "./schemas.ts";
 import { askedKey, isCaptured, type CoverageEntry, type Item, type Session } from "./session.ts";
 
@@ -64,7 +65,6 @@ interface Turn {
   guardrails: Array<{ item: string; kind: Item["guardrails"][number]["kind"]; text: string; evidence: string[] }>;
   open_questions: Array<{ item: string | null; area: string; question: string; who_can_answer: string | null; artifact_needed: string | null }>;
   reflect_back: { text: string; status: "proposed" | "confirmed" | "corrected"; corrections: string[] } | null;
-  next_target: { item: string | null; area: string | null; is_probe: boolean };
 }
 
 const ITEM_ID = /^item-\d+$/;
@@ -323,44 +323,14 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
     }
   });
 
-  // 5. Probe discipline: at most one probe per area, and only on an area already answered.
-  const nt = turn.next_target;
-  if (nt.item != null) needItem("/next_target/item", nt.item);
-  if (nt.area != null && knownArea("/next_target/area", nt.area) && nt.item != null && items.has(nt.item) && !nt.area.startsWith("core.")) {
-    areaFits("/next_target/area", items.get(nt.item)!, nt.area);
-  }
-  const targetEntry = (): CoverageEntry | undefined => {
-    if (nt.area == null) return undefined;
-    if (nt.area.startsWith("core.")) {
-      const key = nt.area.slice(5) as (typeof CORE_AREAS)[number];
-      return (nt.item != null ? items.get(nt.item)?.core_overrides[key] : undefined) ?? session.core[key];
-    }
-    return nt.item != null ? items.get(nt.item)?.coverage[nt.area] : undefined;
-  };
-  // A second question on an area already asked is its follow-up, flagged or not; a third isn't
-  // allowed. Found in the first live test: four questions on core.trust, none flagged as a probe.
-  const askedBefore = !!nt.area && !!original.session.asked && !!original.session.asked[askedKey(nt.item, nt.area) ?? ""];
-  if (askedBefore && !nt.is_probe && fw.areas.has(nt.area!)) {
-    const entry = targetEntry();
-    if (entry?.updated_at) {
-      if (entry.probe_count >= 1) fail("/next_target/area", `${nt.area} has had its question and one follow-up already. Record what the user said (assumed or unknown if it's still vague) and ask about something else; anything still missing goes in open_questions.`);
-      else entry.probe_count = 1;
-    }
-  }
-  if (nt.is_probe) {
-    if (nt.area == null) fail("/next_target/is_probe", "a probe has to target an area");
-    else if (fw.areas.has(nt.area)) {
-      const entry = targetEntry();
-      // `start` seeds core areas without updated_at; any answer recorded through a turn sets it.
-      if (!entry || !entry.updated_at) {
-        fail("/next_target/is_probe", `${nt.area} hasn't been answered yet, so this is a first ask, not a probe`);
-      } else if (entry.probe_count >= 1) {
-        fail("/next_target/is_probe", `${nt.area} has already been probed once. Record it as assumed (in the user's words) or unknown, and move on.`);
-      } else {
-        entry.probe_count = 1;
-      }
-    }
-  }
+  // 5. The question this turn's reply asks: chosen by code (planTargets on the session as it was,
+  // the same plan the prompt gave the model), never reported by the model. Found in the first live
+  // test and persona 7: the model labelled its questions with the area it meant to ask next, so
+  // stamps, the question cap and the retry message all named the wrong area. The model was told
+  // to ask the alternate instead only when this turn records the primary as covered.
+  const plan = original.session.reflect_back ? { primary: null, alternate: null } : planTargets(original, fw);
+  const coveredNow = (t: Target) => turn.updates.some((u) => u.area === t.area && u.status === "covered" && (t.area.startsWith("core.") || u.item === t.item));
+  let chosen: Target | null = plan.primary && coveredNow(plan.primary) ? plan.alternate : plan.primary;
 
   // 6. Reflect-back. Confirmation has to follow a proposal the user has since replied to.
   const rb = turn.reflect_back;
@@ -373,7 +343,7 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
       // Found in the first live test: a turn proposed the reflect-back while its reply asked about
       // a new item, so the user never saw a summary and was then asked to confirm one.
       if (turn.router.new_items.length) fail("/reflect_back", "a reflect-back can't be proposed in the same turn as adding items: add the item and ask about it now, and propose once its questions are done");
-      if (nt.area != null) fail("/next_target/area", "a reflect-back proposal asks only whether the summary is right: set next_target.area to null and ask no other question in the reply");
+      chosen = null; // a proposal asks only whether the summary is right
       session.session.reflect_back = { text: rb.text, confirmed: false, corrections: prior?.corrections ?? [], proposed_at: now };
     } else if (!prior?.proposed_at) {
       fail("/reflect_back/status", `can't mark the reflect-back ${rb.status} before it has been proposed to the user`);
@@ -388,7 +358,7 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
     }
   }
 
-  // 6b. Answer capture. The last applied turn named the area it asked about. If this turn doesn't
+  // 6b. Answer capture. The last applied turn's question was about an area code chose. If this turn doesn't
   // record that area and the user gave a real answer, the first attempt is rejected, naming the
   // area (even one already answered); on the retry, the user's exact words are stored as a captured answer, which the summary
   // shows for confirmation and scoring never uses. Found in the persona evals and the first live
@@ -435,12 +405,18 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
       warnings.push(`${asked.area} captured from the user's reply: the turn didn't record the answer to the question it asked`);
     }
   }
-  // 6c. Stamp the area this turn asks about (a proposal asks nothing). Readiness reads these.
-  if (session.session.asked && nt.area && fw.areas.has(nt.area) && rb?.status !== "proposed") {
-    const key = askedKey(nt.item, nt.area);
-    if (key && !session.session.asked[key]) session.session.asked = { ...session.session.asked, [key]: now };
+  // 6c. Stamp the area code chose for this turn's question (a proposal asks nothing). Asking about
+  // an area that already holds an answer is its one follow-up: code never chooses it again.
+  if (chosen) {
+    const key = askedKey(chosen.item, chosen.area);
+    if (session.session.asked && key && !session.session.asked[key]) session.session.asked = { ...session.session.asked, [key]: now };
+    const k = chosen.area.slice(5) as (typeof CORE_AREAS)[number];
+    const entry = chosen.area.startsWith("core.")
+      ? (chosen.item ? items.get(chosen.item)?.core_overrides[k] : undefined) ?? session.core[k]
+      : chosen.item ? items.get(chosen.item)?.coverage[chosen.area] : undefined;
+    if (entry && (chosen.probe || (entry.updated_at && entry.quotes.length > 0))) entry.probe_count = 1;
   }
-  session.session.last_target = turn.next_target.area ? { item: turn.next_target.item, area: turn.next_target.area, reply: turn.reply } : null;
+  session.session.last_target = chosen ? { item: chosen.item, area: chosen.area, reply: turn.reply } : null;
 
   if (!turn.reply.trim()) fail("/reply", "the reply to the user can't be empty");
 

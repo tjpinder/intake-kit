@@ -17,22 +17,41 @@ export function bandOf(item: Item, fact: string, fw: Framework): string {
   return band;
 }
 
+/** Digits, or a number written as a word ("four hours every Monday", "about a dozen"). */
+const NUMBER = /\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|dozen|half|once|twice|percent)\b/i;
+
 /**
- * The band a fact may be scored on. A band whose evidence answers were all captured from replies
- * the interviewer didn't record is unknown: a captured reply is the user's words, but nobody
- * judged what it answers, so it can't carry a score.
+ * The band a fact may be scored on, and why it differs from the pick when it does. Two
+ * deterministic guards, both from the first live test and persona 7:
+ * - captured: every answer the band rests on was captured from a reply the interviewer didn't
+ *   record. That's the user's words, but nobody judged what they answer, so the band is unknown.
+ * - no_number: success_metric "measurable_with_baseline" needs a number in a quote it cites
+ *   (the fact's own, or one on its evidence). Without one the band is vague: a model picked it on
+ *   "hiring managers reference the repo", which measures nothing.
  */
-export function usableBand(session: Session, item: Item, fact: string): string {
+export function bandCheck(session: Session, item: Item, fact: string): { band: string; reason: "captured" | "no_number" | null } {
   const f = item.facts[fact];
-  if (!f) return "unknown";
+  if (!f) return { band: "unknown", reason: null };
   const answered = f.evidence.map((id) => coverageFor(session, item, id)).filter((e) => e?.updated_at);
-  return answered.length > 0 && answered.every(isCaptured) ? "unknown" : f.band;
+  if (answered.length > 0 && answered.every(isCaptured)) return { band: "unknown", reason: f.band === "unknown" ? null : "captured" };
+  if (fact === "success_metric" && f.band === "measurable_with_baseline") {
+    const quotes = [...f.quotes, ...answered.filter((e) => !isCaptured(e)).flatMap((e) => e!.quotes)];
+    if (!quotes.some((q) => NUMBER.test(q))) return { band: "vague", reason: "no_number" };
+  }
+  return { band: f.band, reason: null };
 }
 
-/** The item as scoring sees it: facts resting only on captured replies are dropped. */
+export const usableBand = (session: Session, item: Item, fact: string): string => bandCheck(session, item, fact).band;
+
+/** The item as scoring sees it: every fact at its usable band. */
 export function scoringView(session: Session, item: Item): Item {
-  const facts = Object.fromEntries(Object.entries(item.facts).filter(([fact]) => usableBand(session, item, fact) === item.facts[fact].band));
-  return Object.keys(facts).length === Object.keys(item.facts).length ? item : { ...item, facts };
+  let changed = false;
+  const facts = Object.fromEntries(Object.entries(item.facts).map(([fact, f]) => {
+    const band = usableBand(session, item, fact);
+    if (band !== f.band) changed = true;
+    return [fact, band === f.band ? f : { ...f, band }];
+  }));
+  return changed ? { ...item, facts } : item;
 }
 
 /**

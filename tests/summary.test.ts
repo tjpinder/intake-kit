@@ -6,7 +6,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { loadFramework } from "../src/lib/framework-fs.ts";
 import { scoreAndGate } from "../src/lib/gates.ts";
-import { usableBand } from "../src/lib/score.ts";
+import { bandCheck, usableBand } from "../src/lib/score.ts";
 import { buildSummary, summaryIndex, summaryText } from "../src/lib/summary.ts";
 import type { CoverageEntry } from "../src/lib/session.ts";
 import { covered, makeItem, makeSession } from "./helpers.ts";
@@ -120,5 +120,42 @@ describe("dropped items", () => {
     const summary = buildSummary({ ...s, session: { ...s.session, reflect_back: { text: "x", confirmed: false, corrections: [] } } }, fw);
     assert.deepEqual(summary.items.map((i) => i.id), ["item-1"]);
     assert.deepEqual(summary.set_aside, ["Fallback by hand: dropped (a fallback, not something done today)"]);
+  });
+});
+
+describe("a baseline needs a number (persona 7)", () => {
+  const withMetric = (outcome: string, opts: { captured?: boolean; factQuote?: string } = {}) => {
+    const item = makeItem("item-1");
+    item.facts.success_metric = { band: "measurable_with_baseline", evidence: ["core.outcome"], quotes: opts.factQuote ? [opts.factQuote] : [] };
+    const entry = opts.captured ? captured(outcome) : answered(outcome);
+    return { session: makeSession([item], { core: { outcome: entry } }), item };
+  };
+
+  test("with no number in any quote it cites, measurable_with_baseline is vague", () => {
+    // Mini's one Go on persona 7 rested on exactly this answer.
+    const { session, item } = withMetric("Hiring managers reference the repo and enablement leads fork it");
+    assert.deepEqual(bandCheck(session, item, "success_metric"), { band: "vague", reason: "no_number" });
+    assert.notEqual(scoreAndGate(session, fw).session.items[0].gate!.decision, "go");
+  });
+
+  test("digits or a number word in a cited quote keep it", () => {
+    for (const text of ["About 50 short picks a day now", "It eats four hours every Monday", "We lose a dozen orders a week"]) {
+      const { session, item } = withMetric(text);
+      assert.equal(usableBand(session, item, "success_metric"), "measurable_with_baseline", text);
+    }
+    const own = withMetric("It's slow", { factQuote: "takes 3 hours" });
+    assert.equal(usableBand(own.session, own.item, "success_metric"), "measurable_with_baseline");
+  });
+
+  test("a number only in a captured reply doesn't count", () => {
+    const { session, item } = withMetric("About 50 short picks a day now", { captured: true });
+    assert.equal(usableBand(session, item, "success_metric"), "unknown");
+  });
+
+  test("the summary says why it's shown as vague", () => {
+    const { session, item } = withMetric("Hiring managers reference the repo");
+    session.session.reflect_back = { text: "x", confirmed: false, corrections: [] };
+    const band = buildSummary(session, fw).items[0].bands.find((b) => b.fact === "success_metric")!;
+    assert.match(band.note!, /nothing you said about it has a number/);
   });
 });

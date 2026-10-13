@@ -8,6 +8,8 @@ export const covered = (value = "answered"): CoverageEntry => ({ status: "covere
 export const unknown = (): CoverageEntry => ({ status: "unknown", value: null, quotes: [], probe_count: 1 });
 export const assumed = (value = "probably"): CoverageEntry => ({ status: "assumed", value, quotes: [value], probe_count: 1 });
 
+export const BASELINE_QUOTE = "about 50 short picks a day now; under 20 would be a win";
+
 /** Band picks that put an item in Prioritize with a measurable metric. */
 export const GO_FACTS: Record<string, string> = {
   rule_clarity: "written", input_digital: "fully", input_structured: "80+", ways_done: "one",
@@ -54,7 +56,8 @@ export function makeItem(id: string, opts: ItemOptions = {}): Item {
     type_history: [{ from: null, to: type, reason: "opening", quote: "trigger", at: "2026-10-10T10:00:00-04:00" }],
     core_overrides: opts.core_overrides ?? {},
     coverage,
-    facts: Object.fromEntries(Object.entries(bands).map(([fact, band]) => [fact, { band, evidence: [], quotes: [] }])),
+    // A baseline needs a number in a quote it cites (scoring's number guard), so the default has one.
+    facts: Object.fromEntries(Object.entries(bands).map(([fact, band]) => [fact, { band, evidence: [], quotes: fact === "success_metric" ? [BASELINE_QUOTE] : [] }])),
     prose: opts.mitigation ? { mitigation: opts.mitigation } : {},
     acceptance: [],
     guardrails: [],

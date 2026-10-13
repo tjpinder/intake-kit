@@ -51,7 +51,7 @@
           ]
         },
         "asked": {
-          "description": "When each area was first asked about, stamped by code from each applied turn's next_target: core areas by ID, an item's own areas as <item>:<area>. Readiness counts an area as asked only if it's here or was answered in full.",
+          "description": "When each area was first asked about, stamped by code from the area it chose for each applied turn's question: core areas by ID, an item's own areas as <item>:<area>. Readiness counts an area as asked only if it's here or was answered in full.",
           "type": "object",
           "propertyNames": { "pattern": "^(core\\.[a-z_]+|item-\\d+:[a-z_.]+)$" },
           "additionalProperties": { "type": "string", "format": "date-time" }

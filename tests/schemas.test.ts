@@ -131,8 +131,14 @@ describe("turn contract: the model can't set scoring or gates", () => {
 
   test("every field is required, so omissions fail", () => {
     const t = base();
-    delete t.next_target;
-    expectInvalid(validateTurn(t), "must have required property 'next_target'");
+    delete t.reflect_back;
+    expectInvalid(validateTurn(t), "must have required property 'reflect_back'");
+  });
+
+  test("the model can't report which area it asked: code chooses it", () => {
+    const t = base();
+    t.next_target = { item: null, area: "core.users", is_probe: false };
+    expectInvalid(validateTurn(t), "must NOT have additional properties");
   });
 });
 

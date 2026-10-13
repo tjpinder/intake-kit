@@ -120,6 +120,8 @@ export interface Status {
   ready_for_reflect_back: boolean;
   /** What the interviewer should do next, in plain words. */
   next_step: string;
+  /** The area code chose for the next question, and the one to ask instead if it's already answered. */
+  next_question: Plan;
   /** Things in the user's own words the items don't reflect yet (from the router's signal phrases). */
   hints: string[];
 }
@@ -286,13 +288,15 @@ export function statusOf(session: Session, fw: Framework, transcript: Transcript
   const primary = items.find((i) => !i.superseded_by && !i.dropped);
   const primaryInterviewed = !!primary && interviewed(primary);
   const hints = reflect === "none" ? structureHints(session, fw, transcript, { primaryInterviewed }) : [];
+  const plan = reflect === "none" ? planFrom(session, fw, items) : { primary: null, alternate: null };
   return {
     reflect_back: reflect,
     core,
     items,
     interview_complete: interviewComplete,
     ready_for_reflect_back: interviewComplete && writeUpComplete,
-    next_step: nextStep(reflect, interviewComplete, items, hints, items.length === 0 ? routingHint(fw, transcript) : null),
+    next_step: nextStep(reflect, interviewComplete, items, hints, items.length === 0 ? routingHint(fw, transcript) : null, plan, fw),
+    next_question: plan,
     hints,
   };
 }
@@ -302,7 +306,7 @@ export function statusOf(session: Session, fw: Framework, transcript: Transcript
  * criteria and guardrails are written from what was already said, never asked for directly:
  * once every needed area has been asked, the next step is to write them up and play back.
  */
-function nextStep(reflect: Status["reflect_back"], interviewComplete: boolean, items: ItemStatus[], hints: string[], routing: string | null = null): string {
+function nextStep(reflect: Status["reflect_back"], interviewComplete: boolean, items: ItemStatus[], hints: string[], routing: string | null = null, plan: Plan = { primary: null, alternate: null }, fw?: Framework): string {
   if (reflect === "confirmed") return "The intake is complete. Thank the user briefly.";
   if (reflect === "proposed") {
     const review = items.filter((i) => i.preview_quadrant === "review" && !i.has_mitigation && !i.superseded_by);
@@ -315,16 +319,15 @@ function nextStep(reflect: Status["reflect_back"], interviewComplete: boolean, i
   }
   if (items.length === 0) return ["Create the first item from the user's opening statement and ask your first question.", ...(routing ? [routing] : [])].join(" ");
   const check = hints.length ? ` Also check: ${hints.join(" ")}` : "";
-  if (!interviewComplete) {
-    const open = [...new Set(items.flatMap((i) => [...i.critical_unasked, ...i.always_ask_pending, ...i.band_sources_unasked]))];
-    const probe = [...new Set(items.flatMap((i) => i.critical_unprobed))].filter((id) => !open.includes(id));
+  if (!interviewComplete && plan.primary && fw) {
+    // Code chooses the area; the model asks about it and never reports which area it asked.
     return [
-      "Keep interviewing.",
-      ...(open.length ? [`Still to ask (in whatever order follows the conversation; set next_target to the area you ask): ${open.join(", ")}.`] : []),
-      ...(probe.length ? [`Answered only vaguely, so ask once about the last time it happened (is_probe true): ${probe.join(", ")}.`] : []),
-      `Record every answer the user gives as you go.${check}`,
+      `Keep interviewing. Record every answer in the user's latest message, then ask about ${describeTarget(fw, plan.primary)}`,
+      ...(plan.alternate ? [`If their latest message already answers that in full, record it and ask instead about ${describeTarget(fw, plan.alternate)}`] : []),
+      `Ask nothing else.${check}`,
     ].join(" ");
   }
+  if (!interviewComplete) return `Keep interviewing. Record every answer the user gives as you go.${check}`;
   // Name only the items that need each part; with none, the clause is left out (an exploratory
   // intake's write-up once said "for no item", and the model sent bands for an empty item ID).
   const banded = items.filter(needsBands).map((i) => i.id);
@@ -337,4 +340,67 @@ function nextStep(reflect: Status["reflect_back"], interviewComplete: boolean, i
     "write a one-line `mitigation` prose for any item where the user described how a risk is handled (a fallback, someone checking);",
     "and propose the reflect-back.",
   ].join(" ");
+}
+
+/** An area code has chosen for the next question. probe: the one follow-up on a vague answer. */
+export interface Target {
+  item: string | null;
+  area: string;
+  probe: boolean;
+}
+
+/** Shared core areas in the order a conversation usually reaches them: why, what data, who, what if wrong. */
+const CORE_ORDER = ["core.outcome", "core.data", "core.users", "core.trust", "core.systems", "core.constraints"];
+
+/**
+ * The next question's area, chosen by code. Found in the first live test and persona 7: the model
+ * labelled its own questions with the area it planned to ask next, so stamps, the question cap
+ * and the retry message all named the wrong area. Now code picks, the prompt tells the model what
+ * to ask, and the model never reports it.
+ *
+ * Order: each live item's own critical areas, then the shared critical ones, then band sources,
+ * then always-ask areas; then a light pass on each spawned item; then the one probe on each
+ * critical area answered only vaguely. The alternate is asked instead when the user's latest
+ * message already answers the primary in full (apply-turn works out which from what's recorded).
+ */
+export function planTargets(session: Session, fw: Framework): Plan {
+  return planFrom(session, fw, statusOf(session, fw).items);
+}
+
+export interface Plan { primary: Target | null; alternate: Target | null }
+
+function planFrom(session: Session, fw: Framework, items: ItemStatus[]): Plan {
+  const plan: Target[] = [];
+  const seen = new Set<string>();
+  const add = (item: string | null, area: string, probe = false) => {
+    const core = area.startsWith("core.");
+    const key = core ? area : `${item}:${area}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    plan.push({ item: core ? null : item, area, probe });
+  };
+  const live = items.filter((i) => !i.superseded_by && !i.dropped);
+  const byOrder = (ids: string[]) => [...ids].sort((a, b) => (CORE_ORDER.indexOf(a) + 1 || 99) - (CORE_ORDER.indexOf(b) + 1 || 99));
+  for (const i of live.filter((x) => !x.light_pass)) {
+    for (const id of i.critical_unasked.filter((id) => !id.startsWith("core."))) add(i.id, id);
+    for (const id of byOrder(i.critical_unasked.filter((id) => id.startsWith("core.")))) add(i.id, id);
+    for (const id of byOrder(i.band_sources_unasked)) add(i.id, id);
+    for (const id of i.always_ask_pending) add(i.id, id);
+  }
+  for (const i of live.filter((x) => x.light_pass)) {
+    const item = session.items.find((x) => x.id === i.id)!;
+    const first = criticalAreas(item, fw).find((id) => !id.startsWith("core."));
+    if (first && !wasAsked(session, item, first)) add(i.id, first);
+  }
+  for (const i of live) for (const id of i.critical_unprobed) add(i.id, id, true);
+  return { primary: plan[0] ?? null, alternate: plan[1] ?? null };
+}
+
+/** The question to ask about an area, in plain words, for the prompt and the plugin's status. */
+export function describeTarget(fw: Framework, t: Target): string {
+  const area = fw.areas.get(t.area);
+  const whose = t.item ? ` for ${t.item}` : "";
+  if (!area) return `${t.area}${whose}`;
+  if (t.probe) return `${t.area}${whose}: they answered vaguely, so ask once about the last time it actually happened (what exactly happened, who was involved).`;
+  return `${t.area}${whose}: find out ${area.must_capture.charAt(0).toLowerCase()}${area.must_capture.slice(1)}. For example: "${area.probes[0]}" (adapt the wording to their situation).`;
 }

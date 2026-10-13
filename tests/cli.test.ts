@@ -52,7 +52,6 @@ function base(overrides: object = {}) {
     guardrails: [],
     open_questions: [],
     reflect_back: null,
-    next_target: { item: null, area: null, is_probe: false },
     ...overrides,
   };
 }
@@ -211,7 +210,7 @@ describe("apply-turn", () => {
         ["rule_clarity", "written"], ["input_digital", "fully"], ["input_structured", "80+"], ["ways_done", "one"],
         ["stability", "none"], ["documentation", "partial"], ["steps_apps", "under_20"], ["access", "programmatic"],
         ["value", "high"], ["ai_applies", "no"], ["existing_asset", "none"], ["decision_depends", "yes"], ["success_metric", "measurable_with_baseline"],
-      ].map(([fact, band]) => ({ item: "item-1", fact, band, evidence: ["core.data"], quote: null })),
+      ].map(([fact, band]) => ({ item: "item-1", fact, band, evidence: [fact === "success_metric" ? "core.outcome" : "core.data"], quote: null })),
     })).status, 0);
 
     assert.equal(turn(dir, base({ reflect_back: { text: "Daily exceptions by picker.", status: "proposed", corrections: [] } })).status, 0);

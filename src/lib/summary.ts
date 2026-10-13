@@ -4,7 +4,7 @@
 // and the user was asked to confirm a summary they never saw.
 
 import type { Framework } from "./framework.ts";
-import { usableBand } from "./score.ts";
+import { bandCheck } from "./score.ts";
 import { coverageFor, isCaptured, type CoverageEntry, type Item, type Session } from "./session.ts";
 
 export interface SummaryAnswer {
@@ -23,7 +23,7 @@ export interface SummaryBand {
   /** The plain-language description of the band, or "Not known yet". */
   text: string;
   unknown: boolean;
-  /** Set when the band was dropped to unknown because its only evidence is a captured reply. */
+  /** Set when the band shown differs from the pick: its only evidence was captured, or a baseline had no number. */
   note: string | null;
 }
 
@@ -106,14 +106,17 @@ function summarizeItem(session: Session, item: Item, fw: Framework): SummaryItem
     }
   }
   const bands: SummaryBand[] = Object.entries(item.facts).map(([fact, f]) => {
-    const band = usableBand(session, item, fact);
-    const dropped = band === "unknown" && f.band !== "unknown";
+    const { band, reason } = bandCheck(session, item, fact);
     return {
       fact,
       label: factLabel(fw, fact),
       text: bandText(fw, fact, band),
       unknown: band === "unknown",
-      note: dropped ? `Left as not known: it rested only on a reply I didn't record properly (I'd have said "${bandText(fw, fact, f.band)}").` : null,
+      note: reason === "captured"
+        ? `Left as not known: it rested only on a reply I didn't record properly (I'd have said "${bandText(fw, fact, f.band)}").`
+        : reason === "no_number"
+          ? "Shown as vague: nothing you said about it has a number to measure against."
+          : null,
     };
   });
   return {

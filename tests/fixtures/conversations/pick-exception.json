@@ -28,12 +28,7 @@
         "acceptance": [],
         "guardrails": [],
         "open_questions": [],
-        "reflect_back": null,
-        "next_target": {
-          "item": "item-1",
-          "area": "data_report.decision",
-          "is_probe": false
-        }
+        "reflect_back": null
       }
     },
     {
@@ -97,12 +92,7 @@
         "acceptance": [],
         "guardrails": [],
         "open_questions": [],
-        "reflect_back": null,
-        "next_target": {
-          "item": "item-1",
-          "area": "data_report.definition",
-          "is_probe": false
-        }
+        "reflect_back": null
       }
     },
     {
@@ -181,12 +171,7 @@
         "acceptance": [],
         "guardrails": [],
         "open_questions": [],
-        "reflect_back": null,
-        "next_target": {
-          "item": null,
-          "area": "core.data",
-          "is_probe": false
-        }
+        "reflect_back": null
       }
     },
     {
@@ -268,12 +253,7 @@
         "acceptance": [],
         "guardrails": [],
         "open_questions": [],
-        "reflect_back": null,
-        "next_target": {
-          "item": null,
-          "area": "core.users",
-          "is_probe": false
-        }
+        "reflect_back": null
       }
     },
     {
@@ -309,12 +289,7 @@
         "acceptance": [],
         "guardrails": [],
         "open_questions": [],
-        "reflect_back": null,
-        "next_target": {
-          "item": null,
-          "area": "core.trust",
-          "is_probe": true
-        }
+        "reflect_back": null
       }
     },
     {
@@ -343,12 +318,7 @@
         "acceptance": [],
         "guardrails": [],
         "open_questions": [],
-        "reflect_back": null,
-        "next_target": {
-          "item": "item-1",
-          "area": "data_report.existing",
-          "is_probe": false
-        }
+        "reflect_back": null
       }
     },
     {
@@ -411,12 +381,7 @@
             "artifact_needed": "One day where the two numbers differ"
           }
         ],
-        "reflect_back": null,
-        "next_target": {
-          "item": "item-1",
-          "area": "data_report.definition",
-          "is_probe": false
-        }
+        "reflect_back": null
       }
     },
     {
@@ -567,11 +532,6 @@
           "text": "Daily view of short picks and wrong-location scans by shift and picker, ready by 7am, from the WMS reporting copy, replacing the four-hour Monday Excel build. Open: which count wins when the dashboard and pick confirmations disagree.",
           "status": "proposed",
           "corrections": []
-        },
-        "next_target": {
-          "item": null,
-          "area": null,
-          "is_probe": false
         }
       }
     },
@@ -597,11 +557,6 @@
           "text": "Daily view of short picks and wrong-location scans by shift and picker, ready by 7am, from the WMS reporting copy, replacing the four-hour Monday Excel build. Open: which count wins when the dashboard and pick confirmations disagree.",
           "status": "confirmed",
           "corrections": []
-        },
-        "next_target": {
-          "item": null,
-          "area": null,
-          "is_probe": false
         }
       }
     }

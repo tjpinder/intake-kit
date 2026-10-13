@@ -56,10 +56,5 @@
     "text": "You want a daily view of short picks and location mismatches by shift and picker, ready by 7am, so shift leads can target retraining. Once it exists, the Monday Excel build goes away.",
     "status": "proposed",
     "corrections": []
-  },
-  "next_target": {
-    "item": null,
-    "area": null,
-    "is_probe": false
   }
 }

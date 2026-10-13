@@ -4,6 +4,7 @@ import { loadFramework } from "../src/lib/framework-fs.ts";
 import { applyTurn, type ApplyResult } from "../src/lib/apply-turn.ts";
 import { normalize, findQuote, type TranscriptEntry } from "../src/lib/grounding.ts";
 import { validateSession } from "../src/lib/schemas.ts";
+import { planTargets, statusOf } from "../src/lib/guide.ts";
 import type { Session } from "../src/lib/session.ts";
 import { makeItem, makeSession } from "./helpers.ts";
 
@@ -30,7 +31,6 @@ function emptyTurn(): any {
     guardrails: [],
     open_questions: [],
     reflect_back: null,
-    next_target: { item: null, area: null, is_probe: false },
   };
 }
 
@@ -328,44 +328,57 @@ describe("IDs and areas", () => {
   });
 });
 
-describe("probe discipline: one probe per area", () => {
-  function answered(): Session {
-    const s = freshSession();
+describe("code chooses each question's area (first live test, persona 7)", () => {
+  const stamped = () => { const s = freshSession(); s.session.asked = {}; return s; };
+
+  test("the turn's question is the planned primary; its area is stamped and remembered", () => {
+    const s = stamped();
+    const plan = planTargets(s, fw);
+    assert.deepEqual(plan.primary, { item: "item-1", area: "data_report.decision", probe: false });
+    const r = run(emptyTurn(), { session: s });
+    assert.deepEqual(r.session.session.asked, { "item-1:data_report.decision": NOW });
+    assert.deepEqual(r.session.session.last_target, { item: "item-1", area: "data_report.decision", reply: "What happens next?" });
+  });
+
+  test("when the latest message already answers the primary in full, the question is the alternate", () => {
+    const s = stamped();
+    const t = emptyTurn();
+    t.updates = [{ item: "item-1", area: "data_report.decision", status: "covered", value: "Who to retrain", quote: "count by picker" }];
+    const r = run(t, { session: s });
+    assert.deepEqual(r.session.session.last_target?.area, planTargets(s, fw).alternate!.area);
+  });
+
+  test("asking about an area that already holds an answer is its one follow-up", () => {
+    // The worked example: the user volunteered who catches mistakes, and the next question asked
+    // about it; that question is the area's follow-up, so it's never asked a third time.
+    const s = stamped();
+    s.session.asked = { "item-1:data_report.decision": T0, "item-1:data_report.definition": T0, "core.outcome": T0, "core.data": T0, "core.users": T0 };
+    assert.equal(planTargets(s, fw).primary?.area, "core.trust");
+    const t = emptyTurn();
+    t.updates = [{ item: null, area: "core.trust", status: "assumed", value: "Shift lead would catch it", quote: "count by picker" }];
+    const r = run(t, { session: s });
+    assert.equal(r.session.core.trust.probe_count, 1);
+    assert.ok(!statusOf(r.session, fw).items[0].critical_unprobed.includes("core.trust"));
+  });
+
+  test("a critical area answered only vaguely gets one planned probe, then is never planned again", () => {
+    const s = stamped();
+    s.session.asked = Object.fromEntries(["item-1:data_report.decision", "item-1:data_report.definition", "core.outcome", "core.data", "core.users", "core.trust", "core.systems", "item-1:data_report.existing"].map((k) => [k, T0]));
     s.core.outcome = { status: "assumed", value: "Monday", quotes: ["it eats my whole Monday morning"], probe_count: 0, updated_at: T0 };
-    return s;
-  }
-  const probe = (area = "core.outcome", item: string | null = null) => { const t = emptyTurn(); t.next_target = { item, area, is_probe: true }; return t; };
-
-  test("the first probe is allowed and counted", () => {
-    const r = run(probe(), { session: answered() });
-    assert.deepEqual(r.rejections, []);
+    assert.deepEqual(planTargets(s, fw).primary, { item: null, area: "core.outcome", probe: true });
+    const r = run(emptyTurn(), { session: s });
     assert.equal(r.session.core.outcome.probe_count, 1);
+    assert.notEqual(planTargets(r.session, fw).primary?.area, "core.outcome");
   });
 
-  test("a second probe is rejected", () => {
-    const s = answered();
-    s.core.outcome.probe_count = 1;
-    expectRejected(run(probe(), { session: s }), "/next_target/is_probe", "already been probed once");
+  test("a proposal asks nothing, so nothing is stamped", () => {
+    const s = stamped();
+    const t = emptyTurn();
+    t.reflect_back = { text: "Here's what I heard.", status: "proposed", corrections: [] };
+    const r = run(t, { session: s });
+    assert.deepEqual(r.session.session.asked, {});
+    assert.equal(r.session.session.last_target, null);
   });
-
-  test("probing an area never answered is a first ask, not a probe", () => {
-    expectRejected(run(probe("core.trust")), "/next_target/is_probe", "first ask");
-  });
-
-  test("an area the user answered \"I don't know\" can still be probed once", () => {
-    const s = freshSession();
-    s.core.trust = { status: "unknown", value: null, quotes: [], probe_count: 0, updated_at: T0 };
-    assert.equal(run(probe("core.trust"), { session: s }).applied, true);
-  });
-
-  test("an answer and its probe in the same turn", () => {
-    const t = probe("data_report.grain", "item-1");
-    t.updates = [{ item: "item-1", area: "data_report.grain", status: "assumed", value: "Usually per shift", quote: "count by picker" }];
-    const r = run(t);
-    assert.equal(r.session.items[0].coverage["data_report.grain"].probe_count, 1);
-  });
-
-  test("a probe with no area", () => expectRejected(run(probe(null as any)), "/next_target/is_probe", "has to target an area"));
 });
 
 describe("reflect-back and scoring", () => {
@@ -381,10 +394,7 @@ describe("reflect-back and scoring", () => {
     assert.equal(r.session.items[0].scoring, null);
   });
 
-  test("a proposal can't ask another question or add an item in the same turn (first live test)", () => {
-    const asking = rbTurn("proposed");
-    asking.next_target = { item: "item-1", area: "data_report.decision", is_probe: false };
-    expectRejected(run(asking, { session: readyItem() }), "/next_target/area", "asks only whether the summary is right");
+  test("a proposal can't add an item in the same turn (first live test)", () => {
     const spawning = rbTurn("proposed");
     spawning.router.new_items = [{ id: "item-2", type: "manual_process", confidence: "med", title: "Monday spreadsheet", trigger_quote: "I build it in Excel every Monday", spawned_from: "item-1" }];
     expectRejected(run(spawning, { session: readyItem() }), "/reflect_back", "same turn as adding items");
@@ -632,10 +642,8 @@ describe("answer capture (from the persona evals)", () => {
     assert.deepEqual(r.session.core.outcome.quotes, ["Not sure. Maybe finance or whoever handles numbers."]);
   });
 
-  test("each applied turn remembers what it asked", () => {
-    const t = emptyTurn();
-    t.next_target = { item: null, area: "core.trust", is_probe: false };
-    assert.deepEqual(run(t).session.session.last_target, { item: null, area: "core.trust", reply: "What happens next?" });
+  test("each applied turn remembers the question code chose for it", () => {
+    assert.deepEqual(run(emptyTurn()).session.session.last_target, { item: "item-1", area: "data_report.decision", reply: "What happens next?" });
   });
 });
 
@@ -660,28 +668,20 @@ describe("supersede direction (from the persona evals)", () => {
 describe("asked stamps (first live test)", () => {
   const stamped = () => { const s = freshSession(); s.session.asked = {}; return s; };
 
-  test("each applied turn stamps the area it asks, once", () => {
-    const t = emptyTurn();
-    t.next_target = { item: "item-1", area: "data_report.decision", is_probe: false };
-    const r = run(t, { session: stamped() });
+  test("each applied turn stamps the area code chose, once, and moves on", () => {
+    const r = run(emptyTurn(), { session: stamped() });
     assert.deepEqual(r.session.session.asked, { "item-1:data_report.decision": NOW });
-    const again = run(t, { session: r.session, now: "2026-10-10T15:00:00.000Z" });
-    assert.deepEqual(again.session.session.asked, { "item-1:data_report.decision": NOW });
-    const core = emptyTurn();
-    core.next_target = { item: "item-1", area: "core.users", is_probe: false };
-    assert.deepEqual(run(core, { session: stamped() }).session.session.asked, { "core.users": NOW });
+    const again = run(emptyTurn(), { session: r.session, now: "2026-10-10T15:00:00.000Z" });
+    assert.equal(again.session.session.asked!["item-1:data_report.decision"], NOW);
+    assert.equal(Object.keys(again.session.session.asked!).length, 2);
   });
 
   test("a session without stamps doesn't start getting them", () => {
-    const t = emptyTurn();
-    t.next_target = { item: null, area: "core.users", is_probe: false };
-    assert.equal(run(t).session.session.asked, undefined);
+    assert.equal(run(emptyTurn()).session.session.asked, undefined);
   });
 
   test("the stamps are valid in the session schema", () => {
-    const t = emptyTurn();
-    t.next_target = { item: null, area: "core.users", is_probe: false };
-    assert.equal(validateSession(run(t, { session: stamped() }).session).ok, true);
+    assert.equal(validateSession(run(emptyTurn(), { session: stamped() }).session).ok, true);
   });
 });
 
@@ -725,22 +725,13 @@ describe("taking back what doesn't apply (first live test)", () => {
 });
 
 describe("one question and one follow-up per area (first live test)", () => {
-  const AREA = "data_report.decision";
-  const asking = () => { const t = emptyTurn(); t.next_target = { item: "item-1", area: AREA, is_probe: false }; return t; };
-  const answered = (probe_count: number) => {
+  test("code never plans a third question on an area", () => {
+    const AREA = "data_report.decision";
     const s = freshSession();
     s.session.asked = { [`item-1:${AREA}`]: T0 };
-    s.items[0].coverage[AREA] = { status: "assumed", value: "retraining, I think", quotes: ["count by picker"], probe_count, updated_at: T0 };
-    return s;
-  };
-
-  test("asking an area again counts as its follow-up even when not flagged", () => {
-    const r = run(asking(), { session: answered(0) });
-    assert.equal(r.applied, true);
-    assert.equal(r.session.items[0].coverage[AREA].probe_count, 1);
-  });
-
-  test("a third question on the same area is rejected", () => {
-    expectRejected(run(asking(), { session: answered(1) }), "/next_target/area", "has had its question and one follow-up already");
+    s.items[0].coverage[AREA] = { status: "assumed", value: "retraining, I think", quotes: ["count by picker"], probe_count: 1, updated_at: T0 };
+    const plan = planTargets(s, fw);
+    assert.notEqual(plan.primary?.area, AREA);
+    assert.notEqual(plan.alternate?.area, AREA);
   });
 });

@@ -15,6 +15,8 @@ export interface ServerConfig {
   turnstile: { secretKey: string; siteKey: string } | null;
   ipHashSalt: string | null;
   allowByok: boolean;
+  /** Set (LIVE_INTAKE_NOTE) to pause live intakes: the API refuses turns with this note and the UI shows it. The sample still runs. */
+  liveIntakeNote: string | null;
   /** Problems that switch something off; reported by /api/config and logged at start. */
   warnings: string[];
 }
@@ -62,6 +64,7 @@ export function readServerConfig(env: Record<string, string | undefined>): Serve
     turnstile,
     ipHashSalt,
     allowByok: env.ALLOW_BYOK !== "false",
+    liveIntakeNote: env.LIVE_INTAKE_NOTE?.trim() || null,
     warnings,
   };
 }

@@ -54,6 +54,8 @@ export function App() {
   const complete = isComplete(state);
   const summaryAt = summaryIndex(state.session, state.transcript);
   const summary = useMemo(() => (summaryAt == null ? null : { at: summaryAt, summary: buildSummary(state.session, fw) }), [summaryAt, state.session]);
+  // Live intakes paused on the server (LIVE_INTAKE_NOTE): only the sample runs.
+  const paused = config?.liveIntakeNote ?? null;
 
   const startOver = useCallback((mode: IntakeState["mode"] = "live") => {
     playing.current = false;
@@ -146,6 +148,7 @@ export function App() {
       </header>
 
       {configError ? <div className="notice">The server isn't reachable, so live interviews are off. The sample intake still works.</div> : null}
+      {paused ? <div className="notice" role="status">{paused} The sample intake still works.</div> : null}
       {notice ? (
         <div className="notice" role="alert">
           {notice.text}
@@ -166,8 +169,8 @@ export function App() {
             summary={summary}
             pending={pending}
             busy={busy}
-            disabled={state.mode === "sample" || complete}
-            disabledReason={state.mode === "sample" ? "This is the sample playing. Start a new intake to try your own." : "This intake is finished."}
+            disabled={state.mode === "sample" || complete || !!paused}
+            disabledReason={state.mode === "sample" ? "This is the sample playing. Start a new intake to try your own." : paused ? "Live intakes are paused while the app is upgraded." : "This intake is finished."}
             maxChars={config?.maxMessageChars ?? 4000}
             draft={draft}
             onDraft={setDraft}

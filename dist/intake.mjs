@@ -11473,7 +11473,8 @@ function bandOf(item, fact, fw) {
   if (!allowed.includes(band)) throw new ScoringError(`${item.id}: "${band}" isn't a band of ${fact} (allowed: ${allowed.join(", ")})`);
   return band;
 }
-var NUMBER = /\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|dozen|half|once|twice|percent)\b/i;
+var NUMBER = /\d|\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|dozen|half|twice|percent)\b/i;
+var hasNumber = (text) => NUMBER.test(text);
 function bandCheck(session, item, fact) {
   const f = item.facts[fact];
   if (!f) return { band: "unknown", reason: null };
@@ -11481,7 +11482,7 @@ function bandCheck(session, item, fact) {
   if (answered.length > 0 && answered.every(isCaptured)) return { band: "unknown", reason: f.band === "unknown" ? null : "captured" };
   if (fact === "success_metric" && f.band === "measurable_with_baseline") {
     const quotes = [...f.quotes, ...answered.filter((e) => !isCaptured(e)).flatMap((e) => e.quotes)];
-    if (!quotes.some((q) => NUMBER.test(q))) return { band: "vague", reason: "no_number" };
+    if (!quotes.some(hasNumber)) return { band: "vague", reason: "no_number" };
   }
   return { band: f.band, reason: null };
 }
@@ -11830,7 +11831,7 @@ function structureHints(session, fw, transcript, opts = {}) {
     const heard = def.signals.filter((sig) => said(sig, text));
     if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}: if it's part of ${primary.id}, add the \`${mod}\` modifier (set it in that item's \`modifiers\`) and cover its areas.`);
   }
-  if (opts.primaryInterviewed && primary.type !== "manual_process" && primary.type !== "exploratory" && !session.items.some((i) => i.type === "manual_process")) {
+  if (!session.session.asked && opts.primaryInterviewed && primary.type !== "manual_process" && primary.type !== "exploratory" && !session.items.some((i) => i.type === "manual_process")) {
     const heard = fw.router.types.manual_process.signals.filter((sig) => said(sig, text));
     if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}. If that might be manual work they do today that ${primary.id} would replace (not just what they'd fall back to if something failed), ask whether it happens today and when it last did. Only once they describe it happening, add it as one \`manual_process\` item with spawned_from "${primary.id}", and supersede it by ${primary.id} (router.supersede) once they say it would go away; it needs only a light pass (how often, how long). If they say it doesn't apply, add nothing, or drop the item (router.drop) if you already added it.`);
   }
@@ -11838,6 +11839,12 @@ function structureHints(session, fw, transcript, opts = {}) {
     hints.push("This is an exploratory intake: for each concrete example the user gives, add its own item with spawned_from the exploratory item and the type that fits the example (usually manual_process; never exploratory), and ask only one or two things about it (the last time it happened, roughly what it costs a week). Don't interview any one example in depth; aim for three or more.");
   }
   return hints;
+}
+function manualCheck(session, fw, item, transcript) {
+  if (!session.session.asked || session.session.asked[`${item.id}:${MANUAL_CHECK}`]) return [];
+  if (item.type === "manual_process" || item.type === "exploratory" || session.items.some((i) => i.type === "manual_process")) return [];
+  const text = normalize(transcript.filter((t) => t.role === "user").map((t) => t.text).join("\n"));
+  return fw.router.types.manual_process.signals.some((sig) => said(sig, text)) ? [MANUAL_CHECK] : [];
 }
 function statusOf(session, fw, transcript = []) {
   const rb = session.session.reflect_back;
@@ -11847,12 +11854,27 @@ function statusOf(session, fw, transcript = []) {
     asked: wasAsked(session, null, `core.${key}`),
     probe_available: !!e.updated_at && (e.status === "assumed" || e.status === "unknown") && e.probe_count === 0
   }));
+  const primaryId = session.items.find((i) => !i.superseded_by && !i.dropped && i.spawned_from == null)?.id;
+  const last = session.session.last_target;
   const items = session.items.map((item) => {
     const modules = [item.type, ...item.modifiers.map((m) => `mod.${m}`)];
     const areas = modules.flatMap((m) => fw.modules[m]?.areas ?? []);
     const asked = (id) => wasAsked(session, item, id);
     const asksCore = modules.flatMap((m) => fw.modules[m]?.asks_core ?? []);
     const critical = criticalAreas(item, fw);
+    const follow = [];
+    for (const id of critical) {
+      if (!asked(id)) continue;
+      const e = coverageFor(session, item, id);
+      const justAsked = !!last && last.area === id && (id.startsWith("core.") || last.item === item.id);
+      if (!e?.updated_at) {
+        if (!justAsked) follow.push({ area: id, why: "unanswered" });
+        continue;
+      }
+      if (e.probe_count > 0) continue;
+      if (id === "core.outcome" && !isCaptured(e) && e.quotes.length > 0 && !e.quotes.some(hasNumber)) follow.push({ area: id, why: "no_baseline" });
+      else if (e.status === "assumed") follow.push({ area: id, why: "vague" });
+    }
     const probeable = areas.map((a) => [a.id, item.coverage[a.id]]).filter(([, e]) => e?.updated_at && (e.status === "assumed" || e.status === "unknown") && e.probe_count === 0).map(([id]) => id);
     const light = item.spawned_from != null || !!item.dropped;
     const factsMissing = factsFor(item, fw).filter((f) => !item.facts[f]);
@@ -11869,10 +11891,9 @@ function statusOf(session, fw, transcript = []) {
       unasked: areas.filter((a) => !asked(a.id)).map((a) => a.id),
       always_ask_pending: light ? [] : [...areas.filter((a) => a.always_ask).map((a) => a.id), ...asksCore].filter((id) => !asked(id)),
       critical_unasked: light ? [] : critical.filter((id) => !asked(id)),
-      critical_unprobed: light ? [] : critical.filter((id) => {
-        const e = coverageFor(session, item, id);
-        return asked(id) && e?.status === "assumed" && e.probe_count === 0;
-      }),
+      critical_unprobed: light ? [] : follow.map((f) => f.area),
+      follow_ups: light ? [] : follow,
+      checks_pending: light || primaryId !== item.id ? [] : manualCheck(session, fw, item, transcript),
       band_sources_unasked: light || item.superseded_by || item.type === "exploratory" ? [] : bandSourcesUnasked(item, fw, asked),
       probe_available: probeable,
       facts_missing: factsMissing,
@@ -11888,7 +11909,7 @@ function statusOf(session, fw, transcript = []) {
       }
     };
   });
-  const interviewed = (i) => i.critical_unasked.length === 0 && i.critical_unprobed.length === 0 && i.always_ask_pending.length === 0 && i.band_sources_unasked.length === 0;
+  const interviewed = (i) => i.critical_unasked.length === 0 && i.critical_unprobed.length === 0 && i.checks_pending.length === 0 && i.always_ask_pending.length === 0 && i.band_sources_unasked.length === 0;
   const interviewComplete = items.length > 0 && items.every(interviewed);
   const writeUpComplete = items.every(
     (i) => (!needsBands(i) || i.facts_missing.length === 0) && (!needsAcceptance(i) || i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)
@@ -11939,19 +11960,20 @@ function nextStep(reflect, interviewComplete, items, hints, routing = null, plan
     "and propose the reflect-back."
   ].join(" ");
 }
+var MANUAL_CHECK = "check.manual_work";
 var CORE_ORDER = ["core.outcome", "core.data", "core.users", "core.trust", "core.systems", "core.constraints"];
-function planTargets(session, fw) {
-  return planFrom(session, fw, statusOf(session, fw).items);
+function planTargets(session, fw, transcript = []) {
+  return planFrom(session, fw, statusOf(session, fw, transcript).items);
 }
 function planFrom(session, fw, items) {
   const plan = [];
   const seen = /* @__PURE__ */ new Set();
-  const add = (item, area, probe = false) => {
+  const add = (item, area, why = "first") => {
     const core = area.startsWith("core.");
     const key = core ? area : `${item}:${area}`;
     if (seen.has(key)) return;
     seen.add(key);
-    plan.push({ item: core ? null : item, area, probe });
+    plan.push({ item: core ? null : item, area, probe: why !== "first" && why !== "check", why });
   };
   const live = items.filter((i) => !i.superseded_by && !i.dropped);
   const byOrder = (ids) => [...ids].sort((a, b) => (CORE_ORDER.indexOf(a) + 1 || 99) - (CORE_ORDER.indexOf(b) + 1 || 99));
@@ -11961,19 +11983,25 @@ function planFrom(session, fw, items) {
     for (const id of byOrder(i.band_sources_unasked)) add(i.id, id);
     for (const id of i.always_ask_pending) add(i.id, id);
   }
+  for (const i of live) for (const f of i.follow_ups) add(i.id, f.area, f.why);
+  for (const i of live) for (const c of i.checks_pending) add(i.id, c, "check");
   for (const i of live.filter((x) => x.light_pass)) {
     const item = session.items.find((x) => x.id === i.id);
     const first = criticalAreas(item, fw).find((id) => !id.startsWith("core."));
     if (first && !wasAsked(session, item, first)) add(i.id, first);
   }
-  for (const i of live) for (const id of i.critical_unprobed) add(i.id, id, true);
   return { primary: plan[0] ?? null, alternate: plan[1] ?? null };
 }
 function describeTarget(fw, t) {
-  const area = fw.areas.get(t.area);
   const whose = t.item ? ` for ${t.item}` : "";
+  if (t.area === MANUAL_CHECK) {
+    return `whether the manual work they mentioned is something they do today${whose}, or only what they'd fall back to if it failed: ask whether it happens today and when it last did. Only if they describe it happening, add it as one \`manual_process\` item with spawned_from "${t.item}" (supersede it by ${t.item} once they say it would go away). If not, add nothing.`;
+  }
+  const area = fw.areas.get(t.area);
   if (!area) return `${t.area}${whose}`;
-  if (t.probe) return `${t.area}${whose}: they answered vaguely, so ask once about the last time it actually happened (what exactly happened, who was involved).`;
+  if (t.why === "no_baseline") return `${t.area}${whose}: they said how they'd judge it but gave no number for today. Ask: "What's it costing now, in hours, errors or chargebacks?"`;
+  if (t.why === "unanswered") return `${t.area}${whose}: it was asked but nothing was recorded, so ask once more: find out ${area.must_capture.charAt(0).toLowerCase()}${area.must_capture.slice(1)}.`;
+  if (t.why === "vague") return `${t.area}${whose}: they answered vaguely, so ask once about the last time it actually happened (what exactly happened, who was involved).`;
   return `${t.area}${whose}: find out ${area.must_capture.charAt(0).toLowerCase()}${area.must_capture.slice(1)}. For example: "${area.probes[0]}" (adapt the wording to their situation).`;
 }
 
@@ -18294,7 +18322,7 @@ function applyTurn(original, turnData, ctx) {
       item.open_questions.push({ area: q.area, question: q.question, who_can_answer: q.who_can_answer, artifact_needed: q.artifact_needed });
     }
   });
-  const plan = original.session.reflect_back ? { primary: null, alternate: null } : planTargets(original, fw);
+  const plan = original.session.reflect_back ? { primary: null, alternate: null } : planTargets(original, fw, ctx.transcript ?? []);
   const coveredNow = (t) => turn.updates.some((u) => u.area === t.area && u.status === "covered" && (t.area.startsWith("core.") || u.item === t.item));
   let chosen = plan.primary && coveredNow(plan.primary) ? plan.alternate : plan.primary;
   const rb = turn.reflect_back;
@@ -18355,7 +18383,11 @@ function applyTurn(original, turnData, ctx) {
     if (session.session.asked && key && !session.session.asked[key]) session.session.asked = { ...session.session.asked, [key]: now2 };
     const k = chosen.area.slice(5);
     const entry = chosen.area.startsWith("core.") ? (chosen.item ? items.get(chosen.item)?.core_overrides[k] : void 0) ?? session.core[k] : chosen.item ? items.get(chosen.item)?.coverage[chosen.area] : void 0;
-    if (entry && (chosen.probe || entry.updated_at && entry.quotes.length > 0)) entry.probe_count = 1;
+    if (chosen.why === "unanswered" && !entry?.updated_at && fw.areas.has(chosen.area)) {
+      const marked = { status: "unknown", value: null, quotes: [], probe_count: 1, updated_at: now2 };
+      if (chosen.area.startsWith("core.")) session.core[k] = marked;
+      else if (chosen.item && items.get(chosen.item)) items.get(chosen.item).coverage[chosen.area] = marked;
+    } else if (entry && (chosen.probe || entry.updated_at && entry.quotes.length > 0)) entry.probe_count = 1;
   }
   session.session.last_target = chosen ? { item: chosen.item, area: chosen.area, reply: turn.reply } : null;
   if (!turn.reply.trim()) fail("/reply", "the reply to the user can't be empty");

@@ -5,8 +5,8 @@
 import type { Area, Framework, ItemType } from "./framework.ts";
 import { criticalAreas } from "./gates.ts";
 import { normalize, type TranscriptEntry } from "./grounding.ts";
-import { scoreItem, scoringView } from "./score.ts";
-import { coverageFor, wasAsked, type Item, type Session } from "./session.ts";
+import { hasNumber, scoreItem, scoringView } from "./score.ts";
+import { coverageFor, isCaptured, wasAsked, type Item, type Session } from "./session.ts";
 
 const list = (xs: string[]) => xs.map((x) => `"${x}"`).join(", ");
 
@@ -100,8 +100,12 @@ export interface ItemStatus {
   band_sources_unasked: string[];
   /** Critical areas not yet asked. Asked means the interviewer asked it, or recorded a full answer. */
   critical_unasked: string[];
-  /** Critical areas answered only vaguely (assumed) whose one probe hasn't been used. */
+  /** Critical areas that still need their one follow-up (the areas in follow_ups). */
   critical_unprobed: string[];
+  /** Each critical area's pending follow-up: answered vaguely, asked but nothing recorded, or an outcome with no number for today. */
+  follow_ups: Array<{ area: string; why: "vague" | "unanswered" | "no_baseline" }>;
+  /** Planned checks that aren't areas: whether manual work the user mentioned happens today. */
+  checks_pending: string[];
   /** Answered vaguely (assumed or unknown) with their one probe still unused. */
   probe_available: string[];
   facts_missing: string[];
@@ -209,7 +213,7 @@ export function structureHints(session: Session, fw: Framework, transcript: Tran
   // A dropped or superseded manual-process item counts too: the hint never comes back once acted on.
   // Found in the first live test: "if it stops, people go back to doing the task by hand" is a
   // fallback, not work done today, so the hint asks before anything is added.
-  if (opts.primaryInterviewed && primary.type !== "manual_process" && primary.type !== "exploratory" && !session.items.some((i) => i.type === "manual_process")) {
+  if (!session.session.asked && opts.primaryInterviewed && primary.type !== "manual_process" && primary.type !== "exploratory" && !session.items.some((i) => i.type === "manual_process")) {
     const heard = fw.router.types.manual_process.signals.filter((sig) => said(sig, text));
     if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}. If that might be manual work they do today that ${primary.id} would replace (not just what they'd fall back to if something failed), ask whether it happens today and when it last did. Only once they describe it happening, add it as one \`manual_process\` item with spawned_from "${primary.id}", and supersede it by ${primary.id} (router.supersede) once they say it would go away; it needs only a light pass (how often, how long). If they say it doesn't apply, add nothing, or drop the item (router.drop) if you already added it.`);
   }
@@ -217,6 +221,18 @@ export function structureHints(session: Session, fw: Framework, transcript: Tran
     hints.push("This is an exploratory intake: for each concrete example the user gives, add its own item with spawned_from the exploratory item and the type that fits the example (usually manual_process; never exploratory), and ask only one or two things about it (the last time it happened, roughly what it costs a week). Don't interview any one example in depth; aim for three or more.");
   }
   return hints;
+}
+
+/**
+ * The manual-work check, planned like a question: the user mentioned doing something by hand,
+ * and no manual-process item exists yet. Found in persona 1: as a hint it was skipped, or asked in
+ * the same reply as the reflect-back. Sessions without asked stamps keep the hint instead.
+ */
+function manualCheck(session: Session, fw: Framework, item: Item, transcript: TranscriptEntry[]): string[] {
+  if (!session.session.asked || session.session.asked[`${item.id}:${MANUAL_CHECK}`]) return [];
+  if (item.type === "manual_process" || item.type === "exploratory" || session.items.some((i) => i.type === "manual_process")) return [];
+  const text = normalize(transcript.filter((t) => t.role === "user").map((t) => t.text).join("\n"));
+  return fw.router.types.manual_process.signals.some((sig) => said(sig, text)) ? [MANUAL_CHECK] : [];
 }
 
 export function statusOf(session: Session, fw: Framework, transcript: TranscriptEntry[] = []): Status {
@@ -228,6 +244,9 @@ export function statusOf(session: Session, fw: Framework, transcript: Transcript
     probe_available: !!e.updated_at && (e.status === "assumed" || e.status === "unknown") && e.probe_count === 0,
   }));
 
+  // The primary item (first live, not spawned) carries the manual-work check.
+  const primaryId = session.items.find((i) => !i.superseded_by && !i.dropped && i.spawned_from == null)?.id;
+  const last = session.session.last_target;
   const items = session.items.map((item): ItemStatus => {
     const modules = [item.type, ...item.modifiers.map((m) => `mod.${m}`)];
     const areas = modules.flatMap((m) => fw.modules[m]?.areas ?? []);
@@ -235,6 +254,18 @@ export function statusOf(session: Session, fw: Framework, transcript: Transcript
     // Shared core areas this type always asks (known ideas: constraints), on top of its own always-ask areas.
     const asksCore = modules.flatMap((m) => (fw.modules[m]?.asks_core as string[] | undefined) ?? []);
     const critical = criticalAreas(item, fw);
+    const follow: ItemStatus["follow_ups"] = [];
+    for (const id of critical) {
+      if (!asked(id)) continue;
+      const e = coverageFor(session, item, id);
+      const justAsked = !!last && last.area === id && (id.startsWith("core.") || last.item === item.id);
+      if (!e?.updated_at) { if (!justAsked) follow.push({ area: id, why: "unanswered" }); continue; }
+      if (e.probe_count > 0) continue;
+      // Persona 1 and 7: a success measure with no number for today can't be a baseline, so the
+      // outcome gets the framework's cost follow-up before the write-up.
+      if (id === "core.outcome" && !isCaptured(e) && e.quotes.length > 0 && !e.quotes.some(hasNumber)) follow.push({ area: id, why: "no_baseline" });
+      else if (e.status === "assumed") follow.push({ area: id, why: "vague" });
+    }
     const probeable = areas
       .map((a) => [a.id, item.coverage[a.id]] as const)
       .filter(([, e]) => e?.updated_at && (e.status === "assumed" || e.status === "unknown") && e.probe_count === 0)
@@ -255,10 +286,9 @@ export function statusOf(session: Session, fw: Framework, transcript: Transcript
       unasked: areas.filter((a) => !asked(a.id)).map((a) => a.id),
       always_ask_pending: light ? [] : [...areas.filter((a) => a.always_ask).map((a) => a.id), ...asksCore].filter((id) => !asked(id)),
       critical_unasked: light ? [] : critical.filter((id) => !asked(id)),
-      critical_unprobed: light ? [] : critical.filter((id) => {
-        const e = coverageFor(session, item, id);
-        return asked(id) && e?.status === "assumed" && e.probe_count === 0;
-      }),
+      critical_unprobed: light ? [] : follow.map((f) => f.area),
+      follow_ups: light ? [] : follow,
+      checks_pending: light || primaryId !== item.id ? [] : manualCheck(session, fw, item, transcript),
       band_sources_unasked: light || item.superseded_by || item.type === "exploratory" ? [] : bandSourcesUnasked(item, fw, asked),
       probe_available: probeable,
       facts_missing: factsMissing,
@@ -275,7 +305,7 @@ export function statusOf(session: Session, fw: Framework, transcript: Transcript
     };
   });
 
-  const interviewed = (i: ItemStatus) => i.critical_unasked.length === 0 && i.critical_unprobed.length === 0 && i.always_ask_pending.length === 0 && i.band_sources_unasked.length === 0;
+  const interviewed = (i: ItemStatus) => i.critical_unasked.length === 0 && i.critical_unprobed.length === 0 && i.checks_pending.length === 0 && i.always_ask_pending.length === 0 && i.band_sources_unasked.length === 0;
   const interviewComplete = items.length > 0 && items.every(interviewed);
   // A superseded item needs no band picks: if its replacement doesn't reach Go, it's gated on
   // its unknowns, which honestly lands it in Gather more.
@@ -347,7 +377,12 @@ export interface Target {
   item: string | null;
   area: string;
   probe: boolean;
+  /** first ask; a follow-up (vague answer, nothing recorded, no number for today); or the manual-work check. */
+  why: "first" | "vague" | "unanswered" | "no_baseline" | "check";
 }
+
+/** Not an area: the planned check whether manual work the user mentioned happens today. */
+export const MANUAL_CHECK = "check.manual_work";
 
 /** Shared core areas in the order a conversation usually reaches them: why, what data, who, what if wrong. */
 const CORE_ORDER = ["core.outcome", "core.data", "core.users", "core.trust", "core.systems", "core.constraints"];
@@ -363,8 +398,8 @@ const CORE_ORDER = ["core.outcome", "core.data", "core.users", "core.trust", "co
  * critical area answered only vaguely. The alternate is asked instead when the user's latest
  * message already answers the primary in full (apply-turn works out which from what's recorded).
  */
-export function planTargets(session: Session, fw: Framework): Plan {
-  return planFrom(session, fw, statusOf(session, fw).items);
+export function planTargets(session: Session, fw: Framework, transcript: TranscriptEntry[] = []): Plan {
+  return planFrom(session, fw, statusOf(session, fw, transcript).items);
 }
 
 export interface Plan { primary: Target | null; alternate: Target | null }
@@ -372,12 +407,12 @@ export interface Plan { primary: Target | null; alternate: Target | null }
 function planFrom(session: Session, fw: Framework, items: ItemStatus[]): Plan {
   const plan: Target[] = [];
   const seen = new Set<string>();
-  const add = (item: string | null, area: string, probe = false) => {
+  const add = (item: string | null, area: string, why: Target["why"] = "first") => {
     const core = area.startsWith("core.");
     const key = core ? area : `${item}:${area}`;
     if (seen.has(key)) return;
     seen.add(key);
-    plan.push({ item: core ? null : item, area, probe });
+    plan.push({ item: core ? null : item, area, probe: why !== "first" && why !== "check", why });
   };
   const live = items.filter((i) => !i.superseded_by && !i.dropped);
   const byOrder = (ids: string[]) => [...ids].sort((a, b) => (CORE_ORDER.indexOf(a) + 1 || 99) - (CORE_ORDER.indexOf(b) + 1 || 99));
@@ -387,20 +422,26 @@ function planFrom(session: Session, fw: Framework, items: ItemStatus[]): Plan {
     for (const id of byOrder(i.band_sources_unasked)) add(i.id, id);
     for (const id of i.always_ask_pending) add(i.id, id);
   }
+  for (const i of live) for (const f of i.follow_ups) add(i.id, f.area, f.why);
+  for (const i of live) for (const c of i.checks_pending) add(i.id, c, "check");
   for (const i of live.filter((x) => x.light_pass)) {
     const item = session.items.find((x) => x.id === i.id)!;
     const first = criticalAreas(item, fw).find((id) => !id.startsWith("core."));
     if (first && !wasAsked(session, item, first)) add(i.id, first);
   }
-  for (const i of live) for (const id of i.critical_unprobed) add(i.id, id, true);
   return { primary: plan[0] ?? null, alternate: plan[1] ?? null };
 }
 
 /** The question to ask about an area, in plain words, for the prompt and the plugin's status. */
 export function describeTarget(fw: Framework, t: Target): string {
-  const area = fw.areas.get(t.area);
   const whose = t.item ? ` for ${t.item}` : "";
+  if (t.area === MANUAL_CHECK) {
+    return `whether the manual work they mentioned is something they do today${whose}, or only what they'd fall back to if it failed: ask whether it happens today and when it last did. Only if they describe it happening, add it as one \`manual_process\` item with spawned_from "${t.item}" (supersede it by ${t.item} once they say it would go away). If not, add nothing.`;
+  }
+  const area = fw.areas.get(t.area);
   if (!area) return `${t.area}${whose}`;
-  if (t.probe) return `${t.area}${whose}: they answered vaguely, so ask once about the last time it actually happened (what exactly happened, who was involved).`;
+  if (t.why === "no_baseline") return `${t.area}${whose}: they said how they'd judge it but gave no number for today. Ask: "What's it costing now, in hours, errors or chargebacks?"`;
+  if (t.why === "unanswered") return `${t.area}${whose}: it was asked but nothing was recorded, so ask once more: find out ${area.must_capture.charAt(0).toLowerCase()}${area.must_capture.slice(1)}.`;
+  if (t.why === "vague") return `${t.area}${whose}: they answered vaguely, so ask once about the last time it actually happened (what exactly happened, who was involved).`;
   return `${t.area}${whose}: find out ${area.must_capture.charAt(0).toLowerCase()}${area.must_capture.slice(1)}. For example: "${area.probes[0]}" (adapt the wording to their situation).`;
 }

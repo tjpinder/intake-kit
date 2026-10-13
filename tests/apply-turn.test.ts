@@ -5,7 +5,7 @@ import { applyTurn, type ApplyResult } from "../src/lib/apply-turn.ts";
 import { normalize, findQuote, type TranscriptEntry } from "../src/lib/grounding.ts";
 import { validateSession } from "../src/lib/schemas.ts";
 import { planTargets, statusOf } from "../src/lib/guide.ts";
-import type { Session } from "../src/lib/session.ts";
+import type { CoverageEntry, Session } from "../src/lib/session.ts";
 import { makeItem, makeSession } from "./helpers.ts";
 
 const fw = loadFramework(".");
@@ -334,7 +334,7 @@ describe("code chooses each question's area (first live test, persona 7)", () =>
   test("the turn's question is the planned primary; its area is stamped and remembered", () => {
     const s = stamped();
     const plan = planTargets(s, fw);
-    assert.deepEqual(plan.primary, { item: "item-1", area: "data_report.decision", probe: false });
+    assert.deepEqual(plan.primary, { item: "item-1", area: "data_report.decision", probe: false, why: "first" });
     const r = run(emptyTurn(), { session: s });
     assert.deepEqual(r.session.session.asked, { "item-1:data_report.decision": NOW });
     assert.deepEqual(r.session.session.last_target, { item: "item-1", area: "data_report.decision", reply: "What happens next?" });
@@ -361,14 +361,53 @@ describe("code chooses each question's area (first live test, persona 7)", () =>
     assert.ok(!statusOf(r.session, fw).items[0].critical_unprobed.includes("core.trust"));
   });
 
-  test("a critical area answered only vaguely gets one planned probe, then is never planned again", () => {
+  /** Every required area of the fresh data_report item asked and answered in full. */
+  const interviewed = () => {
     const s = stamped();
+    const done = (value: string): CoverageEntry => ({ status: "covered", value, quotes: [value], probe_count: 0, updated_at: T0 });
+    for (const k of ["users", "data", "trust", "systems"] as const) s.core[k] = done(`${k} answered`);
+    s.core.outcome = done("about four hours every Monday now");
+    for (const a of ["data_report.decision", "data_report.definition", "data_report.existing"]) s.items[0].coverage[a] = done(`${a} answered`);
     s.session.asked = Object.fromEntries(["item-1:data_report.decision", "item-1:data_report.definition", "core.outcome", "core.data", "core.users", "core.trust", "core.systems", "item-1:data_report.existing"].map((k) => [k, T0]));
-    s.core.outcome = { status: "assumed", value: "Monday", quotes: ["it eats my whole Monday morning"], probe_count: 0, updated_at: T0 };
-    assert.deepEqual(planTargets(s, fw).primary, { item: null, area: "core.outcome", probe: true });
+    return s;
+  };
+
+  test("a critical area answered only vaguely gets one planned probe, then is never planned again", () => {
+    const s = interviewed();
+    s.core.outcome = { status: "assumed", value: "Maybe four hours", quotes: ["it eats four hours, I think"], probe_count: 0, updated_at: T0 };
+    assert.deepEqual(planTargets(s, fw).primary, { item: null, area: "core.outcome", probe: true, why: "vague" });
     const r = run(emptyTurn(), { session: s });
     assert.equal(r.session.core.outcome.probe_count, 1);
     assert.notEqual(planTargets(r.session, fw).primary?.area, "core.outcome");
+  });
+
+  test("an outcome with no number for today gets the cost follow-up (persona 1)", () => {
+    const s = interviewed();
+    s.core.outcome = { status: "covered", value: "Counts go down week over week", quotes: ["if the counts go down after retraining"], probe_count: 0, updated_at: T0 };
+    const plan = planTargets(s, fw);
+    assert.deepEqual(plan.primary, { item: null, area: "core.outcome", probe: true, why: "no_baseline" });
+    assert.match(statusOf(s, fw).next_step, /What's it costing now, in hours, errors or chargebacks\?/);
+    assert.equal(statusOf(s, fw).interview_complete, false);
+  });
+
+  test("an area asked but never recorded (its turn couldn't be saved) is asked once more, then marked (persona 1)", () => {
+    const s = interviewed();
+    s.core.outcome = { status: "unknown", value: null, quotes: [], probe_count: 0 };
+    assert.deepEqual(planTargets(s, fw).primary, { item: null, area: "core.outcome", probe: true, why: "unanswered" });
+    const r = run(emptyTurn(), { session: s });
+    assert.equal(r.session.core.outcome.probe_count, 1);
+    assert.ok(r.session.core.outcome.updated_at);
+    assert.notEqual(planTargets(r.session, fw).primary?.area, "core.outcome");
+  });
+
+  test("the manual-work check is a planned question on the primary item, before the write-up (persona 1)", () => {
+    const s = interviewed();
+    const said = [user("I build it in Excel by hand every Monday")];
+    assert.deepEqual(planTargets(s, fw, said).primary, { item: "item-1", area: "check.manual_work", probe: false, why: "check" });
+    assert.equal(statusOf(s, fw, said).interview_complete, false);
+    const r = run(emptyTurn(), { session: s, transcript: said });
+    assert.ok(r.session.session.asked!["item-1:check.manual_work"]);
+    assert.equal(statusOf(r.session, fw, said).interview_complete, true);
   });
 
   test("a proposal asks nothing, so nothing is stamped", () => {

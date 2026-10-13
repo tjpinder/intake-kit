@@ -328,7 +328,7 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
   // test and persona 7: the model labelled its questions with the area it meant to ask next, so
   // stamps, the question cap and the retry message all named the wrong area. The model was told
   // to ask the alternate instead only when this turn records the primary as covered.
-  const plan = original.session.reflect_back ? { primary: null, alternate: null } : planTargets(original, fw);
+  const plan = original.session.reflect_back ? { primary: null, alternate: null } : planTargets(original, fw, ctx.transcript ?? []);
   const coveredNow = (t: Target) => turn.updates.some((u) => u.area === t.area && u.status === "covered" && (t.area.startsWith("core.") || u.item === t.item));
   let chosen: Target | null = plan.primary && coveredNow(plan.primary) ? plan.alternate : plan.primary;
 
@@ -414,7 +414,13 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
     const entry = chosen.area.startsWith("core.")
       ? (chosen.item ? items.get(chosen.item)?.core_overrides[k] : undefined) ?? session.core[k]
       : chosen.item ? items.get(chosen.item)?.coverage[chosen.area] : undefined;
-    if (entry && (chosen.probe || (entry.updated_at && entry.quotes.length > 0))) entry.probe_count = 1;
+    if (chosen.why === "unanswered" && !entry?.updated_at && fw.areas.has(chosen.area)) {
+      // Asked before, nothing recorded (that turn couldn't be saved): this is the area's one re-ask.
+      // An unknown entry marks it, so it's never planned a third time; the answer replaces it.
+      const marked: CoverageEntry = { status: "unknown", value: null, quotes: [], probe_count: 1, updated_at: now };
+      if (chosen.area.startsWith("core.")) session.core[k] = marked;
+      else if (chosen.item && items.get(chosen.item)) items.get(chosen.item)!.coverage[chosen.area] = marked;
+    } else if (entry && (chosen.probe || (entry.updated_at && entry.quotes.length > 0))) entry.probe_count = 1;
   }
   session.session.last_target = chosen ? { item: chosen.item, area: chosen.area, reply: turn.reply } : null;
 

@@ -71,7 +71,7 @@ describe("the write-up asks for bands only where they're scored", () => {
       schema_version: 1,
       framework_version: "0.1.0",
       session: { id: "2026-10-11-abce", started_at: "2026-10-11T00:00:00.000Z", mode: "stakeholder", provider: "azure-openai", grounding: "transcript", reflect_back: null },
-      core: Object.fromEntries(["users", "outcome", "data", "systems", "constraints", "trust"].map((k) => [k, { status: "covered", value: "v", quotes: ["q"], probe_count: 0, updated_at: "t" }])) as unknown as Session["core"],
+      core: Object.fromEntries(["users", "outcome", "data", "systems", "constraints", "trust"].map((k) => [k, { status: "covered", value: "v", quotes: [k === "outcome" ? "about 50 a day" : "q"], probe_count: 0, updated_at: "t" }])) as unknown as Session["core"],
       items: ["exploratory", "manual_process"].map((type, n) => ({
         id: `item-${n + 1}`, title: "t", type: type as Item["type"], confidence: "high" as const, trigger_quote: "q", modifiers: [], spawned_from: n ? "item-1" : null, superseded_by: null,
         type_history: [{ from: null, to: type as Item["type"], reason: "r", quote: "q", at: "t" }],
@@ -93,7 +93,7 @@ describe("band sources (from the persona evals)", () => {
       schema_version: 1,
       framework_version: "0.1.0",
       session: { id: "2026-10-12-abcd", started_at: "2026-10-12T00:00:00.000Z", mode: "stakeholder", provider: "azure-openai", grounding: "transcript", reflect_back: null },
-      core: Object.fromEntries(["users", "outcome", "data", "systems", "constraints", "trust"].map((k) => [k, k === "systems" ? { status: "unknown", value: null, quotes: [], probe_count: 0 } : answered])) as unknown as Session["core"],
+      core: Object.fromEntries(["users", "outcome", "data", "systems", "constraints", "trust"].map((k) => [k, k === "systems" ? { status: "unknown", value: null, quotes: [], probe_count: 0 } : k === "outcome" ? { ...answered, quotes: ["about 50 a day"] } : answered])) as unknown as Session["core"],
       items: [{
         id: "item-1", title: "Report", type: "data_report", confidence: "high", trigger_quote: "q", modifiers: [], spawned_from: null, superseded_by: null,
         type_history: [{ from: null, to: "data_report", reason: "opening", quote: "q", at: "t" }],
@@ -179,7 +179,10 @@ describe("readiness counts what was asked, not what was recorded (first live tes
   test("a critical area answered only vaguely needs its probe before the interview is complete", () => {
     const s = knownIdea();
     s.session.asked = Object.fromEntries(ALL.map((k) => [k, AT]));
-    s.core.outcome = { status: "assumed", value: "I'd send a link", quotes: ["send a link"], probe_count: 0, updated_at: AT };
+    const done = (v: string) => ({ status: "covered" as const, value: v, quotes: [v], probe_count: 0, updated_at: AT });
+    for (const k of ["users", "data", "systems", "constraints", "trust"] as const) s.core[k] = done(k);
+    for (const k of ALL.filter((k) => k.startsWith("item-1:"))) s.items[0].coverage[k.slice(7)] = done(k);
+    s.core.outcome = { status: "assumed", value: "Maybe three interviews a month", quotes: ["maybe three interviews a month, I think"], probe_count: 0, updated_at: AT };
     let st = statusOf(s, fw);
     assert.deepEqual(st.items[0].critical_unprobed, ["core.outcome"]);
     assert.equal(st.interview_complete, false);

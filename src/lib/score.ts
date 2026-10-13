@@ -17,8 +17,11 @@ export function bandOf(item: Item, fact: string, fw: Framework): string {
   return band;
 }
 
-/** Digits, or a number written as a word ("four hours every Monday", "about a dozen"). */
-const NUMBER = /\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|dozen|half|once|twice|percent)\b/i;
+/**
+ * Digits, or a number written as a word ("four hours every Monday", "about a dozen"). Not "one"
+ * or "once": "if no one looks at it" isn't a measure (persona 7).
+ */
+const NUMBER = /\d|\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|dozen|half|twice|percent)\b/i;
 
 /**
  * The band a fact may be scored on, and why it differs from the pick when it does. Two
@@ -29,6 +32,8 @@ const NUMBER = /\d|\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|tw
  *   (the fact's own, or one on its evidence). Without one the band is vague: a model picked it on
  *   "hiring managers reference the repo", which measures nothing.
  */
+export const hasNumber = (text: string): boolean => NUMBER.test(text);
+
 export function bandCheck(session: Session, item: Item, fact: string): { band: string; reason: "captured" | "no_number" | null } {
   const f = item.facts[fact];
   if (!f) return { band: "unknown", reason: null };
@@ -36,7 +41,7 @@ export function bandCheck(session: Session, item: Item, fact: string): { band: s
   if (answered.length > 0 && answered.every(isCaptured)) return { band: "unknown", reason: f.band === "unknown" ? null : "captured" };
   if (fact === "success_metric" && f.band === "measurable_with_baseline") {
     const quotes = [...f.quotes, ...answered.filter((e) => !isCaptured(e)).flatMap((e) => e!.quotes)];
-    if (!quotes.some((q) => NUMBER.test(q))) return { band: "vague", reason: "no_number" };
+    if (!quotes.some(hasNumber)) return { band: "vague", reason: "no_number" };
   }
   return { band: f.band, reason: null };
 }

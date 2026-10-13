@@ -1,29 +1,36 @@
 # Intake Kit — Claude Code Handoff Spec
 
-> Repo copy of the handoff spec. Build decisions updated Oct 10, 2026 after pre-build review (see "Build decisions").
-
 Oct 10, 2026 · @Tom
+
+## Status and pivot (Oct 13, 2026)
+
+**Start here.** The v1 interviewer let the model run the conversation, and live testing showed it can't: answers went unrecorded, areas got re-asked, items were invented, and summaries never rendered. The build now pivots to **Interview engine v2**, where code runs the interview and the model only phrases questions and classifies answers. Where anything below conflicts with that section, v2 wins.
+
+- **Production:** sample-only. `LIVE_INTAKE_NOTE` is set, so live intakes are paused and the offline sample still plays. It stays paused until v2 meets the ship bar.
+- **Code:** the hotfix for the pause is on `main` (1631b89). The fix branch `fix/live-test-2026-10-13` (44de692) is unmerged and predates the hotfix.
+- **Separation:** the kit has no dependency on, and no reference to, any outside guardrail framework. The guardrails file is `GUARDRAILS.md`.
+- **Next:** build v2, gate on personas 1 and 7, check held-out personas 2–6, then deploy. If it misses after one fix round, ship the Claude Code plugin as the demo and move on to the proof pieces.
 
 ## Purpose
 
 Build an open, installable Claude Code plugin that turns a plain-language intake interview into a build-ready spec pack, with guardrails derived from the intake applied from the first commit. Working name: **intake-kit** (repo at `E:\Development\intake-kit`, public at github.com/tjpinder/intake-kit, MIT).
 
-It serves two uses with one codebase:
+It serves two audiences with one codebase:
 
-- **Daily use:** run `/intake` at the start of any build and get a spec, acceptance criteria and guardrails instead of a blank CLAUDE.md.
-- **Live demos:** someone describes a messy problem, the intake turns it into a spec, and the guardrails show how the build stays honest.
+- **Tom, daily:** run `/intake` at the start of any build (PRAPI, JobOps, anything next) and get a spec, acceptance criteria and guardrails instead of a blank CLAUDE.md.
+- **Hiring managers, in interviews:** a live demo of AI-enablement and forward-deployed work. Someone describes a messy problem, the intake turns it into a spec, and the guardrails show how the build stays honest.
 
-The headline is "turn a vague ops request into a build-ready spec in 30 minutes." The guardrails are generated from what the user said, so they're specific to each problem.
+* **LinkedIn and the public:** positioned as an FDE / AI-enablement / workflow-automation kit. The headline is "turn a vague ops request into a build-ready spec in 30 minutes." The guardrails are generated from what the user said, so they're specific to each problem.
 
 This is not SaaS. No accounts, billing, database or stored sessions. A free web UI is in scope (below); a product is not.
 
 ## Scope and non-goals
 
-The kit is self-contained: no runtime, package or CLI dependency on any outside framework. Its guardrail design draws on the Integrity Framework (TIF), credited in the docs, but no TIF code, rule text or CLI is required or called.
+The kit is self-contained: no runtime, package or CLI dependency on any outside framework, and no reference to one in code or docs. Its guardrail design is its own.
 
 **In scope**
 
-- A Claude Code plugin with three commands: `/intake`, `/guardrails`, `/audit` (invoked as `/intake-kit:intake` etc.; see Build decisions)
+- A Claude Code plugin with three commands: `/intake`, `/`guardrails, /`audit`
 - The intake skill: router, type modules, scoring and gates
 - Spec pack templates and the rendering step
 - Light guardrail hooks (reminders); CI stays the hard gate
@@ -34,7 +41,7 @@ The kit is self-contained: no runtime, package or CLI dependency on any outside 
 **Non-goals for v1**
 
 - Accounts, auth, billing, database, stored sessions
-- Any dependency on TIF or the integrity CLI, including an optional adapter (can be revisited later)
+- Any dependency on, adapter for, or reference to an outside guardrail framework or CLI (decided Oct 13: clean separation)
 - Tool-specific forks of the framework (one skill source serves every agent)
 - Anything private: no product source from the portfolio, no secrets, no former-employer data or schemas
 
@@ -45,18 +52,19 @@ The repo is a standard Claude Code plugin plus templates and one example. Claude
 ```
 intake-kit/
 ├── .claude-plugin/plugin.json
-├── .claude-plugin/marketplace.json  # makes the repo installable in one command
 ├── .agents/skills/        # Codex mirror of the intake skill
 ├── AGENTS.md              # Codex entry point
+├── commands/
+│   ├── intake.md          # /intake — runs the guided conversation
+│   ├── guardrails.md      # /guardrails — GUARDRAILS.md, check config, CI workflow
+│   └── audit.md           # /audit — runs the kit's own checks
 ├── skills/
-│   ├── guardrails/SKILL.md  # /guardrails — GUARDRAILS.md, check config, CI workflow
-│   ├── audit/SKILL.md     # /audit — runs the kit's own checks
 │   ├── intake/SKILL.md    # conversation behavior + probe discipline
 │   ├── intake/router.yaml # entry-type signals, modifiers, probes
 │   ├── intake/modules/    # core.yaml, one file per type and modifier
 │   ├── intake/scoring.yaml    # criteria, weights, AI overlay, gates
 │   └── spec-pack/SKILL.md # renders items into files
-├── scripts/               # apply-turn, render, check, hooks (TypeScript; yaml + ajv bundled, nothing to install)
+├── scripts/               # apply-turn, render, check (zero-dependency Node)
 ├── hooks/hooks.json       # reminder hooks only
 ├── templates/             # SPEC, ACCEPTANCE, CLAUDE, GUARDRAILS, FIRST_PROMPT, DECISIONS, briefs
 ├── examples/pick-exception-report/
@@ -187,12 +195,11 @@ Every candidate item gets two composite scores, an AI overlay if the solution us
 | Stable for 6 months | Major change coming | Some | None |
 | Documentation and test data | None | Partial | SOP plus real examples |
 | Steps and apps | Over 100 steps, many apps | 20–100 | Under 20, 1–2 apps |
-| Access | No UI or API access, remote desktop only | UI only | API or direct DB read |
 | Value | Trivial | Moderate | High |
 
 - **Automation potential** = mean of rule clarity, input digital, input structured, ways it's done.
 - **Ease** = mean of stability, documentation, steps and apps, access.
-- Plot both on Blue Prism's quadrant. Rescale each composite with (mean − 1) / 4 and use UiPath's bands: 65% and up is high (a mean of 3.6 or more), under 35% is low (a mean under 2.4). Prioritize = both high. Defer = both low, or one low and the other not high. Review = everything else, including medium/medium. Thresholds live in `scoring.yaml`.
+- Plot both on Blue Prism's quadrant: Prioritize (high/high), Review (one high), Defer (low/low). UiPath's bands mark the thresholds: 65% and up easy, 35–65% medium, under 35% difficult.
 
 **AI overlay**
 
@@ -215,14 +222,14 @@ For Known idea and Exploratory items, also rate adoption from the user's words: 
 | --- | --- | --- |
 | Go | `outcome`, `data`, owner and error cost all covered or confirmed-assumed; a measurable success metric with baseline; Prioritize, or Review with a written mitigation; AI overlay passes (if AI); confirmed reflect-back | Full spec pack |
 | Gather more discovery | A critical area is `unknown`; major change expected in 6 months; Review with no mitigation; migration modifier | Discovery brief: open questions, who can answer each, artifact needed |
-| Don't build | Defer quadrant; trivial value; no decision depends on it; an existing report or feature covers it; superseded by another Go item in the same session; AI overlay fails eval-ability or error cost | DECISIONS.md entry with rationale and a revisit trigger |
+| Don't build | Defer quadrant; trivial value; no decision depends on it; an existing report or feature covers it; AI overlay fails eval-ability or error cost | DECISIONS.md entry with rationale and a revisit trigger |
 | Fix, not build | Broken item with a config, data or vendor cause; a training gap; a workaround acceptable as permanent | Diagnostic brief, fix ticket text, known-error note |
 
 Scoring rules live in `skills/intake/scoring.yaml`, so weights can be tuned without changing skill logic.
 
 ## Spec pack output
 
-The intake writes seven files into the target repo. Every line in SPEC and ACCEPTANCE cites the coverage area and the user quote it came from, such as `[core.outcome]`, so any requirement traces back to what someone actually said.
+The intake writes seven files into the target repo. Every line in SPEC and ACCEPTANCE cites the coverage area and the user quote it came from, such as `[outcome]`, so any requirement traces back to what someone actually said.
 
 | File | Contents | Built from |
 | --- | --- | --- |
@@ -282,7 +289,6 @@ items:
     trigger_quote: "I need a report of short picks by shift and picker"
     modifiers: []                # integration | compliance | migration
     spawned_from: null           # item id, for items split off another
-    superseded_by: null          # item id that will replace this one, set by the router
     type_history:
       - { from: null, to: data_report, reason: opening, quote: "...", at: ... }
     core_overrides: {}           # same shape as core.*, only where this item differs
@@ -325,8 +331,7 @@ items:
   ],
   "router": {
     "new_items": [ { "id": "item-2", "type": "manual_process", "confidence": "med", "trigger_quote": "I build it in Excel every Monday", "spawned_from": "item-1" } ],
-    "reclassify": null,
-    "supersede": null
+    "reclassify": null
   },
   "next_target": { "item": "item-1", "area": "data_report.definition" },
   "ready_for_reflect_back": false
@@ -339,7 +344,7 @@ Rendering rules: if a file already exists, show a diff and ask before overwritin
 
 ## Guardrails and audit
 
-The kit generates guardrails from the intake and enforces them with its own bundled Node script, `scripts/check`, with nothing to install. Nothing outside the repo is required. Because each check is driven by what the user said, the guardrails fit the specific problem rather than a fixed rulebook.
+The kit generates guardrails from the intake and enforces them with its own zero-dependency Node script, `scripts/check`. Nothing outside the repo is required. Because each check is driven by what the user said, the guardrails fit the specific problem rather than a fixed rulebook.
 
 | Check | Fails when | Driven by |
 | --- | --- | --- |
@@ -355,8 +360,6 @@ The kit generates guardrails from the intake and enforces them with its own bund
 - **Hooks only remind.** They flag edits to flagged paths and run the checks at session end, ignoring the exit code.
 - `/guardrails` writes `.intake-kit/checks.json`, listing which checks apply and which paths are flagged, so the checks are config, not code changes.
 - A skipped or errored check is reported as skipped. The kit never shows a pass it didn't get.
-
-**Credit:** the layering here (warn before the build, block at merge, human review on flagged paths) is adapted from the Integrity Framework (TIF). That's a design influence only; there's no dependency.
 
 ## Worked example: pick-exception report
 
@@ -376,11 +379,90 @@ The README example is a warehouse problem, run end to end, because it shows WMS 
 3. `build/`: SQL Server in Docker, seed script, T-SQL views, and a small script that renders the report as HTML.
 4. `audit-report.md`: the real `/audit` output. If the audit is clean, say so. Never stage a finding to make the demo look better.
 
-The example session should produce two items: the pick-exception report reaching **Go** (type 5, data/report), and a second item (the Monday Excel build) that ends as **Don't build** because it's superseded by item 1, which reaches Go. Showing both gates is the point.
+The example session should produce two items: the pick-exception report reaching **Go** (type 5, data/report), and a second request that ends as **Don't build** because the existing-asset check finds a report that already covers it. Showing both gates is the point.
 
-## Docs site
+## Publishing and distribution
 
-**Canonical page:** `docs/` in the repo, rendered with GitHub Pages. It holds the framework, scoring, gates and sources. The framework lives next to the code so the two never drift apart. TIF gets a credit line on the guardrails page as a design influence, nothing more.
+One canonical framework page, four posts, and PRAPI working the inbound side. Nothing publishes until the repo exists and runs.
+
+**Canonical page:** `docs/` in the repo, rendered with GitHub Pages. It holds the framework, scoring, gates and sources. The framework lives next to the code so the two never drift apart.
+
+**Post series (LinkedIn, each linking to the canonical page)**
+
+1. The framework: why AI projects in ops fail at the ask, and the five entry types.
+2. "Don't build" is an outcome: fix-not-build and existing-report cases.
+3. The scoring: RPA criteria plus the AI overlay, and why low rule clarity flips a process from skip to AI candidate.
+4. The demo: the pick-exception report end to end, with the video.
+
+**PRAPI, inbound briefs**
+
+- Add a brand brief for Tom / StartVest covering FDE, AI enablement, AI implementation, workflow automation, AI guardrails and hallucination, and AI in warehouse and supply chain ops.
+- PRAPI scores incoming HARO, MentionMatch and Connectively requests against that brief and drafts responses. Tom approves every send.
+- Quote hooks come from the framework: AI projects fail at the ask; "don't build" is an outcome; low rule clarity is where AI helps and RPA doesn't. Every placement links to the canonical page.
+- Accuracy rule: describe Tom as an AI implementation practitioner and author of an open discovery framework. Never claim an FDE title he hasn't held. PRAPI's fabrication guardrail checks this on every draft.
+
+**PRAPI, reverse pitch:** only the topic that fits PRAPI's locked ICP runs here: how marketing and PR operators keep AI tools from inventing facts. FDE and logistics topics stay out of the prapi.dev funnel.
+
+**Watch for:** placements, referral traffic to the docs page, repo stars, and recruiters who mention the kit.
+
+## Interview engine v2: code runs the interview
+
+Decided Oct 13, 2026, after the first live web test and two failed gate checks. Code owns every decision about the interview's flow. The model only phrases questions and classifies answers. **This section overrides every earlier section, including Build decisions, on how the conversation runs.** Scoring, gates, templates and the guardrail checks are unchanged.
+
+**Why.** Every failure so far traced to a decision the model owned. Every fix that moved a decision into code held.
+
+| Failure seen | Decision the model owned |
+| --- | --- |
+| Answers heard but not recorded (up to 75% of turns on mini, about 50% of first attempts on gpt-4.1) | Recording |
+| Outcome asked four or more times; cap counted the wrong area | Which area it was asking |
+| Answers filed under the wrong area, producing wrong scores | Where an answer belongs |
+| Item invented from a hypothetical; real follow-on item never created | Creating items |
+| Summary proposed before constraints or the manual-work check were asked | When the interview is done |
+| "I've shared the summary" with nothing rendered | Producing the summary |
+
+**The engine.** Each turn runs through these steps. Code owns every step not marked *model*.
+
+1. **Open.** *Model* classifies the opening: type, modifiers, confidence and the triggering quote. Code applies the negation rule ("no API" doesn't trigger integration) and accepts or asks the one disambiguating probe.
+2. **Plan.** Code builds an ordered queue of targets: required core areas, then the type module's required areas, then modifier areas. *Model* checks the opening message against the full area list and returns any areas it already answers, each with a grounded quote. Those start as covered and leave the queue.
+3. **Ask.** Code takes the next target. *Model* phrases a natural question for that one area, given its must-capture list and what the user has already said. It never chooses the area.
+4. **Extract.** *Model* classifies the reply to that one question: `answered`, `partial`, `not_applicable`, `declined` or `off_topic`, plus a value and a verbatim quote. It may also list other areas the reply answers, each with its own quote. Designated check questions also return `yes`, `no` or `unclear`.
+5. **Apply.** Code checks every quote against the user's turns, then updates state:
+   - `answered` with a grounded quote: covered.
+   - `partial` or `off_topic`: one probe is queued for the same area. The probe counts when it is asked, not when an answer is recorded.
+   - Still unresolved after one probe: assumed if there is a quote, otherwise unknown.
+   - `not_applicable` or `declined`: marked as such, never re-asked.
+   - An assumed answer on a critical area gets one confirmation question ("You said X. Is that right?"). Yes makes it covered.
+6. **Spawn.** Only designated check questions can create items: the manual-work check and the existing-asset check. Code creates a follow-on item only on `yes` with a grounded quote. `unclear` is asked once more, then treated as no. Follow-on items are queued after the primary item and get a light pass (users, outcome, volume or value, existing).
+7. **Summary.** Code moves to the summary only when the queue is empty, the turn budget is reached, or the user asks to wrap up. Code renders the summary from the session file. The user confirms or corrects with buttons, or through a yes / no / correction classifier in the plugin. A correction goes back through Extract, and the summary re-renders.
+8. **Score and gate.** Code, unchanged: the model picks a band for each criterion, the evidence must be covered or confirmed, `measurable_with_baseline` requires a number attached to a unit, and a baseline may come from any quote in the session.
+
+**Model contract (schema version 2).** Every turn makes two small structured calls, both strict-mode compatible:
+
+- `phrase(target, must_capture, context)` returns the question text only.
+- `extract(question, reply, target, checks)` returns status, value, quote, `also_answers[]` and check results.
+
+Neither call returns the next target, item creation, readiness, scores or gates. The v1 turn contract in Data contract is retired.
+
+**In the plugin.** The same engine runs as scripts. `scripts/next` returns the target and phrasing guidance. Claude asks exactly that question. Claude then sends the extraction JSON to `scripts/apply-turn`. The transcript hook keeps grounding the same as in the web UI.
+
+**Limits.** One probe per area. A turn budget of 30 user replies, after which code forces the summary with open areas marked unknown. The session spend cap is unchanged.
+
+**Retire these v1 patches** once v2 passes its tests: empty-turn rejection, retry messages that name an area, fallback recording of raw replies, spawn hints, model-proposed reflect-back, and model-reported `next_target`. **Keep:** the planner, number guard, band evidence rule, grounding normalization, scoring and gates.
+
+**Ship bar.** Gates are not expected to match 6 out of 6 runs. The user-confirmed summary exists so a person can correct a miss. Non-negotiable:
+
+- Zero ungrounded quotes and zero invented answers.
+- No loops: the turn budget always ends the interview.
+- The summary always renders.
+- Gates match ground truth in at least 5 of 6 runs on the tuning personas (1 and 7) and on the held-out personas (2–6). Every run is tied to a commit hash.
+
+**Plan**
+
+1. Production stays in sample-only mode until the ship bar passes.
+2. Build v2 behind the existing tests. Add unit tests for every step above, especially the Apply rules and Spawn.
+3. Run one gate round on the tuning personas, then the held-out personas, on gpt-4.1. Also measure `extract` on gpt-4.1-mini: as a narrow classifier it may be reliable enough to cut cost.
+4. If it passes: merge, deploy, then set the Azure model settings, in that order.
+5. **Fallback** if it misses after one fix round: ship the Claude Code plugin as the primary demo, keep the web UI in sample-only mode, and move on to the Week 2 proof pieces. Either way, the kit ships.
 
 ## Build decisions
 
@@ -395,7 +477,7 @@ Resolved after Claude Code's pre-build review on Oct 10, 2026. Where these confl
 **Gate precedence** (first match wins)
 
 1. Fix, not build
-2. Don't build, only for definitive reasons: an existing asset covers it, it's superseded by another item in the same session that reaches Go, no decision depends on it, or user-stated trivial value. Supersession is recorded by the router (`supersede: { item, by, quote }` in the turn contract, `superseded_by` on the item) and confirmed in the reflect-back. Code gates the superseding item first and applies this reason only if that item actually reaches Go; otherwise the superseded item is gated on its own merits.
+2. Don't build, only for definitive reasons: an existing asset covers it, no decision depends on it, or user-stated trivial value
 3. Gather more discovery, including any Defer quadrant scored while a critical area is `unknown`
 4. Don't build, for a Defer quadrant with no critical unknowns, or an AI overlay failure
 5. Go
@@ -416,144 +498,13 @@ The turn schema is designed for Azure OpenAI strict structured output from the s
 
 Before matching, normalize only curly to straight quotes, en and em dashes to hyphens, the ellipsis character to three dots, runs of whitespace to one space, and letter case to lowercase. A quote must then match a contiguous span of a single **user** turn. Anything else, including quoting the assistant's own words, fails as a fabrication.
 
-**Guardrail enforcement (decoupled from TIF, Oct 10)**
+**Guardrail enforcement (self-contained, Oct 10, clean separation Oct 13)**
 
-The kit has no dependency on TIF or `@startvest/integrity-cli`. Its checks are its own bundled Node script, `scripts/check`, run by `/audit`, by the session-end hook (exit code ignored; a reminder only) and by CI (blocking). The npm question is moot. TIF is credited in the docs as a design influence. An optional TIF adapter is out of scope for v1.
+The kit has no dependency on any outside framework or its CLI, and its code and docs make no reference to one. Its checks are its own bundled Node script, `scripts/check`, run by `/audit`, by the session-end hook (exit code ignored; a reminder only) and by CI (blocking).
 
 **Codex packaging**
 
-Codex isn't installed on the build machine. Build the `.agents/skills/` mirror and `AGENTS.md`, but mark the Codex check unverified until it's tested on a machine with Codex. (Built in step 8; see "Codex packaging decisions" below.)
-
-**Decisions added after the second review (Oct 10)**
-
-- **Plugin format (checked against code.claude.com docs, Oct 10):** the three commands are skills (`skills/<name>/SKILL.md`), as the docs recommend for new plugins. Plugin skills are namespaced, so they're invoked as `/intake-kit:intake`, `/intake-kit:guardrails`, `/intake-kit:audit`. A bare `/intake` works only if nothing else claims the name. The repo ships `.claude-plugin/marketplace.json`, and installs with `claude plugin install intake-kit --marketplace tjpinder/intake-kit`. That one-liner needs Claude Code 2.1.292 or later (confirmed in the 2.1.296 help text: `--marketplace` adds the marketplace first if it isn't already added). The README also gives the two-step form (`/plugin marketplace add tjpinder/intake-kit`, then `/plugin install intake-kit@intake-kit`) for older versions. The install criterion is verified on a clean machine once the repo is public.
-- **Dependencies and Node:** source is TypeScript. esbuild bundles it, with `yaml` and `ajv`, into self-contained plain `.mjs` files in `dist/`, committed so users install and build nothing. Runtime requirement is Node >= 22 (Node 20 is end-of-life). Claude Code's native installer doesn't include Node, so Node is listed first in the README prerequisites. Every script checks `process.versions.node` and exits with "intake-kit needs Node 22 or later" if it's too old. If Node is missing entirely, no script can run: the intake skill's first step runs `node --version` and stops with install instructions, and hook failures show as visible non-blocking errors, never silent passes.
-- **Guardrails file:** `GUARDRAILS.md` replaces `INTEGRITY.md` everywhere. TIF appears only in the docs credit.
-- **Grounding in the plugin:** a `UserPromptSubmit` hook appends the user's exact prompt to `<repo>/.intake-kit/transcript.jsonl` (gitignored), only while an intake is active (marker file `.intake-kit/active`). `apply-turn` checks every quote against that file. Codex also supports hooks, including `UserPromptSubmit` with `prompt` and `cwd`, and its plugins can bundle a `hooks/hooks.json` (per learn.chatgpt.com/docs/hooks, checked Oct 10). The Codex package ships the same transcript hook. Codex requires the user to review and trust plugin hooks, and the payload format hasn't been tested, so grounding under Codex is marked untested until it runs on a machine with Codex.
-- **Session-end reminder:** `SessionEnd` has a 1.5 s default budget and its output isn't seen. The hook runs `check` async and writes `.intake-kit/last-audit.json`. A `SessionStart` hook shows a one-line summary of any failures next session.
-- **Gate fall-through:** an item that matches none of gates 1-4 but doesn't meet Go goes to Gather more, with the unmet Go requirements as its reasons. Nothing is scored before the reflect-back is confirmed.
-- **Traceability:** lines in SPEC's Open questions section may cite `unknown` areas. Everywhere else they fail.
-- **Eval gate:** `checks.json` holds `eval_command`. If the AI overlay applies and there's no command or no `evals/` set, the check fails. It never skips.
-- **Flagged paths:** `/guardrails` proposes globs from the intake, and the user confirms them before they're written.
-- **Web UI:** built after the plugin is complete, with Azure OpenAI as the default provider and Claude as the alternative. Azure deployment details and the spend cap are decided then.
-- **Persona evals:** need Azure details for parity. Until then the harness runs on Claude only, and the parity report says Azure wasn't run.
-
-**Data contract decisions (step 1, Oct 10)**
-
-- **Scoring inputs are band picks, not numbers.** For each criterion, AI overlay check, adoption force and gate fact, the model picks a band name from the criteria table (for example `rule_clarity: written | mixed | judgment`, `ways_done: one | 2-7 | 8+`) and cites coverage IDs and a user quote. `scoring.yaml` maps bands to scores; code computes composites, quadrant and gate. Band picks appear in the reflect-back for the user to confirm or correct. The turn schema has no field that can carry a score or gate.
-- **Gate facts** the model reports as bands: `existing_asset`, `decision_depends`, `broken_cause`, `workaround_permanent`. Mitigation text for Review items is a prose field.
-- **Turn contract changes from the earlier example:** adds `facts`, `prose`, `open_questions`, `router.add_modifiers`, `router.supersede`, and `title` on new items; `reflect_back` (null, or `{text, status: proposed | confirmed | corrected, corrections}`) replaces `ready_for_reflect_back`; `next_target.is_probe` lets apply-turn enforce one probe per area.
-- **Two validation layers.** `schema/turn.schema.json` stays inside the strict structured-output subset (a test enforces this). Rules the subset can't express (ID formats, band names, grounding, probe limits) are enforced by apply-turn. `schema/session.schema.json` uses full JSON Schema 2020-12, including the status rules.
-- `session.provider` also allows `codex`.
-
-**Framework config decisions (step 2, Oct 10)**
-
-- **Module entries** hold `id`, `must_capture`, `probes`, `critical`, `followup_conditions` (`when` / `ask`, optional `spawns`), `feeds` (file and section) and optional `always_ask`, `stop_at` and `guardrail`. `guardrail` names one of the kit's own checks (traceability, eval_gate, kill_criteria, flagged_paths, open_assumptions), replacing the TIF layer field.
-- **`templates/sections.yaml`** lists every output file and its sections. Every `feeds` entry must point at one, and each template (step 6) must render all of them.
-- **Critical areas** for Go: `core.users`, `core.outcome`, `core.data`, `core.trust`, plus any module area marked `critical: true` for that item's type.
-- **Unknown bands.** Every criterion has an `unknown` band that scores null. A composite needs at least `min_known_per_composite` (3) known criteria, otherwise it's null and the item goes to Gather more.
-- **`success_metric` gate fact** (`measurable_with_baseline | measurable_no_baseline | vague | unknown`) carries Go's "measurable success metric with baseline" requirement.
-- **AI rescue of Defer.** A Defer item whose solution uses an LLM and passes every AI overlay check is an AI candidate and can reach Go. Failing eval-ability or error cost is a Don't build at precedence step 4; any unknown check, or a failure of another check, is Gather more at step 3, so it wins when both apply.
-- **Gate precedence is fixed** in the scoring schema. Reordering it is a code change, not a tuning change.
-- **The loader validates all config at load time** and lists every problem, including cross-file ones: unique namespaced IDs, router and module agreement, feeds pointing at real sections, and fact names agreeing across `scoring.yaml` and both schemas. Config is read at runtime, not bundled, so tuning `scoring.yaml` needs no rebuild.
-
-**Scoring and gate behaviour (step 3, Oct 10)**
-
-- **Nothing is scored or gated until the reflect-back is confirmed.** Before that, `scoreAndGate` returns the session unchanged.
-- **Composites** are weighted means of the known criteria, rounded to 2 places. Levels compare (mean − 1) / 4, rounded to 6 places, with the thresholds, so a mean of exactly 3.6 is high.
-- **Reasons.** A gate lists the winning rule's reasons first, then every other rule that matched as `(also matched <decision>) <reason>`. A fall-through Gather more lists the unmet Go requirements.
-- **Revisit triggers** are generated for every Don't build, one clause per reason that matched.
-- **Supersession.** The replacing item is gated first, whatever the item order. Items in a supersession cycle ignore supersession and are gated on their own merits. A `superseded_by` naming a missing item is an error.
-
-**apply-turn and transcript decisions (step 4, Oct 10)**
-
-- **Files in the target repo.** `intake-answers.yaml` sits at the repo root and is meant to be committed. Local state lives in `.intake-kit/`, which gets its own `.gitignore` so only `checks.json` is ever committed: transcript, marker, run state, turn file, rejection log and archive stay local.
-- **How the skill passes a turn.** The model writes the turn JSON to `.intake-kit/turn.json` with its file tool, then runs `node dist/intake.mjs apply-turn`. No JSON goes through the shell, so it works the same in bash and PowerShell 5.1.
-- **All or nothing.** A turn is saved whole or not at all. Exit 2 means rejected; fix and retry once. A second rejection in a row exits 3: nothing from that turn is saved, the model says its reply and carries on, and re-captures the answers later. Every rejection is logged to `.intake-kit/rejections.jsonl`.
-- **Recording.** The prompt hook starts recording on the prompt that invokes the intake command (`/intake-kit:intake` or `/intake`), so the opening statement is captured. If no intake is active, it first archives any old transcript. Recording stops when the reflect-back is confirmed. The hook never blocks a prompt; on failure it exits 1, which shows a visible, non-blocking error.
-- **Reflect-back.** Proposing records `proposed_at`. Confirming or correcting needs a user message recorded after that time, so the model can't confirm its own reflect-back. Once confirmed, the session is scored and gated, and the intake accepts no more turns.
-- **Probes** are only allowed on an area that has already been answered (it has `updated_at`), and only once.
-- **Starting over never deletes.** `start` with an intake already in the file asks the user to resume (`--resume`) or start over (`--new`). `--new` moves the old session file and the earlier part of the transcript into `.intake-kit/archive/`.
-- **`session.grounding`** is `transcript` (quotes checked) or `unverified` (no transcript, e.g. Codex without the hook; quotes aren't checked and the session says so).
-- **Bundling.** Each bundled script defines `require` via `createRequire`, because `yaml` and `ajv` are CommonJS. The CLI tests run the built `dist/` scripts, and `npm test` builds first.
-
-**Intake skill decisions (step 5, Oct 11)**
-
-- **The skill carries no framework content.** `intake.mjs guide` generates the router, every coverage area and every allowed band from the YAML, and is injected when the skill starts. After every applied turn, `apply-turn` returns a `status` block (unasked areas, critical gaps, always-ask pending, probes available, missing facts, `ready_for_reflect_back`), so the model plans the next question from code, not memory. `intake.mjs status` returns the same on demand.
-- **Permissions.** The skill's `allowed-tools` cover `node <plugin>/dist/intake.mjs` in both Bash and PowerShell, quoted and unquoted, plus `Edit(./.intake-kit/turn.json)`. A live headless run needed no permission prompts.
-- **Rules added after live testing:** covered means everything the area must capture is answered; today's manual workaround is its own `manual_process` item (with `supersede` when the new thing replaces it); a probe records the vague answer in the same turn; bands must match the guide's wording, taking the lower band when torn; every band pick is said plainly in the reflect-back; never mention files, turns or rejections to the user; a checklist before every `apply-turn`.
-- **Session file** is written without YAML anchors or aliases.
-- **Rendering** isn't built yet (step 6). After gating, the skill reports each item's outcome and stops.
-
-**Rendering decisions (step 6, Oct 11)**
-
-- **Model drafts, code checks and renders, for acceptance and guardrails too.** The turn gains `acceptance` (`criterion` or `error_case`, in Given/When/Then form) and `guardrails` (`kill_criterion`, `fallback`, `review_point`, `data_rule`). Each cites the coverage IDs it rests on, and `apply-turn` rejects any whose evidence has no answer in the user's words. Code attaches the quotes when rendering. This replaced rendering one trust answer three times under Kill criteria, Fallback and Review points, which hid the fact that no kill criterion had been stated.
-- **`core.trust`** now also captures, and probes for, what would make the user switch it off.
-- **Readiness** for the reflect-back needs at least one criterion, one error case, one kill criterion and one fallback for every item that could be built (not superseded, not exploratory). Superseded items need no band picks.
-- **Citation rule.** Every bullet in SPEC.md and ACCEPTANCE.md ends with `[coverage.id] "the user's words"` (several joined by ` · `). Open-question bullets cite the area only. Interviewer-written summaries render as blockquotes, never bullets. Tests check every citation against the session's recorded quotes.
-- **Placement.** Module `feeds` decide which section each answer lands in. Templates in `templates/` hold all fixed wording; a test checks their `{{section:…}}` placeholders match `sections.yaml` both ways.
-- **Which files.** Go items get SPEC, ACCEPTANCE, CLAUDE, GUARDRAILS and FIRST_PROMPT. Every intake gets DECISIONS. Gather-more items get DISCOVERY_BRIEF, broken items DIAGNOSTIC_BRIEF, manual-process items PROCESS_MAP, and exploratory sessions BACKLOG. With several Go items, each gets its own subsection.
-- **Open questions** list the model's questions, plus "Still unknown" for answered-unknown areas and "Not yet asked" for unasked critical areas.
-- **Assumptions** render in DECISIONS.md with `Owner: _unassigned_`, so the open-assumptions check (step 7) fails until someone owns each one.
-- **Never overwrite unasked.** `render` writes new files and skips identical ones (CRLF-only differences count as identical). A file that exists and would change is staged in `.intake-kit/render/` with a line diff, and the command exits 5. Only `render --overwrite <file>` replaces it, and the skill asks the user first. Verified live: a hand-written CLAUDE.md was shown, kept on "no", and left byte-for-byte unchanged.
-- **Golden files** for the worked example live in `tests/golden/pick-exception/`. After an intended change, regenerate them with `npm run golden:update` and review the diff before committing.
-
-**Guardrail checks decisions (step 7, Oct 11)**
-
-- **CI gets a vendored copy.** `/guardrails` (`check.mjs init`) copies the bundled checks to `.intake-kit/check.mjs` in the target repo, alongside `checks.json`, and adds `.github/workflows/intake-kit.yml`, which runs `node .intake-kit/check.mjs run --ci --report`. CI needs nothing from the plugin and no network, and is pinned to the kit version that generated it. The cost is a roughly 300 KB file in the repo. The checks read only `intake-answers.yaml`, the rendered files and `checks.json`, never the framework YAML.
-- **Results** are pass, fail, skipped (with the reason), error or off. Fail and error block; skipped and off never count as passes. A broken `checks.json` errors every check.
-- **Check details.** Traceability re-verifies every citation against the session, so hand edits that break it are caught. The eval gate runs `eval_command` from /audit and CI only, never from session hooks. Flagged paths read labels from the GitHub event and changed files from `git diff base...head`; outside a pull request the check is skipped. Open assumptions fail on `Owner: _unassigned_`.
-- **Hooks remind, never block.** SessionEnd runs the checks in the background and writes `.intake-kit/last-audit.json`. SessionStart turns any failures into a `systemMessage` and context. PostToolUse on `Edit|Write` reminds when a flagged path is edited. All are silent in repos without an intake.
-- **Render ledger.** `.intake-kit/rendered.json` records what intake-kit wrote, or found already matching, for each file. A file still matching is refreshed silently, so `/guardrails` updates an untouched GUARDRAILS.md without asking. `render --keep <file>` records that the user kept their own file over a proposed version; they aren't asked again until the proposed content changes.
-- **This repo's CI** (`.github/workflows/ci.yml`) runs the typecheck and all tests, checks `dist/` is committed and current, and dogfoods the checks on the rendered worked example (`scripts/dogfood.mjs`), which Week 2's `examples/` replaces. A hygiene test fails on any reference to TIF or the integrity CLI outside HANDOFF.md and `docs/`, and on common secret formats.
-
-**Codex packaging decisions (step 8, Oct 11)**
-
-- **Checked against the Codex docs (learn.chatgpt.com/docs/build-skills, developers.openai.com/plugins/build/plugins), Oct 11.** Codex reads skills from `.agents/skills/` (repo, walking up to the root) and `~/.agents/skills/`, and only `name` and `description` from frontmatter. Neither page documents path substitution or `!` command injection in skills. Codex plugins can read Claude-style manifests and set `CLAUDE_PLUGIN_ROOT` for hooks, but because the Claude skills depend on substitution and injection, installing the Claude plugin into Codex isn't supported.
-- **A self-contained drop-in.** `.agents/intake-kit/` holds `kit.json` (marks the kit root), `dist/`, `framework/` (router, modules, scoring) and `templates/`. Three skills, `$intake`, `$intake-guardrails` and `$intake-audit`, tell the model to find the kit two folders up from the skill and run the Node check and `guide` themselves. Users copy `.agents/` into a repo or `~/.agents/`.
-- **Generated, never hand-edited.** `scripts/build-codex.mjs` (run by `npm run build`) rewrites the Claude skills. Every rewrite must match exactly, so a skill edit that breaks one fails the build. A test checks the committed `.agents/` matches a fresh build byte for byte, and another runs a full intake, render and check from a copied `.agents/` with nothing from the plugin around.
-- **Grounding in Codex** defaults to `--grounding unverified`, recorded in the session file. `.agents/intake-kit/codex-hooks.example.json` is an optional `.codex/hooks.json` entry for the prompt hook, which recognises `$intake` as well as `/intake`. Untested in Codex.
-- **Version stamping.** `doctor.mjs` and `check.mjs` report the version stamped in at build time. That fixed a crash the standalone-kit test found: `doctor.mjs` used to read `.claude-plugin/plugin.json`, which the Codex kit doesn't have.
-- **Status: untested in Codex.** Before relying on it, run `$intake` once in a real Codex session and record the result here.
-
-**Web UI decisions (Oct 11)**
-
-- **Built next**, ahead of dogfooding and Week 2. Hosting: Azure Static Web Apps with its managed Azure Functions API, in the Azure sponsorship subscription. Frontend: React, Vite and TypeScript, under `web/`; the function under `api/`. Default `*.azurestaticapps.net` URL for now.
-- **Public from day one.** Azure OpenAI on the kit's key is the default provider; visitors can bring their own Azure OpenAI or Claude key, which is passed through and never stored. Claude is bring-your-own-key only (no Anthropic key on the server). Cloudflare Turnstile (invisible) guards session starts.
-- **Caps.** $100 a month, enforced in the function from its own token counts, plus an Azure budget alert at 50% and 90% as a backstop. Default ceiling of 60 turns per session, plus a per-session dollar ceiling set from the model's pricing.
-- **"Nothing stored server-side", made precise.** The function keeps only aggregate counters in Azure Table storage: monthly tokens and dollars, and hashed-IP request counts that expire within a day. No conversation text, answers or sessions are stored; they stay in the browser and download as a zip.
-- **Same core as the plugin.** Phase 1 split the pure logic from its Node loaders: `buildFramework` takes the YAML as text, `renderAll` takes templates as text, and `src/core.ts` is the browser entry. A test bundles it for the browser platform and replays the worked example through it. Grounding is stronger in the UI than in the plugin, because the transcript is the chat itself.
-- **Azure OpenAI pattern** follows an existing production integration: classic Azure OpenAI on an existing resource in the sponsorship subscription, deployment-scoped chat completions with an `api-key` header and API version `2024-10-21`, raw `fetch` with no SDK, and retry on 429 and 503 honouring `Retry-After` (capped at 60 s), otherwise exponential backoff with jitter. Changes for this app: strict `json_schema` structured output (rather than `json_object`), a request timeout, a dedicated deployment so usage and budget are separate, and a budget gate that fails closed (a public endpoint can't fail open). Resource names and keys live in app settings, never in the repo.
-
-**Web API decisions (web phases 2-3, Oct 11)**
-
-- **The server runs the whole turn.** The browser sends the session, the transcript and the replies it showed; the server builds the system prompt itself (from the bundled skill and framework), calls the model, applies the turn and returns the new session. A client-supplied prompt would let anyone use the kit's key as a general-purpose model. Output is constrained to the turn schema, and the browser still uses the core locally for the sidebar and rendering.
-- **Providers.** Azure OpenAI by raw `fetch` (deployment `intake-kit-turn`, gpt-4.1-mini, strict `json_schema`, 60 s timeout, retry on 429/503 honouring `Retry-After`). Claude, for bring-your-own-key only, through the official SDK (0.128.0): `output_config.format`, a cached system prompt, effort `medium`, and server-side refusal fallback (`fallbacks: "default"`) on Opus and Sonnet; default model `claude-opus-5-5`. Nullable type arrays are rewritten as `anyOf` for Claude.
-- **Limits and their order.** Per hashed IP (60 turns an hour, 300 a day), per session (60 turns), Turnstile once per session, then, for the kit's key only, the monthly ($100), daily ($10) and per-session ($1.50) budgets, each checked against a worst case (two attempts, characters / 3 tokens, full output) before calling. Actual cost is recorded after every call, including a first attempt whose turn later fails. All limits are app settings.
-- **Fail closed.** A counter-store failure, a missing IP salt or missing storage refuses the request. Bring-your-own Azure endpoints must be `https://<resource>.openai.azure.com` (or an Azure AI host); anything else is refused so the API can't be used as a proxy. Keys sent by visitors are passed through and never stored, logged or echoed.
-- **The server stamps the new user message**, so the reflect-back check never depends on the visitor's clock.
-- **Azure wrapper** (`api/`): Functions v4 programming model, ESM, bundled by `scripts/build-api.mjs` into `api/dist/index.js` with the framework YAML and SKILL.md inlined; `@azure/functions-core` stays external (the host provides it). Counters live in Azure Table storage with ETag-based increments. `staticwebapp.config.json` must set `platform.apiRuntime` to `node:22`. App settings: `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_MODEL`, `AZURE_STORAGE_CONNECTION_STRING`, `IP_HASH_SALT` (16+ characters), `TURNSTILE_SECRET_KEY`, `TURNSTILE_SITE_KEY`, and optionally the cap overrides.
-- **Not yet run on Azure.** The handler and store are tested in-process; the first deploy (phase 5) is the first time the bundle meets the Functions host.
-
-**Web UI decisions (web phase 4, Oct 11)**
-
-- **Layout.** Chat on the left, live coverage on the right (the same `statusOf` the interviewer sees: each area covered, assumed, unknown or not asked, critical ones starred, plus ratings, acceptance checks and guardrails per item). After the reflect-back is confirmed, a review screen shows each item's gate with its reasons and revisit trigger, and the spec pack as tabs with a one-click zip (`intake-answers.yaml` plus every rendered file). Below 860 px the sidebar stacks under the chat.
-- **Offline sample.** "Watch a sample intake" replays the worked example in the browser through the same `applyTurn`, with no API calls or cost; `/?sample` opens straight into it, for demos. A saved sample is never restored on reload, since a replay can't resume half-way; a real unfinished intake is.
-- **State stays in the browser.** The intake lives in `localStorage` on the visitor's device; a bring-your-own key lives in `sessionStorage` (this tab only) and is sent in a header with each message. The server stores neither.
-- **Errors keep the visitor's words.** A failed turn puts their message back in the box and explains what happened: rate limit (with the wait), budget used up (with a link to use their own key), or a rejected key (with a link to the key settings).
-- **Local development.** `npm run dev:web` serves the UI and runs the real API handler in the Vite dev server with in-memory counters. Put `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY` in `.env.local` (gitignored) for live interviews locally.
-- **Security headers** in `web/public/staticwebapp.config.json`: a CSP limited to the app and Cloudflare Turnstile, no framing, no referrer. No `'unsafe-eval'`: the JSON Schema validators are generated as plain code at build time (`scripts/build-validators.mjs`, Ajv's standalone mode, into `src/lib/generated/`), so nothing compiles code at runtime. See "Bundle and CSP" below.
-- **Verified** in headless Edge at 1400 px and with phone emulation at 390 px (no horizontal overflow), including a bring-your-own-key turn against the real Claude API with an invalid key (401 shown plainly, message restored). Not yet verified: a live interview on the kit's Azure model (needs the deployment), and Turnstile (needs keys).
-
-**Deployment (web phase 5, Oct 11)**
-
-- **Live at https://agreeable-hill-0ede1650f.5.azurestaticapps.net** (Static Web Apps, Free plan). Every push to `main` runs the typecheck and tests, then deploys (`.github/workflows/deploy.yml`, token in the `AZURE_STATIC_WEB_APPS_API_TOKEN` repo secret).
-- **Everything is in resource group `rg-intake-kit`** (East US 2) on the Microsoft Azure Sponsorship subscription: the Static Web App `intake-kit`; a dedicated Azure OpenAI resource `intakekit-openai` with deployment `intake-kit-turn` (gpt-4.1-mini 2025-04-14, GlobalStandard, 100K tokens a minute); and storage account `intakekit08c47a` for the counters table. A dedicated OpenAI resource keeps the public app's key separate from other products' keys and lets the budget see only this app's spend.
-- **App settings** on the Static Web App: `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_MODEL`, `AZURE_STORAGE_CONNECTION_STRING`, `IP_HASH_SALT`. `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` (Cloudflare widget `intake-kit`, Managed mode, hostname limited to the Static Web App). Secrets live in app settings, not Key Vault: Static Web Apps managed functions don't support Key Vault references.
-- **Azure budget** `intake-kit-monthly` on `rg-intake-kit`: $100 a month, alerting at 50% and 90% of actual spend and at a 100% forecast.
-- **Turnstile verified** locally with Cloudflare's test keys (a passing token reaches the model; a failing one is refused before any model call) and in production (no token and a forged token both get 403 from the deployed API).
-- **Verified in production:** page, sample and security headers served; `/api/config` reports the kit model; a real turn ran through the deployed function (classified as broken, one rejected attempt retried, $0.0074, 4.8 s); the counters table recorded exactly that spend, with the visitor only as a hashed IP.
-- **Found by the first live call:** stripping the schema's document `title` key removed new items' real `title` property, so Azure rejected the schema. Fixed, with a test that checks every object's `required` list against its properties for both providers.
+Codex isn't installed on the build machine. Build the `.agents/skills/` mirror and `AGENTS.md`, but mark the Codex check unverified until it's tested on a machine with Codex.
 
 **Handoff file:** Claude Code copies this spec into the repo as `HANDOFF.md`.
 
@@ -587,16 +538,16 @@ Each run scores: right type routed, type shift caught, items found, correct gate
 
 Two weeks, then stop. Add features only when real use shows a gap.
 
-1. **Week 1, the tool:** plugin skeleton, `router, module and scoring YAML`, `/intake`, spec pack rendering, `/guardrails`, `/audit`. Then use it on Tom's next real build.
-2. **Week 2, the proof:** the worked example, README, the GitHub Pages docs site, and `docs/DEMO_SCRIPT.md` (a 10-minute live flow plus a recorded fallback). Record a 60–90 second screen capture of the intake producing a spec, for the launch post.
+1. **Week 1, the tool:** plugin skeleton, `router, module and scoring YAML`, `/intake`, spec pack rendering, `/`guardrails, /`audit`. Then use it on Tom's next real build.
+2. **Week 2, the proof:** the worked example, README, the GitHub Pages docs site, and `docs/DEMO_SCRIPT.md` (a 10-minute live flow plus a recorded fallback). Record a 60–90 second screen capture of the intake producing a spec, for the LinkedIn launch post.
 
 **Acceptance criteria**
 
-- [ ] Installs into a fresh repo with one command on Claude Code 2.1.292+, verified on a clean machine; `/intake-kit:intake`, `/intake-kit:guardrails` and `/intake-kit:audit` appear
+- [ ] Installs into a fresh repo with one command; `/intake`, `/`guardrails and /`audit` appear
 - [ ] `/intake` asks one question at a time, fires follow-ups only on their conditions, and ends with a confirmed reflect-back
 - [ ] `unknown` answers appear as open questions; nothing is invented
 - [ ] All seven spec pack files render, and every SPEC and ACCEPTANCE line cites a coverage ID and user quote
-- [ ] `/audit` runs the kit's own checks with no outside dependency; no code, config, dependency or workflow references TIF or the integrity CLI (HANDOFF.md and the docs credit line excepted)
+- [ ] `/`audit runs the kit's own checks with no outside dependency; a search of the whole repo, docs included, finds no reference to any outside guardrail framework or its CLI
 - [ ] A skipped or errored check is reported as such; the kit never shows a pass it didn't get
 - [ ] The worked example runs from a clean clone in under 15 minutes on synthetic data
 - [ ] No secrets, private product code or former-employer data in the repo
@@ -620,7 +571,7 @@ Two weeks, then stop. Add features only when real use shows a gap.
 Read HANDOFF.md (this spec) in full. We're building intake-kit, an open Claude Code plugin that also packages for Codex.
 
 Rules:
-- Self-contained: no dependency on TIF, startvest-integrity-cli or any outside framework. Guardrail checks are the kit's own Node scripts, with yaml and ajv bundled so users install nothing.
+- Self-contained: no dependency on, or reference to, any outside framework or CLI, in code or docs. Guardrail checks are the kit's own zero-dependency Node scripts.
 - Check the current Claude Code plugin format in the official docs before scaffolding.
 - Where the Build decisions section conflicts with an earlier section, Build decisions wins.
 - Synthetic data only. No private product code, secrets or former-employer data.
@@ -645,31 +596,3 @@ The framework adapts these. The docs site must cite them; weights marked "adapte
 - [Google SRE: Postmortem culture](https://sre.google/sre-book/postmortem-culture/)
 - [OpenAI: Build skills (Codex)](https://learn.chatgpt.com/docs/build-skills)
 - The Mom Test (Rob Fitzpatrick), Contextual Design (Beyer and Holtzblatt), ITIL 4 problem management: cited as methods, no single URL.
-
-## Build decisions: bundle and CSP
-
-- **Validators are generated, not compiled at runtime.** `scripts/build-validators.mjs` (run by `npm run build`) uses Ajv's standalone mode to write the session, turn and framework validators into `src/lib/generated/` as plain ESM, with declarations. The few runtime helpers Ajv's output needs (deep equal, string length, the `date-time` format) come from `src/lib/schema-runtime.ts` instead of Ajv's CommonJS files, which Node and bundlers resolve differently. CI fails if the generated files are stale. The web CSP no longer allows `'unsafe-eval'`, and no bundle (web, API or plugin) contains `new Function`.
-- **The browser loads only what it uses.** `buildFramework` takes the YAML parser and the framework schema validators as options: Node callers (CLI, API, tests) pass both; the web app passes neither, because its build parses the framework YAML (`?parsed` imports, a small Vite plugin) and the tests already validate it. The offline sample (which applies turns, so needs the turn and session validators) and the review panel (YAML writer, zip) are separate chunks loaded on demand. `package.json` marks modules side-effect free (except CSS) so unused re-exports drop out.
-- **Result:** the initial web bundle went from 605 kB (184 kB gzipped) to 289 kB (91 kB). The sample chunk is 174 kB (23 kB gzipped), the review chunk 70 kB (26 kB). Checked in headless Edge with the production CSP served: the sample plays to the end and the review panel renders with no errors, while page code calling `eval` is blocked.
-- **Trade-off:** generated validators are larger than Ajv's compiler before minification, so the plugin's `dist/intake.mjs` grew from 690 kB to 808 kB. It's left unminified so CLI stack traces stay readable; whitespace minification would bring it to about 560 kB if that ever matters.
-
-
-## Build decisions: first live web test (Oct 13)
-
-A live intake on the web app (a known idea, gpt-4.1-mini) failed in seven ways. Each fix below names what it fixes; the evidence was the session file and transcript, since no turn logs were kept.
-
-- **The summary is built by code.** The reflect-back the user checks is rendered from the session (`src/lib/summary.ts`): each item's prose, every recorded answer with its status, every band in plain words from `scoring.yaml`, criteria, guardrails and open questions. The web app shows it as a card under the reply that proposed it; `apply-turn` returns it as `summary` for the plugin to show word for word. The model's reply only introduces it. A proposal can't add items or ask another question in the same turn. *Live test: the summary existed only in `reflect_back.text`, the reply asked something else, and the user was asked to confirm a summary they never saw.*
-- **Answer capture asks first, and never scores.** When a turn doesn't record the answer to its own last question, the first attempt is rejected, naming the area and quoting the question; only the retry captures the user's words. Captured answers are marked `source: captured`, shown in the summary as "your words as typed", replaced by the model's own record when it comes, and never used as scoring evidence: a band whose only evidence is captured is `unknown`, and a captured answer never settles a critical area at the gate. Capture happens only if the stored question (`last_target.reply`) is the one the user saw, and not if the turn recorded anything from the user's reply under another area. A shared core area that was only pre-marked unknown is replaced by an item's answer, not overridden. *Live test: the model recorded the asked area on 1 of 8 turns; capture wrote 6 of 10 answers, two under the wrong area.*
-- **Readiness counts what was asked.** Each applied turn stamps the area it asks (`session.asked`). An area counts as asked if it was stamped or answered in full; an inference from the opening or an unknown marked before asking doesn't. A critical area answered only vaguely needs its one probe first. Sessions without stamps keep the old rule. Known ideas always ask `push`, `pull`, `adoption`, `prior` and (`asks_core`) `core.constraints`, and have a new critical area, `known_idea.proposal` (the parts, the smallest useful version, what's out of scope). Adoption forces now name their source areas.
-- **Items can be dropped, modifiers taken back.** `router.drop` marks an item that doesn't apply (gated Don't build with the reason, set aside in the summary); `supersede` stays for an item the new one replaces. `router.remove_modifiers` takes a modifier back and it isn't hinted again. The manual-work hint asks whether the work happens today before anything is added. Signal phrases with a no/not/without just before them don't count. *Live test: "no API" added the integration modifier; "if it stops, people go back to doing it by hand" spawned an item that could only be marked "replaced by item-1".*
-- **Two questions per area.** A second question on an area already asked counts as its follow-up, flagged or not; a third is rejected. *Live test: four questions on trust, none flagged as a probe.*
-- **Neutral wording.** `known_idea.existing` no longer asks about "your WMS, ERP or BI tool".
-- **Debug log.** The API returns each attempt's raw output, rejections and warnings; the browser keeps them with the intake, and "Debug log" downloads the session, transcript, replies and turns as JSON. Nothing more is stored on the server.
-- **Persona 7** (`tests/personas/7-enablement-kit.yaml`, a known idea with a detailed plan, outside warehouse operations) checks what the live test got wrong: no manual-process item, constraints and the proposal recorded by the interviewer, and the right bands. The eval scorer gained `no_items`, `recorded` and `bands` expectations and reports captured answers per run.
-- **Don't build needs evidence; missing information means Gather more.** "No decision depends on it" is a definitive Don't build only for `data_report` items (`gates.dont_build_definitive.decision_depends_applies_to`). For every other type, `decision_depends: no`, and for every type `unknown`, add a Gather more reason instead (`gates.gather_more.decision_depends`). *Persona 7: gpt-4.1 gated a portfolio repo Don't build twice on it.*
-- **Access bands.** The top band is `programmatic` (API, database, or files and scripts), renamed from `api_or_db`; `ui_only` means a person clicks through screens. *Persona 7: every run banded scripts reading local files as UI only.*
-- **The web app interviews with gpt-4.1** (deployment `intake-kit-eval-gpt41`); gpt-4.1-mini stays as the evals' simulated user, so interviewers are compared against the same simulator. On persona 7, gpt-4.1's first attempt recorded the asked answer on 20 of 41 turns and the retry fixed all 21 misses (every one an empty `updates`); mini needed the retry on 39 of 47. A gpt-4.1 interview costs about $0.55, inside the $1.50 session cap; the $10 daily cap allows about 18 a day.
-- **Persona 7's ground truth is Gather more**, for the one reason that no success metric has a baseline (the card shows the working). Prioritize quadrant, programmatic access, nothing existing, a decision depends on it.
-- **Code chooses every question's area.** `planTargets` picks the next area from the status (each item's own critical areas, then outcome, data, users and trust, then band sources and always-ask areas, a light pass on spawned items, then the one probe on each vaguely answered critical area) and the prompt tells the model to ask it, or a named alternate if the user's latest message already answers it in full. The turn has no `next_target`: the model never reports which area it asked. `apply-turn` works it out (the alternate only when this turn records the primary as covered), stamps it, and counts it as the area's follow-up if the area already held an answer; code never plans an area a third time. Retry messages name only an area code chose. *Persona 7: gpt-4.1-mini labelled questions with the area it meant to ask next, so stamps, the cap and the retry message named the wrong area and an outcome answer was filed under `known_idea.proposal`.*
-- **A baseline needs a number.** `success_metric: measurable_with_baseline` counts only if a quote it cites (its own, or one on its evidence, captured answers excluded) contains a number, in digits or words; otherwise it scores as `vague`, and the summary says why. *Persona 7: mini's only Go rested on "hiring managers reference the repo".*
-- **Follow-ups and the manual-work check are planned too.** The planner asks an area once more when it was asked but nothing was recorded (its turn couldn't be saved; an unknown entry then marks it), asks "What's it costing now, in hours, errors or chargebacks?" when the outcome answer has no number for today, and asks whether manual work the user mentioned happens today as a planned check on the primary item (`check.manual_work`), all before the write-up. Number words no longer include "one" or "once" ("if no one looks at it"). *Gate check on gpt-4.1: persona 1 lost its outcome answer to a failed turn, never heard the four-hour baseline, and skipped or merged the manual-work hint; persona 7 reached Go on "no one".*

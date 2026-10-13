@@ -5,7 +5,7 @@
 import { test, describe, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
@@ -44,32 +44,37 @@ for (const file of readdirSync("tests/fixtures/conversations").filter((f) => f.e
     const convo = JSON.parse(readFileSync(`tests/fixtures/conversations/${file}`, "utf8"));
     const dir = mkdtempSync(join(tmpdir(), "intake-kit-convo-"));
     dirs.push(dir);
-    const statuses: ReturnType<typeof statusOf>[] = [];
+    const results: Array<{ reply: string; summary?: string; events: string[] }> = [];
 
-    test("every step is accepted", () => {
-      convo.steps.forEach((step: { user: string; turn: object }, i: number) => {
+    test("every step completes through the plugin's turn command", () => {
+      convo.steps.forEach((step: { user: string; model: Array<{ call: string; output: unknown }> }, i: number) => {
         sleep(3); // keep transcript timestamps strictly after the previous turn's
         const hook = node("hook-prompt.mjs", [], JSON.stringify({ prompt: step.user, cwd: dir }));
         assert.equal(hook.status, 0, hook.stderr);
         if (i === 0) assert.equal(node("intake.mjs", ["start", "--dir", dir]).status, 0);
-        writeFileSync(join(dir, ".intake-kit", "turn.json"), JSON.stringify(step.turn));
-        const r = node("intake.mjs", ["apply-turn", "--dir", dir]);
-        assert.equal(r.status, 0, `step ${i}: ${r.stdout}`);
-        const body = JSON.parse(r.stdout);
-        if (body.status) statuses.push(body.status);
+        // Claude answers the engine's calls one at a time: run turn, get "needs <call>", answer it, run again.
+        const answers = new Map<string, unknown[]>();
+        for (const m of step.model) answers.set(m.call, [...(answers.get(m.call) ?? []), m.output]);
+        for (let guard = 0; ; guard++) {
+          assert.ok(guard < 10, `step ${i}: turn never finished`);
+          const r = node("intake.mjs", ["turn", "--dir", dir]);
+          const body = JSON.parse(r.stdout);
+          if (r.status === 0) { results.push(body); break; }
+          assert.equal(r.status, 6, `step ${i}: ${r.stdout}`);
+          const queue = answers.get(body.call) ?? [];
+          assert.ok(queue.length, `step ${i}: the engine asked for ${body.call}, which the script doesn't have`);
+          const file = join(dir, body.write_to);
+          const sofar = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : [];
+          mkdirSync(join(dir, ".intake-kit", "calls"), { recursive: true });
+          writeFileSync(file, JSON.stringify([...sofar, queue.shift()]));
+        }
       });
     });
 
-    test("status says the interview was ready before the reflect-back", () => {
-      const beforeReflect = statuses.at(-2)!;
-      assert.equal(beforeReflect.reflect_back, "none");
-      assert.deepEqual(beforeReflect.items.find((i) => i.id === "item-1")?.critical_unasked, []);
-    });
-
-    test("ready for the reflect-back once item-1 has acceptance and guardrails; superseded item-2 needs no band picks", () => {
-      const atProposal = statuses.at(-1)!;
-      assert.equal(atProposal.ready_for_reflect_back, true);
-      assert.ok(atProposal.items.find((i) => i.id === "item-2")!.facts_missing.length > 0);
+    test("the summary is rendered by code before the user confirms it", () => {
+      const summaryTurn = results.at(-2)!;
+      assert.ok(summaryTurn.summary && summaryTurn.summary.includes("Daily pick-exception report"), JSON.stringify(summaryTurn));
+      assert.ok(summaryTurn.events.includes("summary"));
     });
 
     test("the session is valid and gated as expected", () => {
@@ -77,9 +82,8 @@ for (const file of readdirSync("tests/fixtures/conversations").filter((f) => f.e
       assert.deepEqual(validateSession(s).errors, []);
       assert.deepEqual(s.items.map((i) => [i.id, i.gate?.decision]), [["item-1", "go"], ["item-2", "dont_build"]]);
       assert.equal(s.items[0].scoring?.quadrant, "prioritize");
-      assert.equal(s.items[0].coverage["data_report.truth"].status, "unknown");
-      assert.equal(s.items[0].open_questions.length, 1);
-      assert.equal(s.core.trust.probe_count, 1);
+      assert.equal(s.core.trust.probe_count, 1, "the vague trust answer got its one probe");
+      assert.equal(s.items[1].spawned_from, "item-1", "the manual-work check created the follow-on item");
     });
 
     test("the confirmed session renders its spec pack, every requirement cited", () => {
@@ -94,7 +98,7 @@ for (const file of readdirSync("tests/fixtures/conversations").filter((f) => f.e
           if (line.startsWith("- ") && section !== "Open questions") assert.match(line, /\[[a-z0-9_.]+\] ".+"$/, `${file}: ${line}`);
         }
       }
-      assert.match(readFileSync(join(dir, "GUARDRAILS.md"), "utf8"), /## Kill criteria\n\n- Stop using the report/);
+      assert.match(readFileSync(join(dir, "GUARDRAILS.md"), "utf8"), /## Kill criteria\n\n- Stop using it for retraining/);
     });
 
     test("grounding: every stored quote is in a single recorded user message", () => {

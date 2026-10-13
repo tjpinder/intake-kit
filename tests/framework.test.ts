@@ -120,7 +120,7 @@ describe("a bad edit fails loudly", () => {
 
   test("a fact in scoring.yaml that the turn schema doesn't allow", () => {
     has(issuesAfter((r) => replaceIn(r, "skills/intake/scoring.yaml", "gate_facts:\n", "gate_facts:\n  mood: [good, bad, unknown]\n")),
-      "don't match the turn schema");
+      "don't match the write-up schema");
   });
 
   test("criterion band scored outside 1-5", () => {

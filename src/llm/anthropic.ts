@@ -3,7 +3,7 @@
 // server-side refusal fallback on the models that support it. Server-side only.
 
 import Anthropic from "@anthropic-ai/sdk";
-import { claudeSchema, claudeTurnSchema } from "./schema.ts";
+import { claudeSchema } from "./schema.ts";
 import { ProviderError, type Provider, type ProviderResult, type TurnRequest } from "./types.ts";
 
 export const CLAUDE_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"] as const;
@@ -27,7 +27,6 @@ export function createClaudeProvider(config: ClaudeConfig): Provider {
   const model = config.model ?? DEFAULT_CLAUDE_MODEL;
   if (!CLAUDE_MODELS.includes(model)) throw new ProviderError(`Unsupported Claude model: ${model}`, { kind: "config" });
   const client = config.client ?? new Anthropic({ apiKey: config.apiKey, maxRetries: 2, timeout: 120_000 });
-  const schema = claudeTurnSchema();
 
   return {
     name: "claude",
@@ -45,7 +44,7 @@ export function createClaudeProvider(config: ClaudeConfig): Provider {
               // Volatile per-turn state goes last, after the cached prefix.
               { role: "system" as const, content: request.context },
             ],
-            output_config: { effort: config.effort ?? "medium", format: { type: "json_schema", schema: request.format ? claudeSchema(request.format.schema) : schema } },
+            output_config: { effort: config.effort ?? "medium", format: { type: "json_schema", schema: claudeSchema(request.format.schema) } },
             ...(SERVER_FALLBACK.has(model) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const } : {}),
           },
           { signal },

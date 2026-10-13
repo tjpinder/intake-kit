@@ -7,17 +7,18 @@ import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { parse as parseYaml } from "yaml";
 import { Ajv2020 } from "ajv/dist/2020.js";
-import { Ajv } from "ajv";
 import addFormatsModule from "ajv-formats";
 import { fullFormats } from "ajv-formats/dist/formats.js";
 import { validateSession } from "../src/lib/generated/session-validator.js";
-import { validateTurn } from "../src/lib/generated/turn-validator.js";
+import { validateExtract, validateWriteUp } from "../src/lib/generated/v2-validators.js";
 import { formats } from "../src/lib/schema-runtime.ts";
 
-const addFormats = ((addFormatsModule as any).default ?? addFormatsModule) as (a: Ajv | Ajv2020) => void;
+const addFormats = ((addFormatsModule as any).default ?? addFormatsModule) as (a: Ajv2020) => void;
 const json = (p: string) => JSON.parse(readFileSync(p, "utf8"));
 const runtimeSession = (() => { const a = new Ajv2020({ strict: true, allErrors: true }); addFormats(a); return a.compile(json("schema/session.schema.json")); })();
-const runtimeTurn = (() => { const a = new Ajv({ strict: true, allErrors: true }); addFormats(a); return a.compile(json("schema/turn.schema.json")); })();
+const runtime = (file: string) => { const a = new Ajv2020({ strict: true, allErrors: true }); addFormats(a); return a.compile(json(file)); };
+const runtimeExtract = runtime("schema/v2/extract.schema.json");
+const runtimeWriteUp = runtime("schema/v2/writeup.schema.json");
 const errs = (fn: { errors?: Array<{ instancePath: string; keyword: string }> | null }) => (fn.errors ?? []).map((e) => `${e.instancePath} ${e.keyword}`).sort();
 
 describe("generated validators", () => {
@@ -40,16 +41,20 @@ describe("generated validators", () => {
     });
   }
 
-  const turn = json("tests/fixtures/conversations/pick-exception.json").steps[1].turn;
-  const turns: Array<[string, unknown]> = [
-    ["a recorded turn", turn],
-    ["no reply", { ...turn, reply: undefined }],
-    ["a bad status", { ...turn, updates: [{ ...turn.updates[0], status: "maybe" }] }],
+  const steps = json("tests/fixtures/conversations/pick-exception.json").steps;
+  const extract = steps[1].model[0].output;
+  const writeUp = steps.at(-2).model.find((m: { call: string }) => m.call === "write_up").output;
+  const cases: Array<[string, (d: unknown) => boolean, { (d: unknown): boolean; errors?: any }, unknown]> = [
+    ["a recorded extraction", validateExtract, runtimeExtract, extract],
+    ["an extraction with a bad status", validateExtract, runtimeExtract, { ...extract, status: "maybe" }],
+    ["an extraction missing a field", validateExtract, runtimeExtract, { ...extract, also_answers: undefined }],
+    ["a recorded write-up", validateWriteUp, runtimeWriteUp, writeUp],
+    ["a write-up with a scored fact", validateWriteUp, runtimeWriteUp, { ...writeUp, facts: [{ ...writeUp.facts[0], score: 5 }] }],
   ];
-  for (const [name, data] of turns) {
-    test(`turn: ${name} gets the same verdict and errors`, () => {
-      assert.equal(validateTurn(data), runtimeTurn(data));
-      assert.deepEqual(errs(validateTurn), errs(runtimeTurn));
+  for (const [name, generated, compiled, data] of cases) {
+    test(`v2: ${name} gets the same verdict and errors`, () => {
+      assert.equal(generated(data), compiled(data));
+      assert.deepEqual(errs(generated as never), errs(compiled as never));
     });
   }
 });

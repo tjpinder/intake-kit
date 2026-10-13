@@ -11,7 +11,8 @@ allowed-tools:
   - Bash(node ${CLAUDE_PLUGIN_ROOT}/dist/doctor.mjs)
   - Bash(node "${CLAUDE_PLUGIN_ROOT}/dist/doctor.mjs")
   - PowerShell(node "${CLAUDE_PLUGIN_ROOT}/dist/doctor.mjs")
-  - Edit(./.intake-kit/turn.json)
+  - Write(./.intake-kit/calls/*)
+  - Edit(./.intake-kit/calls/*)
   - Read(./intake-answers.yaml)
 ---
 
@@ -27,86 +28,23 @@ If the line above doesn't read `intake-kit <version> ready`, stop. Tell the user
 
 ## How every turn works
 
-The session file `intake-answers.yaml` is written only by `apply-turn`. Never edit it yourself, and never show the user a reply that `apply-turn` hasn't accepted.
+intake-kit's engine runs the interview: it decides what to ask next, when to probe, when to confirm an answer, when to create a second item and when the interview is done. You do two narrow jobs for it, one call at a time: classify the user's words, and phrase the one question it chose. The session file `intake-answers.yaml` is written only by the engine. Never edit it yourself.
 
 Run commands exactly as written below: one command, no `&&`, `||`, pipes or redirects. They must work in bash and in PowerShell.
 
 1. **Start.** Run `node "${CLAUDE_PLUGIN_ROOT}/dist/intake.mjs" start`.
    - `result: "started"`: go on. If `warnings` mentions the prompt hook, tell the user quotes can't be verified until the hook is enabled (`/hooks`), and stop.
    - Exit 4 with `needs_decision`: ask the user whether to resume the intake in progress or start over (the old one is archived, not deleted). Then run `start --resume` or `start --new`.
-   - `result: "resumed"`: read the `status` it returns and `intake-answers.yaml`, briefly remind the user where you left off, and ask the next question.
-2. **Each time the user speaks**, decide what you learned, then write the whole turn to `.intake-kit/turn.json` with your file tool (format below).
-3. **Run** `node "${CLAUDE_PLUGIN_ROOT}/dist/intake.mjs" apply-turn`.
-   - Exit 0: the turn is saved. Now send the user your `reply`, word for word. If the result has a `summary` (you proposed the reflect-back), show it after your reply, word for word: that's the playback the user checks. Use the `status` that came back to plan the next question.
-   - Exit 2: nothing was saved. Read every rejection, fix the turn, write it again in full and rerun. Don't show the reply yet.
-   - Exit 3: rejected twice. Nothing from that turn was saved. Send the reply anyway and carry on; capture those answers again on a later turn.
+   - `result: "resumed"`: tell the user briefly where you left off and repeat the last question.
+2. **Each time the user speaks** (the opening statement is the first time), run `node "${CLAUDE_PLUGIN_ROOT}/dist/intake.mjs" turn`.
+   - Exit 6 (`result: "needs"`): the engine needs one call from you. Follow its `instructions` on its `input`, and write your answer as JSON to the file in `write_to`, as `how` says (a JSON array, one entry per call of that kind this turn). Then run `turn` again. Repeat until it exits 0.
+   - Exit 2 (`result: "invalid"`): your JSON for that call didn't fit its schema. Fix the file using the `errors` and run `turn` again.
+   - Exit 0 (`result: "applied"`): say the `reply` to the user word for word, and nothing else. If there's a `summary`, show it under the reply, word for word: it's the playback the user checks, built from what's recorded. If there are `gates`, the user confirmed: tell them the outcome for each item in a sentence or two, using its reasons, and the revisit trigger for anything not going ahead ("Don't build" and "fix, not build" are good outcomes when they're right; say so plainly). Then render the spec pack.
+   - Exit 4 (`result: "waiting"`): there's nothing new from the user; wait for their reply.
 
-Never mention files, turns, saving, `apply-turn` or rejections to the user. They're having a conversation, not watching a tool run.
+Never mention files, calls, JSON, the engine or schemas to the user. They're having a conversation, not watching a tool run.
 
-Before every `apply-turn`, run the checklist in "Before you send a turn" below.
-
-The user's opening statement is their first message (or the text after the command). Handle it as the first turn: create the item, record what it already covers, and ask your first question.
-
-## Before you send a turn
-
-- Follow `status.next_step`. When it passes on a hint (`status.hints`: something the user said that the items don't reflect yet, like a manual workaround or an integration), decide whether it applies and act on it: add the item or modifier, or carry on if it doesn't fit.
-- `updates` records every area the user's latest message answers, always including the area your previous question was about, even when the answer is "I don't know" (record that as `unknown`). An empty `updates` is almost always a mistake: if they answered anything, record it before asking the next question.
-- Every field is present, including inside each update, fact, open question and item (`[]` or `null` when empty).
-- `covered` has a value and a quote. `assumed` has a quote. `unknown` has `"value": null` (put their words, if any, in the quote, never in the value).
-- Every quote is copied character for character from one message the user sent.
-- Every band is spelled exactly as in the guide, and every coverage ID exists there.
-
-## Interview rules
-
-These are tested behaviour, not suggestions.
-
-- **One question per message.** Never stack questions. Keep messages short.
-- **Ask what `status.next_step` says to ask.** The app chooses the area of every question (`status.next_question`): the primary, or the alternate if the user's latest message already answers the primary in full. Word the question for their situation, ask nothing else, and don't report which area you asked; the app works it out. It also chooses the one follow-up on a vague answer ("Tell me about the last time…"), and never asks an area a third time.
-- **Record vague answers honestly.** "Usually", "would", "normally", "I think": record them as `assumed` with their words, or `unknown`. The app follows up once.
-- **Still vague after the probe?** Record it as `assumed`, with their words as the quote, or as `unknown`. Never answer for the user, never suggest an answer, and never record your own guess.
-- **Blameless.** When something went wrong, ask what about the setup made it easy to go wrong, not who did it.
-- **Plain language.** Don't say "coverage area", "quadrant", "modifier", "band" or "gate" to the user. Say what you mean.
-- **Covered means complete.** Mark an area `covered` only when the user has answered what the guide says it must capture. A partial answer isn't covered yet: keep asking, and record the area once it's complete (quotes can come from any earlier message).
-- **Each distinct pain is its own item.** A stated solution is a hypothesis: for idea-first openings, walk back to what happens today before anything else. Exploratory openings spawn several items: one per concrete example, typed by what the example is (usually `manual_process`, never `exploratory`), each with `spawned_from` the exploratory item. Any spawned item gets only a light pass (when it last happened, rough weekly cost), never a full interview. Outside exploratory intakes, add a follow-on item (like a manual workaround the main item would replace) only after the main item's questions are done; `status.hints` says when.
-- **Today's manual workaround is its own item.** When the user does something by hand today to get what they're asking for (a weekly spreadsheet, a copy-paste routine), create a `manual_process` item for it with `spawned_from` set to the main item, once the main item's questions are done (`status.hints` says when). What they'd fall back to if the new thing failed isn't a workaround: ask whether it happens today before adding anything. If they say the new thing would replace it, record `router.supersede`.
-- **Take back what doesn't apply.** If an item turns out not to apply, drop it with `router.drop` (the reason, and their words saying so); `supersede` is only for an item the new one replaces. If a modifier doesn't fit after all, remove it with `router.remove_modifiers`.
-- **Always ask** the areas marked "always ask" in the guide before the reflect-back.
-- **The user can stop any time.** If they want to wrap up, go to the reflect-back with what you have; unasked areas become open questions.
-
-## Quotes
-
-Every `quote` must be the user's exact words, copied from one message they sent: a short, contiguous span, no paraphrase, no stitching two messages together, never your own words. `apply-turn` checks every quote against what they actually typed and rejects anything else. If you can't quote them, leave the quote `null` and use `unknown` or `assumed` honestly.
-
-## Facts: pick bands, never numbers
-
-Bands are picked from what the user already said, never asked for directly: don't ask "is there documentation?" just to fill a band. `status.next_step` tells you when to stop interviewing and write them up.
-
-When you have evidence, add a `fact` with one band name from the guide, the coverage IDs it came from as `evidence`, and a supporting quote if there is one. Code turns bands into scores; you never score anything.
-
-Pick the band whose description in the guide matches what the user actually said ("there's no SOP" is `documentation: none`, not `partial`). If their words fall between two bands, pick the lower one. If they haven't said, use `unknown`; never guess. Before the reflect-back, every item needs a band for each fact in its `status.facts_missing` (`unknown` is fine).
-
-Also capture, as `prose`, a one-line `problem_statement`, `current_state`, `mvp` and `out_of_scope` for each item once you understand it, and a `mitigation` when the user describes how they'd reduce a risk. Write prose in plain words, close to how the user put it.
-
-Before the reflect-back, write acceptance criteria for every item that might be built (not superseded or exploratory ones): at least one `criterion` and one `error_case`, each in Given/When/Then form, built only from what the user said. `evidence` lists the coverage IDs it rests on; each must already have an answer in the user's words. Don't invent thresholds or behaviour they didn't describe. `status.items[].acceptance` shows the counts.
-
-Write guardrails for the same items, also from the user's words only, each citing its evidence:
-
-- `kill_criterion`: what would make them stop using it or switch it off. Required.
-- `fallback`: what they'd do if it stopped working. Required.
-- `review_point`: who checks its output, and when, before anyone acts on it.
-- `data_rule`: how the data must be handled (read-only, sensitive fields, where it may go).
-
-If the user hasn't said what would make them switch it off, use core.trust's one follow-up for "What would make you switch it off?" if it's still free. If they still can't say, or the follow-up is used, don't write one: the missing kill criterion becomes a visible gap, which is the right outcome. `status.items[].guardrails` shows the counts.
-
-Add an `open_question` for anything left `unknown` that matters: what to ask, who could answer it, and what artifact would settle it.
-
-## Reflect-back
-
-When `status.interview_complete` is true (`status.next_step` says to stop asking), or the user wants to wrap up, write up and play back in the same turn: fill every missing band from what you heard, write the acceptance criteria and guardrails, then:
-
-1. Propose it (`reflect_back.status: "proposed"`), on a turn of its own: no new items and no other question. The app builds the summary the user sees from what's recorded (each item's problem, answers, every band pick in plain language, criteria and guardrails) and shows it with your reply, so your reply only introduces it in a sentence and asks whether you got it right. Put a short version of the same playback in `reflect_back.text`. Answers marked as captured are the user's words taken as typed; ask them to check those.
-2. On their answer: `confirmed` if they agree. If they say they can't see a summary, say it's just above and ask again; never describe a summary you haven't proposed. `corrected` (with each correction listed) if they change anything; fix the affected updates and facts in the same turn, then propose again.
-3. Once confirmed, `apply-turn` scores and gates every item and returns `gates`. Tell the user the outcome for each item in a sentence or two, using the reasons it returned, and the revisit trigger for anything not going ahead. "Don't build" and "fix, not build" are good outcomes when they're right; say so plainly.
+When you classify a reply, every quote must be the user's exact words, copied character for character from one message they sent: no paraphrase, no stitching, never your own words. The engine checks every quote against what they typed and drops anything else, so an answer you can't quote isn't recorded.
 
 ## Render the spec pack
 
@@ -117,50 +55,6 @@ Right after reporting the gates, run `node "${CLAUDE_PLUGIN_ROOT}/dist/intake.mj
 - Exit 4: tell the user what the message says.
 
 Finish with what to do next: open `FIRST_PROMPT.md` to start the build in a fresh session, give each assumption in `DECISIONS.md` an owner, and get answers to the open questions at the top of `SPEC.md`. If nothing reached Go, point them to the brief or decision record instead.
-
-## Turn format
-
-Every field is required, every time. Use `[]` and `null` for empty.
-
-```json
-{
-  "reply": "What you'll say next: one question, or the reflect-back.",
-  "updates": [
-    { "item": null, "area": "core.users", "status": "covered", "value": "Supervisor builds it; shift leads use it", "quote": "I build it, the shift leads use it" },
-    { "item": "item-1", "area": "data_report.grain", "status": "assumed", "value": "Probably per shift", "quote": "I think by shift" }
-  ],
-  "facts": [
-    { "item": "item-1", "fact": "rule_clarity", "band": "written", "evidence": ["data_report.definition"], "quote": "short picks and wrong-location scans" }
-  ],
-  "router": {
-    "new_items": [ { "id": "item-1", "type": "data_report", "confidence": "high", "title": "Daily pick-exception report", "trigger_quote": "I need a report of short picks", "spawned_from": null } ],
-    "reclassify": null,
-    "add_modifiers": [],
-    "remove_modifiers": [],
-    "supersede": null,
-    "drop": null
-  },
-  "prose": [ { "item": "item-1", "field": "problem_statement", "text": "Retraining is chosen by guesswork." } ],
-  "acceptance": [
-    { "item": "item-1", "kind": "criterion", "given": "a shift with short picks", "when": "the report runs at 6am", "then": "each picker's short picks for that shift are counted", "evidence": ["data_report.definition", "data_report.grain"] },
-    { "item": "item-1", "kind": "error_case", "given": "the WMS export is missing", "when": "the report runs", "then": "it says the data is missing instead of showing zeros", "evidence": ["core.trust"] }
-  ],
-  "guardrails": [
-    { "item": "item-1", "kind": "kill_criterion", "text": "Stop using it for retraining if a count doesn't match the WMS.", "evidence": ["core.trust"] },
-    { "item": "item-1", "kind": "fallback", "text": "Go back to the Monday spreadsheet.", "evidence": ["core.trust"] }
-  ],
-  "open_questions": [
-    { "item": "item-1", "area": "data_report.truth", "question": "Which count is right when the dashboard and the export disagree?", "who_can_answer": "WMS admin", "artifact_needed": "One day where the two differ" }
-  ],
-  "reflect_back": null
-}
-```
-
-- `item: null` for shared-core areas (`core.*`) that apply to the whole session. Give an item ID to record a core answer that differs for that item only.
-- Module areas (`data_report.*`, `mod.integration.*`, …) need the item they belong to, and only fit items of that type or with that modifier.
-- Item IDs are `item-1`, `item-2`, … Create an item before (or in the same turn as) anything that refers to it.
-- `router.supersede` when the user says one item would replace another ("if I had that I'd stop doing the Monday thing"). `router.drop` (`{ "item", "reason", "quote" }`) when an item turns out not to apply. `router.remove_modifiers` (`[{ "item", "modifier", "reason" }]`) when a modifier doesn't fit.
-- `reflect_back`: `null`, or `{ "text", "status": "proposed" | "confirmed" | "corrected", "corrections": [] }`.
 
 ## Guide
 

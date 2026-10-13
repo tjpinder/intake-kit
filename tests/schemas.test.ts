@@ -2,15 +2,17 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
-import { validateSession, validateTurn, turnSchema } from "../src/lib/schemas.ts";
+import { validateExtract, validateOpening, validatePhrase, validateSession, validateWriteUp } from "../src/lib/schemas.ts";
+import { extractSchema, openingSchema, phraseSchema, writeupSchema } from "../src/llm/v2.ts";
 
 type Json = any;
 
 const sessionFixtures = readdirSync("tests/fixtures/session").filter((f) => f.endsWith(".yaml"));
-const turnFixtures = readdirSync("tests/fixtures/turn").filter((f) => f.endsWith(".json"));
-
 const loadSession = (f: string): Json => parseYaml(readFileSync(`tests/fixtures/session/${f}`, "utf8"));
-const loadTurn = (f: string): Json => JSON.parse(readFileSync(`tests/fixtures/turn/${f}`, "utf8"));
+/** Every model output in the v2 worked example, by call. */
+const CALLS: Array<{ call: string; output: Json }> = JSON.parse(readFileSync("tests/fixtures/conversations/pick-exception.json", "utf8")).steps.flatMap((s: Json) => s.model);
+const VALIDATORS: Record<string, (d: unknown) => { ok: boolean; errors: string[] }> = { classify_opening: validateOpening, phrase: validatePhrase, extract: validateExtract, write_up: validateWriteUp };
+const first = (call: string): Json => structuredClone(CALLS.find((c) => c.call === call)!.output);
 
 function expectInvalid(result: { ok: boolean; errors: string[] }, fragment: string) {
   assert.equal(result.ok, false, "expected validation to fail");
@@ -21,13 +23,13 @@ function expectInvalid(result: { ok: boolean; errors: string[] }, fragment: stri
 }
 
 describe("valid fixtures", () => {
-  assert.ok(sessionFixtures.length >= 2 && turnFixtures.length >= 3, "fixtures missing");
+  assert.ok(sessionFixtures.length >= 2 && CALLS.length >= 20, "fixtures missing");
   for (const f of sessionFixtures) {
     test(`session ${f}`, () => assert.deepEqual(validateSession(loadSession(f)).errors, []));
   }
-  for (const f of turnFixtures) {
-    test(`turn ${f}`, () => assert.deepEqual(validateTurn(loadTurn(f)).errors, []));
-  }
+  test("every model output in the worked example fits its call's schema", () => {
+    for (const [i, c] of CALLS.entries()) assert.deepEqual(VALIDATORS[c.call](c.output).errors, [], `${c.call} #${i}`);
+  });
 });
 
 describe("session status rules", () => {
@@ -100,59 +102,44 @@ describe("session status rules", () => {
   });
 });
 
-describe("turn contract: the model can't set scoring or gates", () => {
-  const base = () => loadTurn("reflect-back-with-facts.json");
-
-  for (const field of ["scoring", "gate", "quadrant"]) {
-    test(`top-level "${field}" is rejected`, () => {
-      const t = base();
-      t[field] = field === "gate" ? { decision: "go" } : {};
-      expectInvalid(validateTurn(t), "must NOT have additional properties");
-    });
-  }
-
-  test("a numeric score on a fact is rejected", () => {
-    const t = base();
-    t.facts[0].score = 5;
-    expectInvalid(validateTurn(t), "/facts/0 must NOT have additional properties");
+describe("model contract v2: the model can't steer the interview, score or gate", () => {
+  test("an extraction can't name the next question, create an item or end the interview", () => {
+    for (const extra of ["next_target", "new_items", "reflect_back", "ready"]) {
+      expectInvalid(validateExtract({ ...first("extract"), [extra]: null }), "must NOT have additional properties");
+    }
   });
 
-  test("a gate on an update is rejected", () => {
-    const t = loadTurn("coverage-and-new-item.json");
-    t.updates[0].gate = "go";
-    expectInvalid(validateTurn(t), "/updates/0 must NOT have additional properties");
+  test("a numeric score on a band pick is rejected", () => {
+    const w = first("write_up");
+    w.facts[0].score = 5;
+    expectInvalid(validateWriteUp(w), "/facts/0 must NOT have additional properties");
   });
 
-  test("gate-like fact names are rejected", () => {
-    const t = base();
-    t.facts[0].fact = "gate";
-    expectInvalid(validateTurn(t), "/facts/0/fact must be equal to one of the allowed values");
+  test("a write-up can't set a gate or a quadrant", () => {
+    expectInvalid(validateWriteUp({ ...first("write_up"), gate: "go" }), "must NOT have additional properties");
+    const w = first("write_up");
+    w.facts[0].fact = "gate";
+    expectInvalid(validateWriteUp(w), "/facts/0/fact must be equal to one of the allowed values");
   });
 
   test("every field is required, so omissions fail", () => {
-    const t = base();
-    delete t.reflect_back;
-    expectInvalid(validateTurn(t), "must have required property 'reflect_back'");
-  });
-
-  test("the model can't report which area it asked: code chooses it", () => {
-    const t = base();
-    t.next_target = { item: null, area: "core.users", is_probe: false };
-    expectInvalid(validateTurn(t), "must NOT have additional properties");
+    const x = first("extract");
+    delete x.also_answers;
+    expectInvalid(validateExtract(x), "must have required property 'also_answers'");
+    expectInvalid(validatePhrase({}), "must have required property 'question'");
   });
 });
 
 // Azure OpenAI strict structured output (and Claude's) accept only a subset of JSON Schema.
-// This walks the turn schema and fails on anything outside it.
-describe("turn schema fits the strict structured-output subset", () => {
+// This walks each call's schema and fails on anything outside it.
+describe("every model schema fits the strict structured-output subset", () => {
   const allowed = new Set([
     "$schema", "$id", "$defs", "$ref", "title", "description",
     "type", "properties", "required", "additionalProperties", "items", "enum", "anyOf",
   ]);
-  const problems: string[] = [];
 
-  function walk(node: Json, path: string) {
-    if (Array.isArray(node)) return node.forEach((n, i) => walk(n, `${path}/${i}`));
+  function walk(node: Json, path: string, problems: string[]) {
+    if (Array.isArray(node)) return node.forEach((n, i) => walk(n, `${path}/${i}`, problems));
     if (node === null || typeof node !== "object") return;
     for (const key of Object.keys(node)) {
       if (!allowed.has(key)) problems.push(`${path}: keyword "${key}" isn't in the strict subset`);
@@ -165,20 +152,20 @@ describe("turn schema fits the strict structured-output subset", () => {
     }
     for (const [key, value] of Object.entries(node)) {
       if (key === "properties" || key === "$defs") {
-        for (const [name, sub] of Object.entries(value as object)) walk(sub, `${path}/${key}/${name}`);
+        for (const [name, sub] of Object.entries(value as object)) walk(sub, `${path}/${key}/${name}`, problems);
       } else if (key !== "enum" && key !== "required" && key !== "type") {
-        walk(value, `${path}/${key}`);
+        walk(value, `${path}/${key}`, problems);
       }
     }
   }
 
-  test("root is a plain object, not anyOf", () => {
-    assert.equal((turnSchema as Json).type, "object");
-    assert.equal((turnSchema as Json).anyOf, undefined);
-  });
-
-  test("only allowed keywords; every object closed with all properties required", () => {
-    walk(turnSchema, "#");
-    assert.deepEqual(problems, []);
-  });
+  for (const [name, schema] of Object.entries({ opening: openingSchema, phrase: phraseSchema, extract: extractSchema, writeup: writeupSchema })) {
+    test(`${name}: a plain object; only allowed keywords; every object closed with all properties required`, () => {
+      assert.equal((schema as Json).type, "object");
+      assert.equal((schema as Json).anyOf, undefined);
+      const problems: string[] = [];
+      walk(schema, "#", problems);
+      assert.deepEqual(problems, []);
+    });
+  }
 });

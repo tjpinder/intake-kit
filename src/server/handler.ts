@@ -10,8 +10,7 @@ import type { Session } from "../lib/session.ts";
 import { createAzureProvider, type AzureConfig } from "../llm/azure.ts";
 import { CLAUDE_MODELS, DEFAULT_CLAUDE_MODEL, createClaudeProvider, type ClaudeConfig, type ClaudeModel } from "../llm/anthropic.ts";
 import { costUSD } from "../llm/pricing.ts";
-import { buildRequest } from "../llm/prompt.ts";
-import { runTurn } from "../llm/turn-loop.ts";
+import { runEngineTurn } from "../engine/turn.ts";
 import { ProviderError, type Provider, type ProviderResult } from "../llm/types.ts";
 import type { ServerConfig } from "./config.ts";
 import { fromMicros, keys, toMicros, type CounterStore } from "./store.ts";
@@ -51,6 +50,8 @@ interface TurnBody {
   provider: ProviderChoice;
   claudeModel?: string;
   turnstileToken?: string;
+  /** The summary's Confirm button: no new message, no model call. */
+  action?: "confirm";
 }
 
 /** Hosts a bring-your-own Azure endpoint may point at. Anything else could turn the API into an open proxy. */
@@ -58,6 +59,8 @@ const AZURE_HOST = /^[a-z0-9-]+\.(openai\.azure\.com|cognitiveservices\.azure\.c
 
 /** Output tokens the kit's provider may spend per call; also the worst case the budget check assumes. */
 const MAX_OUTPUT_TOKENS = 8000;
+/** The largest fixed prompt an engine call carries (the write-up's band guide), in tokens. */
+const WORST_PROMPT_TOKENS = 12_000;
 
 const json = (status: number, body: Record<string, unknown>, headers?: Record<string, string>): ApiResponse => ({ status, body, headers });
 const fail = (status: number, error: string, message: string, extra: Record<string, unknown> = {}, headers?: Record<string, string>) =>
@@ -95,7 +98,10 @@ function parseBody(raw: string, config: ServerConfig): TurnBody | string {
     if (!e.text.trim()) return `transcript[${i}] is empty.`;
     if (e.text.length > config.maxMessageChars) return `Messages are limited to ${config.maxMessageChars} characters.`;
   }
-  if (!Array.isArray(body.replies) || body.replies.length !== body.transcript.length - 1 || !body.replies.every((r) => typeof r === "string")) {
+  if (body.action !== undefined && body.action !== "confirm") return 'action must be "confirm".';
+  // A confirmation adds no message, so every message already has its reply.
+  const expected = body.action === "confirm" ? body.transcript.length : body.transcript.length - 1;
+  if (!Array.isArray(body.replies) || body.replies.length !== expected || !body.replies.every((r) => typeof r === "string")) {
     return "replies must hold one reply for every earlier user message.";
   }
   if (body.claudeModel !== undefined && !CLAUDE_MODELS.includes(body.claudeModel as ClaudeModel)) return `claudeModel must be one of ${CLAUDE_MODELS.join(", ")}.`;
@@ -201,10 +207,10 @@ export async function handleTurn(req: ApiRequest, deps: ServerDeps): Promise<Api
     }
 
     if (kitModel) {
-      // Worst case for this turn: two attempts, a generous token estimate, full output each time.
-      const request = buildRequest({ skill: deps.skill, fw: deps.fw, session: body.session, transcript: body.transcript, replies: body.replies });
-      const inputTokens = Math.ceil((request.system.length + request.context.length + request.history.reduce((n, m) => n + m.content.length, 0)) / 3);
-      const worst = 2 * costUSD(kitModel, { inputTokens, outputTokens: MAX_OUTPUT_TOKENS, cachedInputTokens: 0 });
+      // Worst case for this turn: every engine call (classify or extract, phrase, a write-up per item)
+      // plus both retries, with the whole conversation as input and full output each time.
+      const inputTokens = Math.ceil((JSON.stringify(body.session).length + body.transcript.reduce((n, t) => n + t.text.length, 0)) / 3) + WORST_PROMPT_TOKENS;
+      const worst = (3 + body.session.items.length + 2) * costUSD(kitModel, { inputTokens, outputTokens: MAX_OUTPUT_TOKENS, cachedInputTokens: 0 });
       const [month, dayS, sessionS] = await Promise.all([
         store.get(keys.monthSpend(started)), store.get(keys.daySpend(started)), store.get(keys.sessionSpend(sessionId)),
       ]);
@@ -220,14 +226,14 @@ export async function handleTurn(req: ApiRequest, deps: ServerDeps): Promise<Api
     return fail(503, "unavailable", "The service is temporarily unavailable. Please try again shortly.");
   }
 
-  // The server stamps the new message, so the reflect-back check never depends on the visitor's clock.
-  const transcript = body.transcript.map((e, i) => (i === body.transcript.length - 1 ? { ...e, at: started.toISOString() } : e));
+  // The server stamps the new message (a confirmation sends none).
+  const transcript = body.action === "confirm" ? body.transcript : body.transcript.map((e, i) => (i === body.transcript.length - 1 ? { ...e, at: started.toISOString() } : e));
   let tick = 1;
   const turnNow = () => new Date(started.getTime() + tick++).toISOString();
 
   const calls: ProviderResult[] = [];
   try {
-    const outcome = await runTurn({ provider: metered(provider, calls), fw: deps.fw, skill: deps.skill, session: body.session, transcript, replies: body.replies, now: turnNow });
+    const outcome = await runEngineTurn({ provider: metered(provider, calls), fw: deps.fw, session: body.session, transcript, replies: body.action === "confirm" ? body.replies.slice(0, -1) : body.replies, now: turnNow, action: body.action });
     return json(200, {
       result: outcome.result,
       reply: outcome.reply,
@@ -235,9 +241,9 @@ export async function handleTurn(req: ApiRequest, deps: ServerDeps): Promise<Api
       session: outcome.session,
       transcript,
       usage: summarize(calls, kitModel),
-      // The model's raw output for each attempt, what the checks rejected and what was captured,
-      // so a visitor's debug log can explain a turn. Nothing here is stored on the server.
-      debug: { attempts: outcome.attempts.map((a) => ({ model: a.model, text: a.text, rejections: a.rejections, warnings: a.warnings })) },
+      // Each model call's raw output and what code did with it, so a visitor's debug log can
+      // explain a turn. Nothing here is stored on the server.
+      debug: { calls: outcome.calls.map((c) => ({ name: c.name, model: c.model, text: c.text, ok: c.ok, problem: c.problem })), events: outcome.events },
     });
   } catch (err) {
     if (err instanceof ProviderError) {

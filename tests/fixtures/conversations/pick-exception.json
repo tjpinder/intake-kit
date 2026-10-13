@@ -1,564 +1,509 @@
 {
-  "description": "The worked example as a recorded conversation: each step is what the user typed, then the turn the model wrote. Replayed through the real hook and CLI, every quote is checked against the recorded words. Expected: item-1 (daily pick-exception report) reaches Go; item-2 (the Monday Excel build) is superseded by it and gated Don't build.",
+  "description": "The worked example (pick-exception report) through interview engine v2: each user message and the model outputs the engine asks for that turn, in call order. Code decides everything else.",
   "steps": [
     {
-      "user": "/intake-kit:intake I need a report of short picks by shift and picker so the shift leads can target retraining instead of guessing",
-      "turn": {
-        "reply": "Got it. When you see that report, what will you do differently?",
-        "updates": [],
-        "facts": [],
-        "router": {
-          "new_items": [
-            {
-              "id": "item-1",
-              "type": "data_report",
-              "confidence": "high",
-              "title": "Daily pick-exception report",
-              "trigger_quote": "I need a report of short picks by shift and picker",
-              "spawned_from": null
-            }
-          ],
-          "reclassify": null,
-          "add_modifiers": [],
-          "remove_modifiers": [],
-          "supersede": null,
-          "drop": null
-        },
-        "prose": [],
-        "acceptance": [],
-        "guardrails": [],
-        "open_questions": [],
-        "reflect_back": null
-      }
-    },
-    {
-      "user": "So I know who to pull for retraining that week. Right now I build it in Excel every Monday and it eats my whole Monday morning, call it four hours.",
-      "turn": {
-        "reply": "That Monday build sounds painful. When you count a short pick, what's in and what's out?",
-        "updates": [
-          {
-            "item": "item-1",
-            "area": "data_report.decision",
-            "status": "covered",
-            "value": "Choose who gets retraining each week",
-            "quote": "So I know who to pull for retraining that week"
-          },
-          {
-            "item": null,
-            "area": "core.outcome",
-            "status": "covered",
-            "value": "Baseline about four hours every Monday building the sheet",
-            "quote": "it eats my whole Monday morning, call it four hours"
-          }
-        ],
-        "facts": [
-          {
-            "item": "item-1",
-            "fact": "decision_depends",
-            "band": "yes",
-            "evidence": [
-              "data_report.decision"
-            ],
-            "quote": "So I know who to pull for retraining that week"
-          },
-          {
-            "item": "item-1",
-            "fact": "value",
-            "band": "high",
-            "evidence": [
-              "core.outcome"
-            ],
-            "quote": "call it four hours"
-          }
-        ],
-        "router": {
-          "new_items": [
-            {
-              "id": "item-2",
-              "type": "manual_process",
-              "confidence": "med",
-              "title": "Monday Excel exception summary",
-              "trigger_quote": "I build it in Excel every Monday",
-              "spawned_from": "item-1"
-            }
-          ],
-          "reclassify": null,
-          "add_modifiers": [],
-          "remove_modifiers": [],
-          "supersede": null,
-          "drop": null
-        },
-        "prose": [],
-        "acceptance": [],
-        "guardrails": [],
-        "open_questions": [],
-        "reflect_back": null
-      }
-    },
-    {
-      "user": "Short picks and wrong-location scans, not the cancelled lines. Filter by shift and count by picker, daily. I want it there when I walk in at seven.",
-      "turn": {
-        "reply": "Clear. Where does that data come from, and which copy do you trust?",
-        "updates": [
-          {
-            "item": "item-1",
-            "area": "data_report.definition",
-            "status": "covered",
-            "value": "Short picks and location mismatches; excludes cancelled lines",
-            "quote": "Short picks and wrong-location scans, not the cancelled lines"
-          },
-          {
-            "item": "item-1",
-            "area": "data_report.grain",
-            "status": "covered",
-            "value": "Per picker, per shift, daily",
-            "quote": "Filter by shift and count by picker, daily"
-          },
-          {
-            "item": "item-1",
-            "area": "data_report.delivery",
-            "status": "covered",
-            "value": "Ready by 7am",
-            "quote": "I want it there when I walk in at seven"
-          },
-          {
-            "item": null,
-            "area": "core.constraints",
-            "status": "covered",
-            "value": "Must be ready before 7am",
-            "quote": "I want it there when I walk in at seven"
-          }
-        ],
-        "facts": [
-          {
-            "item": "item-1",
-            "fact": "rule_clarity",
-            "band": "written",
-            "evidence": [
-              "data_report.definition"
-            ],
-            "quote": "Short picks and wrong-location scans, not the cancelled lines"
-          },
-          {
-            "item": "item-1",
-            "fact": "ways_done",
-            "band": "one",
-            "evidence": [
-              "data_report.definition"
-            ],
-            "quote": null
-          },
-          {
-            "item": "item-1",
-            "fact": "success_metric",
-            "band": "measurable_with_baseline",
-            "evidence": [
-              "core.outcome",
-              "data_report.delivery"
-            ],
-            "quote": "I want it there when I walk in at seven"
-          }
-        ],
-        "router": {
-          "new_items": [],
-          "reclassify": null,
-          "add_modifiers": [],
-          "remove_modifiers": [],
-          "supersede": null,
-          "drop": null
-        },
-        "prose": [],
-        "acceptance": [],
-        "guardrails": [],
-        "open_questions": [],
-        "reflect_back": null
-      }
-    },
-    {
-      "user": "It all comes out of the WMS pick confirmations, we've got read access to the reporting copy. No customer info, just orders, locations and badge numbers. Nothing's changing on the WMS this year.",
-      "turn": {
-        "reply": "Who touches this report, from the person who builds it to the people who use it?",
-        "updates": [
-          {
-            "item": null,
-            "area": "core.data",
-            "status": "covered",
-            "value": "WMS pick confirmations; no customer or pricing data",
-            "quote": "It all comes out of the WMS pick confirmations"
-          },
-          {
-            "item": null,
-            "area": "core.systems",
-            "status": "covered",
-            "value": "WMS reporting replica, read access; no upgrades planned",
-            "quote": "we've got read access to the reporting copy"
-          }
-        ],
-        "facts": [
-          {
-            "item": "item-1",
-            "fact": "input_digital",
-            "band": "fully",
-            "evidence": [
-              "core.data"
-            ],
-            "quote": "It all comes out of the WMS pick confirmations"
-          },
-          {
-            "item": "item-1",
-            "fact": "input_structured",
-            "band": "80+",
-            "evidence": [
-              "core.data"
-            ],
-            "quote": null
-          },
-          {
-            "item": "item-1",
-            "fact": "access",
-            "band": "programmatic",
-            "evidence": [
-              "core.systems"
-            ],
-            "quote": "we've got read access to the reporting copy"
-          },
-          {
-            "item": "item-1",
-            "fact": "stability",
-            "band": "none",
-            "evidence": [
-              "core.systems"
-            ],
-            "quote": "Nothing's changing on the WMS this year"
-          },
-          {
-            "item": "item-1",
-            "fact": "steps_apps",
-            "band": "under_20",
-            "evidence": [
-              "core.systems"
-            ],
-            "quote": null
-          }
-        ],
-        "router": {
-          "new_items": [],
-          "reclassify": null,
-          "add_modifiers": [],
-          "remove_modifiers": [],
-          "supersede": null,
-          "drop": null
-        },
-        "prose": [],
-        "acceptance": [],
-        "guardrails": [],
-        "open_questions": [],
-        "reflect_back": null
-      }
-    },
-    {
-      "user": "I build it, the shift leads use it Tuesday. If it's wrong I guess the shift lead would catch it.",
-      "turn": {
-        "reply": "Tell me about the last time a number in your Monday sheet was wrong. Who caught it?",
-        "updates": [
-          {
-            "item": null,
-            "area": "core.users",
-            "status": "covered",
-            "value": "Ops supervisor builds it; shift leads use it",
-            "quote": "I build it, the shift leads use it Tuesday"
-          },
-          {
-            "item": null,
-            "area": "core.trust",
-            "status": "assumed",
-            "value": "Shift lead would catch a wrong number",
-            "quote": "If it's wrong I guess the shift lead would catch it"
-          }
-        ],
-        "facts": [],
-        "router": {
-          "new_items": [],
-          "reclassify": null,
-          "add_modifiers": [],
-          "remove_modifiers": [],
-          "supersede": null,
-          "drop": null
-        },
-        "prose": [],
-        "acceptance": [],
-        "guardrails": [],
-        "open_questions": [],
-        "reflect_back": null
-      }
-    },
-    {
-      "user": "Honestly I don't remember one. If it's wrong I'd just look at the shift lead and ask.",
-      "turn": {
-        "reply": "Fair enough. Is there any report today that's close to this? What's wrong with it?",
-        "updates": [
-          {
-            "item": null,
-            "area": "core.trust",
-            "status": "assumed",
-            "value": "A wrong count would send the wrong picker to retraining; shift lead checks before acting",
-            "quote": "If it's wrong I'd just look at the shift lead and ask"
-          }
-        ],
-        "facts": [],
-        "router": {
-          "new_items": [],
-          "reclassify": null,
-          "add_modifiers": [],
-          "remove_modifiers": [],
-          "supersede": null,
-          "drop": null
-        },
-        "prose": [],
-        "acceptance": [],
-        "guardrails": [],
-        "open_questions": [],
-        "reflect_back": null
-      }
-    },
-    {
-      "user": "The dashboard only gives me the total for the building. And when the dashboard and my count disagree I honestly don't know which one is right.",
-      "turn": {
-        "reply": "Is there an SOP for the Monday sheet, or real examples we could look at?",
-        "updates": [
-          {
-            "item": "item-1",
-            "area": "data_report.existing",
-            "status": "covered",
-            "value": "WMS dashboard shows building totals only",
-            "quote": "The dashboard only gives me the total for the building"
-          },
-          {
-            "item": "item-1",
-            "area": "data_report.truth",
-            "status": "unknown",
-            "value": null,
-            "quote": "I honestly don't know which one is right"
-          }
-        ],
-        "facts": [
-          {
-            "item": "item-1",
-            "fact": "existing_asset",
-            "band": "none",
-            "evidence": [
-              "data_report.existing"
-            ],
-            "quote": "The dashboard only gives me the total for the building"
-          },
-          {
-            "item": "item-1",
-            "fact": "ai_applies",
-            "band": "no",
-            "evidence": [
-              "data_report.definition"
-            ],
-            "quote": null
-          }
-        ],
-        "router": {
-          "new_items": [],
-          "reclassify": null,
-          "add_modifiers": [],
-          "remove_modifiers": [],
-          "supersede": null,
-          "drop": null
-        },
-        "prose": [],
-        "acceptance": [],
-        "guardrails": [],
-        "open_questions": [
-          {
-            "item": "item-1",
-            "area": "data_report.truth",
-            "question": "When the WMS dashboard total and the pick-confirmation count disagree, which one is right?",
-            "who_can_answer": "WMS admin",
-            "artifact_needed": "One day where the two numbers differ"
-          }
-        ],
-        "reflect_back": null
-      }
-    },
-    {
-      "user": "There's a half-written SOP. Export, paste it in the template, pivot it, send it out. If I had the daily report every morning I'd stop doing the Monday thing.",
-      "turn": {
-        "reply": "Let me play that back. You want a daily view of short picks and wrong-location scans by shift and picker, ready by 7am, so shift leads can target retraining. The data all comes from the WMS reporting copy, the rules are clear, and nothing's changing this year. Today you spend about four hours every Monday building it in Excel, and once the daily report exists that goes away. One open question: which count is right when the dashboard and the pick confirmations disagree. Did I get that right?",
-        "updates": [
-          {
-            "item": "item-2",
-            "area": "manual_process.walkthrough",
-            "status": "covered",
-            "value": "Export, paste into template, pivot, send to shift leads",
-            "quote": "Export, paste it in the template, pivot it, send it out"
-          },
-          {
-            "item": "item-2",
-            "area": "manual_process.documentation",
-            "status": "covered",
-            "value": "Half-written SOP",
-            "quote": "There's a half-written SOP"
-          }
-        ],
-        "facts": [
-          {
-            "item": "item-1",
-            "fact": "documentation",
-            "band": "partial",
-            "evidence": [
-              "manual_process.documentation"
-            ],
-            "quote": "There's a half-written SOP"
-          },
-          {
-            "item": "item-2",
-            "fact": "existing_asset",
-            "band": "none",
-            "evidence": [
-              "manual_process.walkthrough"
-            ],
-            "quote": null
-          }
-        ],
-        "router": {
-          "new_items": [],
-          "reclassify": null,
-          "add_modifiers": [],
-          "remove_modifiers": [],
-          "supersede": {
-            "item": "item-2",
-            "by": "item-1",
-            "quote": "If I had the daily report every morning I'd stop doing the Monday thing"
-          },
-          "drop": null
-        },
-        "prose": [
-          {
-            "item": "item-1",
-            "field": "problem_statement",
-            "text": "Shift leads choose retraining by guesswork because pick exceptions aren't visible by picker and shift."
-          },
-          {
-            "item": "item-1",
-            "field": "current_state",
-            "text": "The ops supervisor builds a weekly Excel summary from a WMS export every Monday, about four hours."
-          },
-          {
-            "item": "item-1",
-            "field": "mvp",
-            "text": "A daily report of short picks and location mismatches by shift and picker, ready by 7am."
-          },
-          {
-            "item": "item-1",
-            "field": "out_of_scope",
-            "text": "Assigning retraining automatically; changing WMS exception codes."
-          }
-        ],
-        "acceptance": [
-          {
-            "item": "item-1",
-            "kind": "criterion",
-            "given": "a shift with short picks and wrong-location scans",
-            "when": "the daily report runs",
-            "then": "each picker's exceptions for that shift are counted, excluding cancelled lines",
-            "evidence": [
-              "data_report.definition",
-              "data_report.grain"
-            ]
-          },
-          {
-            "item": "item-1",
-            "kind": "criterion",
-            "given": "a normal working day",
-            "when": "the supervisor arrives at 7am",
-            "then": "the report is already there",
-            "evidence": [
-              "data_report.delivery"
-            ]
-          },
-          {
-            "item": "item-1",
-            "kind": "error_case",
-            "given": "a count looks wrong to a shift lead",
-            "when": "they check it before acting",
-            "then": "they can trace each number back to the WMS pick confirmations",
-            "evidence": [
-              "core.trust",
-              "core.data"
+      "user": "/intake-kit:intake I need a report of short picks by shift and picker so the shift leads can target retraining instead of guessing.",
+      "model": [
+        {
+          "call": "classify_opening",
+          "output": {
+            "type": "data_report",
+            "confidence": "high",
+            "title": "Daily pick-exception report",
+            "trigger_quote": "I need a report of short picks by shift and picker",
+            "modifiers": [],
+            "also_answers": [
+              {
+                "area": "data_report.grain",
+                "value": "Per picker, per shift",
+                "quote": "by shift and picker"
+              }
             ]
           }
-        ],
-        "guardrails": [
-          {
-            "item": "item-1",
-            "kind": "kill_criterion",
-            "text": "Stop using the report for retraining decisions if a shift lead finds a count that doesn't match the WMS.",
-            "evidence": [
-              "core.trust"
-            ]
-          },
-          {
-            "item": "item-1",
-            "kind": "fallback",
-            "text": "Shift leads check any count they doubt with the supervisor before acting.",
-            "evidence": [
-              "core.trust"
-            ]
-          },
-          {
-            "item": "item-1",
-            "kind": "review_point",
-            "text": "A shift lead reviews each picker's numbers before anyone is pulled for retraining.",
-            "evidence": [
-              "core.trust",
-              "core.users"
-            ]
-          },
-          {
-            "item": "item-1",
-            "kind": "data_rule",
-            "text": "Read only from the WMS reporting copy; never write to the WMS.",
-            "evidence": [
-              "core.systems"
-            ]
+        },
+        {
+          "call": "phrase",
+          "output": {
+            "question": "When you see that report, what will you do differently?"
           }
-        ],
-        "open_questions": [],
-        "reflect_back": {
-          "text": "Daily view of short picks and wrong-location scans by shift and picker, ready by 7am, from the WMS reporting copy, replacing the four-hour Monday Excel build. Open: which count wins when the dashboard and pick confirmations disagree.",
-          "status": "proposed",
-          "corrections": []
         }
-      }
+      ]
+    },
+    {
+      "user": "So I know who to pull for retraining that week. Right now I build it in Excel every Monday and it eats my whole Monday morning.",
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "answered",
+            "value": "Decide who to pull for retraining each week",
+            "quote": "So I know who to pull for retraining that week",
+            "check": "none",
+            "wrap_up": false,
+            "also_answers": []
+          }
+        },
+        {
+          "call": "phrase",
+          "output": {
+            "question": "Who touches this report, from the person who builds it to the people who use it?"
+          }
+        }
+      ]
+    },
+    {
+      "user": "I build it, the three shift leads use it on Tuesday, and the DC manager signs off on retraining.",
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "answered",
+            "value": "The supervisor builds it; three shift leads use it; the DC manager signs off",
+            "quote": "I build it, the three shift leads use it on Tuesday, and the DC manager signs off on retraining",
+            "check": "none",
+            "wrap_up": false,
+            "also_answers": []
+          }
+        },
+        {
+          "call": "phrase",
+          "output": {
+            "question": "How will you know it's working, and what is the current way costing you?"
+          }
+        }
+      ]
+    },
+    {
+      "user": "Today it takes about four hours every Monday. If the leads pick the right people, short picks per picker should drop within a month.",
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "answered",
+            "value": "Four hours every Monday now; short picks per picker should drop within a month",
+            "quote": "Today it takes about four hours every Monday",
+            "check": "none",
+            "wrap_up": false,
+            "also_answers": []
+          }
+        },
+        {
+          "call": "phrase",
+          "output": {
+            "question": "Where does the data come from, and which copy do you trust?"
+          }
+        }
+      ]
+    },
+    {
+      "user": "It all comes out of the WMS pick confirmations. We've got read access to the reporting copy. No customer data or pricing, just orders, locations and badge numbers.",
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "answered",
+            "value": "WMS pick confirmations, read from the reporting copy; no customer or pricing data",
+            "quote": "It all comes out of the WMS pick confirmations",
+            "check": "none",
+            "wrap_up": false,
+            "also_answers": []
+          }
+        },
+        {
+          "call": "phrase",
+          "output": {
+            "question": "Which screens or systems do you open for it, and is anything changing in the next six months?"
+          }
+        }
+      ]
+    },
+    {
+      "user": "Just the WMS reporting copy and Excel. Nothing is changing on the WMS this year.",
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "answered",
+            "value": "The WMS reporting copy and Excel; no changes this year",
+            "quote": "Just the WMS reporting copy and Excel. Nothing is changing on the WMS this year.",
+            "check": "none",
+            "wrap_up": false,
+            "also_answers": []
+          }
+        },
+        {
+          "call": "phrase",
+          "output": {
+            "question": "Does it have to be ready by a certain time, or does anyone outside your team require it?"
+          }
+        }
+      ]
+    },
+    {
+      "user": "It needs to be there by 7am when I walk in. Nobody outside the team requires it.",
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "answered",
+            "value": "Ready by 7am daily; no outside requirement",
+            "quote": "It needs to be there by 7am when I walk in",
+            "check": "none",
+            "wrap_up": false,
+            "also_answers": []
+          }
+        },
+        {
+          "call": "phrase",
+          "output": {
+            "question": "When a count is wrong today, who catches it?"
+          }
+        }
+      ]
+    },
+    {
+      "user": "I guess the shift lead would catch it.",
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "partial",
+            "value": "Probably the shift lead",
+            "quote": "I guess the shift lead would catch it.",
+            "check": "none",
+            "wrap_up": false,
+            "also_answers": []
+          }
+        },
+        {
+          "call": "phrase",
+          "output": {
+            "question": "Tell me about the last time a count was wrong. Who caught it, and what happened?"
+          }
+        }
+      ]
+    },
+    {
+      "user": "Honestly I don't remember one. If a count looks wrong the shift lead checks it with me before pulling anyone, and if the counts stopped matching the WMS I'd go back to the Excel sheet.",
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "answered",
+            "value": "The shift lead checks a wrong-looking count with the supervisor; if counts stop matching the WMS, back to the Excel sheet",
+            "quote": "If a count looks wrong the shift lead checks it with me before pulling anyone",
+            "check": "none",
+            "wrap_up": false,
+            "also_answers": []
+          }
+        },
+        {
+          "call": "phrase",
+          "output": {
+            "question": "When you count a short pick, what's in and what's out?"
+          }
+        }
+      ]
+    },
+    {
+      "user": "Short picks and wrong-location scans, not the cancelled lines. Count them per picker, per shift, per day.",
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "answered",
+            "value": "Short picks and wrong-location scans, excluding cancelled lines",
+            "quote": "Short picks and wrong-location scans, not the cancelled lines",
+            "check": "none",
+            "wrap_up": false,
+            "also_answers": []
+          }
+        },
+        {
+          "call": "phrase",
+          "output": {
+            "question": "Is there a report today that's close to this? What's wrong with it?"
+          }
+        }
+      ]
+    },
+    {
+      "user": "The WMS dashboard only gives me the total for the building, nothing by picker.",
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "answered",
+            "value": "The WMS dashboard shows building totals only",
+            "quote": "The WMS dashboard only gives me the total for the building",
+            "check": "yes",
+            "wrap_up": false,
+            "also_answers": []
+          }
+        },
+        {
+          "call": "phrase",
+          "output": {
+            "question": "Do you still build that Monday Excel sheet by hand today? When did you last do it?"
+          }
+        }
+      ]
+    },
+    {
+      "user": "Yes, I built it last Monday. If I had the daily report every morning I'd stop doing the Monday thing.",
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "answered",
+            "value": "The Monday Excel sheet, built by hand weekly",
+            "quote": "I built it last Monday",
+            "check": "yes",
+            "wrap_up": false,
+            "also_answers": []
+          }
+        },
+        {
+          "call": "phrase",
+          "output": {
+            "question": "Roughly how long does the Monday sheet take, and how often do you do it?"
+          }
+        }
+      ]
+    },
+    {
+      "user": "About four hours, once a week, every Monday morning.",
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "answered",
+            "value": "About four hours once a week",
+            "quote": "About four hours, once a week",
+            "check": "none",
+            "wrap_up": false,
+            "also_answers": []
+          }
+        },
+        {
+          "call": "write_up",
+          "output": {
+            "facts": [
+              {
+                "item": "item-1",
+                "fact": "rule_clarity",
+                "band": "written",
+                "evidence": [
+                  "data_report.definition"
+                ],
+                "quote": null
+              },
+              {
+                "item": "item-1",
+                "fact": "input_digital",
+                "band": "fully",
+                "evidence": [
+                  "core.data"
+                ],
+                "quote": null
+              },
+              {
+                "item": "item-1",
+                "fact": "input_structured",
+                "band": "80+",
+                "evidence": [
+                  "core.data"
+                ],
+                "quote": null
+              },
+              {
+                "item": "item-1",
+                "fact": "ways_done",
+                "band": "one",
+                "evidence": [
+                  "data_report.definition"
+                ],
+                "quote": null
+              },
+              {
+                "item": "item-1",
+                "fact": "stability",
+                "band": "none",
+                "evidence": [
+                  "core.systems"
+                ],
+                "quote": null
+              },
+              {
+                "item": "item-1",
+                "fact": "documentation",
+                "band": "none",
+                "evidence": [
+                  "core.data"
+                ],
+                "quote": null
+              },
+              {
+                "item": "item-1",
+                "fact": "steps_apps",
+                "band": "under_20",
+                "evidence": [
+                  "core.systems"
+                ],
+                "quote": null
+              },
+              {
+                "item": "item-1",
+                "fact": "access",
+                "band": "programmatic",
+                "evidence": [
+                  "core.data"
+                ],
+                "quote": null
+              },
+              {
+                "item": "item-1",
+                "fact": "value",
+                "band": "high",
+                "evidence": [
+                  "core.outcome"
+                ],
+                "quote": null
+              },
+              {
+                "item": "item-1",
+                "fact": "ai_applies",
+                "band": "no",
+                "evidence": [
+                  "data_report.definition"
+                ],
+                "quote": null
+              },
+              {
+                "item": "item-1",
+                "fact": "success_metric",
+                "band": "measurable_with_baseline",
+                "evidence": [
+                  "core.outcome"
+                ],
+                "quote": null
+              },
+              {
+                "item": "item-1",
+                "fact": "existing_asset",
+                "band": "partial",
+                "evidence": [
+                  "data_report.existing"
+                ],
+                "quote": null
+              },
+              {
+                "item": "item-1",
+                "fact": "decision_depends",
+                "band": "yes",
+                "evidence": [
+                  "data_report.decision"
+                ],
+                "quote": null
+              }
+            ],
+            "prose": [
+              {
+                "item": "item-1",
+                "field": "problem_statement",
+                "text": "Retraining is chosen by guesswork because short picks aren't visible by picker and shift."
+              },
+              {
+                "item": "item-1",
+                "field": "current_state",
+                "text": "The supervisor builds a Monday Excel sheet from the WMS export, which takes about four hours."
+              },
+              {
+                "item": "item-1",
+                "field": "mvp",
+                "text": "A daily report of short picks and wrong-location scans per picker, per shift, ready by 7am."
+              },
+              {
+                "item": "item-1",
+                "field": "out_of_scope",
+                "text": "Cancelled lines; deciding who gets retrained."
+              },
+              {
+                "item": "item-1",
+                "field": "mitigation",
+                "text": "A shift lead checks a count with the supervisor before pulling anyone."
+              }
+            ],
+            "acceptance": [
+              {
+                "item": "item-1",
+                "kind": "criterion",
+                "given": "a shift with short picks and wrong-location scans",
+                "when": "the report runs before 7am",
+                "then": "each picker's count for that shift is shown, excluding cancelled lines",
+                "evidence": [
+                  "data_report.definition",
+                  "core.constraints"
+                ]
+              },
+              {
+                "item": "item-1",
+                "kind": "error_case",
+                "given": "the counts stop matching the WMS",
+                "when": "the report runs",
+                "then": "it says so instead of showing the counts",
+                "evidence": [
+                  "core.trust"
+                ]
+              }
+            ],
+            "guardrails": [
+              {
+                "item": "item-1",
+                "kind": "kill_criterion",
+                "text": "Stop using it for retraining if the counts don't match the WMS.",
+                "evidence": [
+                  "core.trust"
+                ]
+              },
+              {
+                "item": "item-1",
+                "kind": "fallback",
+                "text": "Go back to the Monday Excel sheet.",
+                "evidence": [
+                  "core.trust"
+                ]
+              },
+              {
+                "item": "item-1",
+                "kind": "review_point",
+                "text": "A shift lead checks a count with the supervisor before pulling anyone.",
+                "evidence": [
+                  "core.trust"
+                ]
+              }
+            ],
+            "open_questions": [],
+            "reflect_back_text": "A daily short-pick and wrong-location report per picker and shift, ready by 7am, so shift leads can choose who to retrain."
+          }
+        }
+      ]
     },
     {
       "user": "Yes, that's it.",
-      "turn": {
-        "reply": "Thanks.",
-        "updates": [],
-        "facts": [],
-        "router": {
-          "new_items": [],
-          "reclassify": null,
-          "add_modifiers": [],
-          "remove_modifiers": [],
-          "supersede": null,
-          "drop": null
-        },
-        "prose": [],
-        "acceptance": [],
-        "guardrails": [],
-        "open_questions": [],
-        "reflect_back": {
-          "text": "Daily view of short picks and wrong-location scans by shift and picker, ready by 7am, from the WMS reporting copy, replacing the four-hour Monday Excel build. Open: which count wins when the dashboard and pick confirmations disagree.",
-          "status": "confirmed",
-          "corrections": []
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "answered",
+            "value": "Agrees with the summary",
+            "quote": "Yes, that's it.",
+            "check": "yes",
+            "wrap_up": false,
+            "also_answers": []
+          }
         }
-      }
+      ]
     }
   ]
 }

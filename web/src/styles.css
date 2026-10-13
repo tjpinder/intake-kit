@@ -104,6 +104,7 @@ button.link { background: none; border: 0; padding: 0; color: var(--accent); tex
 .msg.summary dd { display: inline; margin: 0; }
 .msg.summary em { color: var(--muted); }
 .msg.summary .summary-lead { font-weight: 600; }
+.msg.summary .summary-actions { margin-top: 12px; }
 .typing { display: inline-flex; gap: 4px; padding: 14px; }
 .typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite ease-in-out; }
 .typing span:nth-child(2) { animation-delay: 0.15s; }

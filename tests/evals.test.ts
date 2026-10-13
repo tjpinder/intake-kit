@@ -10,7 +10,7 @@ import { createAzureSimulator, simulatorPrompt, type Simulator } from "../src/ev
 import { report, runInterview, scoreRun, storedQuotes } from "../src/evals/run.ts";
 import type { Provider } from "../src/llm/types.ts";
 import type { Session } from "../src/lib/session.ts";
-import { makeItem, makeSession } from "./helpers.ts";
+import { makeItem, makeSession, type V2Step } from "./helpers.ts";
 
 const fw = loadFramework(".");
 const SKILL = readFileSync("skills/intake/SKILL.md", "utf8");
@@ -53,7 +53,9 @@ describe("Azure simulator", () => {
 
 describe("scoring", () => {
   const fixture: Session = parseYaml(readFileSync("tests/fixtures/session/pick-exception-scored.yaml", "utf8"));
-  const transcript = CONVO.steps.map((s: { user: string }, i: number) => ({ role: "user", text: s.user, at: `t${i}` }));
+  // The scored fixture was recorded from these messages (the golden spec pack renders from it).
+  const messages: string[] = JSON.parse(readFileSync("tests/fixtures/session/pick-exception-transcript.json", "utf8")).messages;
+  const transcript = messages.map((text, i) => ({ role: "user" as const, text, at: `t${i}` }));
 
   test("the worked example scores full marks for the ops-supervisor persona", () => {
     const s = scoreRun(opsSupervisor, fixture, transcript, true, fw);
@@ -86,9 +88,11 @@ describe("scoring", () => {
 
 describe("a scripted interview", () => {
   test("runs to confirmation, scores, and reports", async () => {
-    const turns = CONVO.steps.map((s: { turn: object }) => JSON.stringify(s.turn));
+    // The engine's calls, answered in order from the worked example's script.
+    const queues = new Map<string, unknown[]>();
+    for (const step of CONVO.steps as V2Step[]) for (const m of step.model) queues.set(m.call, [...(queues.get(m.call) ?? []), m.output]);
     const users = CONVO.steps.slice(1).map((s: { user: string }) => s.user);
-    const interviewer: Provider = { name: "azure-openai", complete: async () => ({ text: turns.shift()!, model: "gpt-4.1-mini", usage: { inputTokens: 1000, outputTokens: 100, cachedInputTokens: 0 } }) };
+    const interviewer: Provider = { name: "azure-openai", complete: async (req) => ({ text: JSON.stringify(queues.get(req.format!.name)!.shift()), model: "gpt-4.1-mini", usage: { inputTokens: 1000, outputTokens: 100, cachedInputTokens: 0 } }) };
     const seen: string[] = [];
     const simulator: Simulator = { reply: async (_p, conversation) => { seen.push(conversation.at(-1)!.content); return { text: users.shift()!, model: "gpt-4.1-mini", usage: { inputTokens: 200, outputTokens: 20, cachedInputTokens: 0 } }; } };
     const persona = { ...opsSupervisor, opening: CONVO.steps[0].user };

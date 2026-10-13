@@ -83,7 +83,7 @@ export function App() {
       }
       const transcript = [...state.transcript, { role: "user" as const, text, at: new Date().toISOString() }];
       const res = await sendTurn({ session: state.session, transcript, replies: state.replies, provider, turnstileToken });
-      const turn = { at: transcript.at(-1)!.at, result: res.result, attempts: res.debug?.attempts ?? [] };
+      const turn = { at: transcript.at(-1)!.at, result: res.result, calls: res.debug?.calls ?? [], events: res.debug?.events ?? [] };
       setState((s) => ({ ...s, session: res.session, transcript: res.transcript, replies: [...s.replies, res.reply], debug: [...(s.debug ?? []), turn] }));
       setPending(null);
     } catch (err) {
@@ -102,6 +102,21 @@ export function App() {
     }
   }
 
+  /** The summary's Confirm button: code scores and gates, no model call. */
+  async function confirmSummary() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const res = await sendTurn({ session: state.session, transcript: state.transcript, replies: state.replies, provider, action: "confirm" });
+      const turn = { at: new Date().toISOString(), result: res.result, calls: [], events: res.debug?.events ?? [] };
+      setState((s) => ({ ...s, session: res.session, debug: [...(s.debug ?? []), turn] }));
+    } catch (err) {
+      setNotice({ text: (err as Error).message || "Something went wrong. Please try again." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function playSample() {
     if (playing.current) return;
     playing.current = true;
@@ -115,7 +130,7 @@ export function App() {
       setBusy(true);
       await sleep(1100);
       if (!playing.current) break;
-      s = playSampleStep(s);
+      s = await playSampleStep(s);
       setPending(null);
       setBusy(false);
       setState(s);
@@ -167,6 +182,7 @@ export function App() {
             transcript={state.transcript}
             replies={state.replies}
             summary={summary}
+            onConfirm={state.mode === "live" && !busy && state.session.session.engine?.phase === "summary" ? confirmSummary : null}
             pending={pending}
             busy={busy}
             disabled={state.mode === "sample" || complete || !!paused}

@@ -465,6 +465,19 @@ None of these returns the next target, item creation, readiness, scores or gates
 4. If it passes: merge, deploy, then set the Azure model settings, in that order.
 5. **Fallback** if it misses after one fix round: ship the Claude Code plugin as the primary demo, keep the web UI in sample-only mode, and move on to the Week 2 proof pieces. Either way, the kit ships.
 
+## Build decisions: interview engine v2 (Oct 14, 2026)
+
+How v2 was built. Where these conflict with an earlier section, these win; the v2 section above still wins on how the conversation runs.
+
+- **Engine.** `src/engine/`: open, plan, apply (with spawn), write-up and summary, and the turn loop. The web API, the evals, the offline sample and the plugin all run the same `runEngineTurn`.
+- **Model calls.** `classify_opening` (first turn), `phrase`, `extract` (one target) and, at the summary, `write_up` for each primary item: band picks, prose, acceptance criteria, guardrails and open questions, which code keeps only where they check out. Step 8 needs the model to pick bands, and this is that call. Schemas are in `schema/v2/`, with validators generated at build time.
+- **Required areas** are critical, always-ask (with a module's `asks_core`), the first band source per criterion, and any area that is the only source of a SPEC, ACCEPTANCE or GUARDRAILS section. Each module names its `anchor` area. Checks are configured in `router.yaml` under `checks`.
+- **Existing-asset check** records its answer and the area, but creates no item: `spawns: null` until a follow-on type for existing assets is decided. Exploratory intakes therefore no longer spawn an item per example (persona 5 expects three or more items).
+- **In the plugin,** `intake.mjs turn` runs one turn. When the engine needs a call, it exits 6 with that call's instructions; Claude writes its JSON to `.intake-kit/calls/<call>.json` and runs `turn` again. Without the prompt hook, `turn --message` records the user's message.
+- **Retired:** the v1 turn applier and turn schema (with empty-turn rejection, area-naming retries and raw-reply capture), the v1 prompt and turn loop, spawn hints, model-proposed reflect-back and model-reported `next_target`.
+- **Evals** refuse to run on a dirty tree and record the commit hash in the results and the report. `--runs-for id:n` sets runs per persona; `--extract-model` sends only extract calls to another deployment.
+- **Repo hygiene** stores the forbidden outside-framework names encoded, so the test itself contains none, and scans every file, docs and this spec included. The StartVest brand isn't a framework reference.
+
 ## Build decisions
 
 Resolved after Claude Code's pre-build review on Oct 10, 2026. Where these conflict with an earlier section, these win.

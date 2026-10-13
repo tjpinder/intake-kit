@@ -1,0 +1,14 @@
+{
+  "description": "The user messages behind pick-exception-scored.yaml (and the golden spec pack rendered from it), for grounding checks.",
+  "messages": [
+    "/intake-kit:intake I need a report of short picks by shift and picker so the shift leads can target retraining instead of guessing",
+    "So I know who to pull for retraining that week. Right now I build it in Excel every Monday and it eats my whole Monday morning, call it four hours.",
+    "Short picks and wrong-location scans, not the cancelled lines. Filter by shift and count by picker, daily. I want it there when I walk in at seven.",
+    "It all comes out of the WMS pick confirmations, we've got read access to the reporting copy. No customer info, just orders, locations and badge numbers. Nothing's changing on the WMS this year.",
+    "I build it, the shift leads use it Tuesday. If it's wrong I guess the shift lead would catch it.",
+    "Honestly I don't remember one. If it's wrong I'd just look at the shift lead and ask.",
+    "The dashboard only gives me the total for the building. And when the dashboard and my count disagree I honestly don't know which one is right.",
+    "There's a half-written SOP. Export, paste it in the template, pivot it, send it out. If I had the daily report every morning I'd stop doing the Monday thing.",
+    "Yes, that's it."
+  ]
+}

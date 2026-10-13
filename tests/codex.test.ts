@@ -4,12 +4,13 @@
 import { test, describe, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { parse as parseYaml } from "yaml";
 // @ts-expect-error: plain JS build script without type declarations
 import { buildCodex, codexSkill } from "../scripts/build-codex.mjs";
+import type { V2Step } from "./helpers.ts";
 
 const dirs: string[] = [];
 after(() => dirs.forEach((d) => rmSync(d, { recursive: true, force: true })));
@@ -80,11 +81,23 @@ describe("the standalone kit runs with nothing from the plugin", () => {
 
     const convo = JSON.parse(readFileSync("tests/fixtures/conversations/pick-exception.json", "utf8"));
     assert.equal(node("intake.mjs", ["start", "--provider", "codex", "--grounding", "unverified"]).status, 0);
-    convo.steps.forEach((step: { turn: object }, i: number) => {
-      writeFileSync(join(repo, ".intake-kit", "turn.json"), JSON.stringify(step.turn));
-      const r = node("intake.mjs", ["apply-turn"]);
-      // Unverified grounding can't see the user's reply, so the reflect-back confirms without one.
-      assert.equal(r.status, 0, `step ${i}: ${r.stdout}`);
+    convo.steps.forEach((step: V2Step, i: number) => {
+      // No prompt hook: Codex passes the user's message itself, then answers the engine's calls.
+      const answers = new Map<string, unknown[]>();
+      for (const m of step.model) answers.set(m.call, [...(answers.get(m.call) ?? []), m.output]);
+      let args = ["turn", "--message", step.user];
+      for (let guard = 0; ; guard++) {
+        assert.ok(guard < 10, `step ${i}: turn never finished`);
+        const r = node("intake.mjs", args);
+        args = ["turn"];
+        if (r.status === 0) break;
+        assert.equal(r.status, 6, `step ${i}: ${r.stdout}`);
+        const body = JSON.parse(r.stdout);
+        const file = join(repo, body.write_to);
+        const sofar = existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : [];
+        mkdirSync(join(repo, ".intake-kit", "calls"), { recursive: true });
+        writeFileSync(file, JSON.stringify([...sofar, answers.get(body.call)!.shift()]));
+      }
     });
     const session = parseYaml(readFileSync(join(repo, "intake-answers.yaml"), "utf8"));
     assert.equal(session.session.provider, "codex");
@@ -92,9 +105,10 @@ describe("the standalone kit runs with nothing from the plugin", () => {
     assert.deepEqual(session.items.map((i: { gate: { decision: string } }) => i.gate.decision), ["go", "dont_build"]);
 
     assert.equal(node("intake.mjs", ["render"]).status, 0);
-    assert.match(readFileSync(join(repo, "SPEC.md"), "utf8"), /\[core\.users\] "I build it, the shift leads use it Tuesday"/);
+    assert.match(readFileSync(join(repo, "SPEC.md"), "utf8"), /\[core\.users\] "I build it, the three shift leads use it on Tuesday/);
     const checks = node("check.mjs", ["run"]);
-    assert.match(checks.stdout, /pass\s+traceability[\s\S]*FAIL\s+open_assumptions/);
+    // In the v2 worked example the vague trust answer gets its probe and a real answer, so nothing stays assumed.
+    assert.match(checks.stdout, /pass\s+traceability[\s\S]*pass\s+open_assumptions/);
   });
 
   test("the example Codex hook records $intake prompts", () => {

@@ -6,8 +6,6 @@
 export { buildFramework, FrameworkError, schemaFactNames } from "./lib/framework.ts";
 export type { Framework, FrameworkSources, Area, Module, ItemType, Modifier } from "./lib/framework.ts";
 
-export { applyTurn } from "./lib/apply-turn.ts";
-export type { ApplyContext, ApplyResult, Rejection } from "./lib/apply-turn.ts";
 
 export { scoreItem, levelOf, quadrantOf, adoptionRisks } from "./lib/score.ts";
 export { scoreAndGate, gateItem, criticalAreas } from "./lib/gates.ts";
@@ -21,15 +19,18 @@ export { lineDiff } from "./lib/diff.ts";
 export { normalize, findQuote } from "./lib/grounding.ts";
 export type { TranscriptEntry } from "./lib/grounding.ts";
 
-export { validateSession, validateTurn, sessionSchema, turnSchema } from "./lib/schemas.ts";
+export { validateSession, validateOpening, validatePhrase, validateExtract, validateWriteUp, sessionSchema } from "./lib/schemas.ts";
 export { CHECK_IDS, CHECK_LABELS, DEFAULT_CONFIG } from "./lib/check-meta.ts";
 export type { ChecksConfig, CheckId } from "./lib/check-meta.ts";
 
-export { buildSystemPrompt, buildContext, buildHistory, buildRequest, sessionSnapshot, SHARED_SECTIONS } from "./llm/prompt.ts";
-export { runTurn, FALLBACK_REPLY } from "./llm/turn-loop.ts";
-export type { TurnInput, TurnOutcome } from "./llm/turn-loop.ts";
 export { ProviderError } from "./llm/types.ts";
 export type { Provider, ProviderResult, TurnRequest, ChatMessage, Usage } from "./llm/types.ts";
 
 export { coverageFor, isCaptured } from "./lib/session.ts";
 export type { Session, Item, CoverageEntry, Gate, Scoring, Acceptance, Guardrail } from "./lib/session.ts";
+
+// Interview engine v2: code runs the interview; the model classifies and phrases.
+export { runEngineTurn, SUMMARY_REPLY, DONE_REPLY } from "./engine/turn.ts";
+export type { EngineTurnInput, EngineTurnOutcome, EngineCall } from "./engine/turn.ts";
+export { newEngine, TURN_BUDGET, SEND_AGAIN } from "./engine/types.ts";
+export type { EngineState, Pending, Extraction, OpeningResult } from "./engine/types.ts";

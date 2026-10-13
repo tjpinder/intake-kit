@@ -1,16 +1,15 @@
-// Web phase 2: prompt, provider schemas, Azure and Claude adapters, pricing and the turn loop.
+// Provider schemas (interview engine v2), the Azure and Claude adapters, and pricing.
 // Providers run against mocked transports; nothing here calls a real API.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { loadFramework } from "../src/lib/framework-fs.ts";
-import { buildSystemPrompt, buildContext, buildHistory, SHARED_SECTIONS, PromptError } from "../src/llm/prompt.ts";
-import { azureTurnSchema, claudeTurnSchema } from "../src/llm/schema.ts";
+import { azureSchema, claudeSchema } from "../src/llm/schema.ts";
+import { extractSchema, openingSchema, phraseSchema, writeupSchema } from "../src/llm/v2.ts";
 import { createAzureProvider, retryDelayMs, AZURE_API_VERSION } from "../src/llm/azure.ts";
 import { createClaudeProvider } from "../src/llm/anthropic.ts";
 import { costUSD, priceOf, UnknownModelError } from "../src/llm/pricing.ts";
-import { runTurn, FALLBACK_REPLY } from "../src/llm/turn-loop.ts";
 import { ProviderError, type Provider, type TurnRequest } from "../src/llm/types.ts";
 import type { TranscriptEntry } from "../src/lib/grounding.ts";
 import type { Session } from "../src/lib/session.ts";
@@ -18,7 +17,7 @@ import type { Session } from "../src/lib/session.ts";
 const fw = loadFramework(".");
 const SKILL = readFileSync("skills/intake/SKILL.md", "utf8");
 const CONVO = JSON.parse(readFileSync("tests/fixtures/conversations/pick-exception.json", "utf8"));
-const REQUEST: TurnRequest = { system: "SYSTEM", history: [{ role: "user", content: "hi" }], context: "CONTEXT" };
+const REQUEST: TurnRequest = { system: "SYSTEM", history: [{ role: "user", content: "hi" }], context: "CONTEXT", format: { name: "phrase", schema: phraseSchema } };
 
 function emptySession(): Session {
   return {
@@ -30,90 +29,46 @@ function emptySession(): Session {
   };
 }
 
-describe("system prompt", () => {
-  const prompt = buildSystemPrompt(SKILL, fw);
 
-  test("reuses the skill's shared sections and the generated guide", () => {
-    for (const heading of SHARED_SECTIONS) assert.ok(prompt.includes(`## ${heading}`), heading);
-    assert.ok(prompt.includes("## Guide"));
-    for (const id of fw.areas.keys()) assert.ok(prompt.includes(`\`${id}\``), id);
-    assert.ok(prompt.includes("One question per message."), "interview rules carried over");
-  });
 
-  test("has no plugin-only instructions", () => {
-    assert.doesNotMatch(prompt, /apply-turn|turn\.json|CLAUDE_PLUGIN_ROOT|intake\.mjs|\/intake-kit:|node "/);
-    assert.ok(!prompt.includes("`the app`"), "the app is named in plain text, not as code");
-  });
 
-  test("is identical every time, so providers can cache it", () => {
-    assert.equal(buildSystemPrompt(SKILL, fw), prompt);
-  });
-
-  test("a SKILL.md missing a shared section fails loudly", () => {
-    assert.throws(() => buildSystemPrompt(SKILL.replace("## Quotes", "## Citations"), fw), PromptError);
-  });
-});
-
-describe("context and history", () => {
-  test("context carries the session snapshot and status, without quotes", () => {
-    const session = emptySession();
-    session.core.users = { status: "covered", value: "Supervisor", quotes: ["a secret-ish quote"], probe_count: 0, updated_at: "2026-10-11T12:00:00.000Z" };
-    const context = buildContext(session, fw);
-    assert.match(context, /"core\.users":\{"status":"covered","value":"Supervisor","probe_count":0\}/);
-    assert.match(context, /"ready_for_reflect_back":false/);
-    assert.doesNotMatch(context, /secret-ish/);
-  });
-
-  test("history alternates the user's exact words and the replies shown", () => {
-    const transcript: TranscriptEntry[] = [
-      { role: "user", text: "one", at: "a" },
-      { role: "user", text: "two", at: "b" },
-    ];
-    assert.deepEqual(buildHistory(transcript, ["reply one"]), [
-      { role: "user", content: "one" },
-      { role: "assistant", content: "reply one" },
-      { role: "user", content: "two" },
-    ]);
-  });
-});
-
-describe("provider schemas", () => {
-  // Found live: stripping "title" everywhere removed new items' real title property, and Azure
-  // rejected the schema because "required" named a property that no longer existed.
-  for (const [name, schemaOf] of [["Azure", azureTurnSchema], ["Claude", claudeTurnSchema]] as const) {
-    test(`${name}: every object's required list matches its properties exactly`, () => {
-      const problems: string[] = [];
-      const walk = (node: any, path: string) => {
-        if (Array.isArray(node)) return node.forEach((n, i) => walk(n, `${path}/${i}`));
-        if (!node || typeof node !== "object") return;
-        if (node.properties) {
-          const props = Object.keys(node.properties).sort();
-          const req = [...(node.required ?? [])].sort();
-          if (JSON.stringify(props) !== JSON.stringify(req)) problems.push(`${path}: properties ${props} vs required ${req}`);
-        }
-        for (const [k, v] of Object.entries(node)) if (k !== "enum" && k !== "required") walk(v, `${path}/${k}`);
-      };
-      const schema = schemaOf();
-      walk(schema, "#");
-      assert.deepEqual(problems, []);
-      assert.ok("title" in schema.$defs.new_item.properties, "new items keep their title property");
-      assert.equal(schema.title, undefined, "the document title is stripped");
-    });
+describe("provider schemas (interview engine v2)", () => {
+  const SCHEMAS = { classify_opening: openingSchema, phrase: phraseSchema, extract: extractSchema, write_up: writeupSchema } as Record<string, any>;
+  // Found live: stripping "title" everywhere removed a real title property, and Azure rejected the
+  // schema because "required" named a property that no longer existed.
+  for (const [provider, convert] of [["Azure", azureSchema], ["Claude", claudeSchema]] as const) {
+    for (const [name, schema] of Object.entries(SCHEMAS)) {
+      test(`${provider} ${name}: every object's required list matches its properties exactly`, () => {
+        const problems: string[] = [];
+        const walk = (node: any, path: string) => {
+          if (Array.isArray(node)) return node.forEach((n, i) => walk(n, `${path}/${i}`));
+          if (!node || typeof node !== "object") return;
+          if (node.properties) {
+            const props = Object.keys(node.properties).sort();
+            const req = [...(node.required ?? [])].sort();
+            if (JSON.stringify(props) !== JSON.stringify(req)) problems.push(`${path}: properties ${props} vs required ${req}`);
+          }
+          for (const [k, v] of Object.entries(node)) if (k !== "enum" && k !== "required") walk(v, `${path}/${k}`);
+        };
+        const s = convert(schema);
+        walk(s, "#");
+        assert.deepEqual(problems, []);
+        assert.equal(s.title, undefined, "the document title is stripped");
+        assert.equal(s.$schema, undefined);
+        if (provider === "Claude") assert.ok(!JSON.stringify(s).includes('"type":['), "no type arrays for Claude");
+      });
+    }
   }
 
-  test("Azure: meta keys stripped, otherwise the strict turn schema", () => {
-    const s = azureTurnSchema();
-    assert.equal(s.$schema, undefined);
-    assert.equal(s.$id, undefined);
-    assert.equal(s.additionalProperties, false);
-    assert.deepEqual(s.$defs.update.properties.item.type, ["string", "null"]);
+  test("the opening keeps its own title property", () => {
+    assert.ok("title" in azureSchema(openingSchema).properties);
   });
 
-  test("Claude: no type arrays anywhere; nullable fields become anyOf", () => {
-    const s = claudeTurnSchema();
-    assert.doesNotMatch(JSON.stringify(s), /"type":\[/);
-    assert.deepEqual(s.$defs.update.properties.item.anyOf, [{ type: "string" }, { type: "null" }]);
-    assert.equal(s.$defs.update.additionalProperties, false);
+  test("no call's output can set the next target, create an item, end the interview, or score", () => {
+    const keys = new Set<string>();
+    const walk = (n: any) => { if (n && typeof n === "object") for (const [k, v] of Object.entries(n)) { if (k === "properties") Object.keys(v as object).forEach((p) => keys.add(p)); walk(v); } };
+    Object.values(SCHEMAS).forEach(walk);
+    for (const forbidden of ["next_target", "new_items", "supersede", "drop", "reflect_back", "scoring", "gate", "score", "quadrant", "ready"]) assert.ok(!keys.has(forbidden), forbidden);
   });
 });
 
@@ -259,75 +214,3 @@ describe("pricing", () => {
   });
 });
 
-describe("turn loop", () => {
-  /** A provider that returns scripted outputs and records what it was sent. */
-  function scripted(outputs: string[]) {
-    const requests: TurnRequest[] = [];
-    const provider: Provider = {
-      name: "azure-openai",
-      async complete(request) {
-        requests.push(structuredClone(request));
-        const text = outputs.shift();
-        if (text === undefined) throw new Error("no more scripted outputs");
-        return { text, model: "gpt-4.1-mini", usage: { inputTokens: 100, outputTokens: 10, cachedInputTokens: 0 } };
-      },
-    };
-    return { provider, requests };
-  }
-  let clock = 0;
-  const now = () => new Date(Date.UTC(2026, 9, 11, 13, 0, clock++)).toISOString();
-
-  test("replays the worked example to Go through the loop", async () => {
-    let session = emptySession();
-    const transcript: TranscriptEntry[] = [];
-    const replies: string[] = [];
-    for (const step of CONVO.steps) {
-      transcript.push({ role: "user", text: step.user, at: now() });
-      const { provider } = scripted([JSON.stringify(step.turn)]);
-      const out = await runTurn({ provider, fw, skill: SKILL, session, transcript, replies, now });
-      assert.equal(out.result, "applied", JSON.stringify(out.attempts.at(-1)?.rejections));
-      session = out.session;
-      replies.push(out.reply);
-    }
-    assert.deepEqual(session.items.map((i) => i.gate?.decision), ["go", "dont_build"]);
-  });
-
-  test("a rejected turn is retried once with the reasons; the transcript stays the user's own", async () => {
-    const transcript: TranscriptEntry[] = [{ role: "user", text: CONVO.steps[0].user, at: now() }];
-    const bad = structuredClone(CONVO.steps[0].turn);
-    bad.router.new_items[0].trigger_quote = "words the user never typed";
-    const { provider, requests } = scripted([JSON.stringify(bad), JSON.stringify(CONVO.steps[0].turn)]);
-    const out = await runTurn({ provider, fw, skill: SKILL, session: emptySession(), transcript, replies: [], now });
-    assert.equal(out.result, "applied");
-    assert.equal(out.attempts.length, 2);
-    const retry = requests[1].history;
-    assert.equal(retry.at(-2)!.role, "assistant");
-    assert.match(retry.at(-1)!.content, /trigger_quote: "words the user never typed" isn't the user's words/);
-    assert.equal(transcript.length, 1, "feedback never enters the transcript");
-  });
-
-  test("rejected twice: nothing saved, but the last reply is still shown", async () => {
-    const transcript: TranscriptEntry[] = [{ role: "user", text: CONVO.steps[0].user, at: now() }];
-    const bad = structuredClone(CONVO.steps[0].turn);
-    bad.router.new_items[0].trigger_quote = "invented";
-    const session = emptySession();
-    const { provider } = scripted([JSON.stringify(bad), JSON.stringify(bad)]);
-    const out = await runTurn({ provider, fw, skill: SKILL, session, transcript, replies: [], now });
-    assert.equal(out.result, "rejected");
-    assert.equal(out.session, session);
-    assert.equal(out.reply, bad.reply);
-  });
-
-  test("output that never parses gets a neutral fallback reply", async () => {
-    const transcript: TranscriptEntry[] = [{ role: "user", text: "hello", at: now() }];
-    const { provider } = scripted(["not json", "{still not"]);
-    const out = await runTurn({ provider, fw, skill: SKILL, session: emptySession(), transcript, replies: [], now });
-    assert.equal(out.result, "invalid");
-    assert.equal(out.reply, FALLBACK_REPLY);
-  });
-
-  test("provider errors propagate for the caller to handle", async () => {
-    const provider: Provider = { name: "azure-openai", complete: async () => { throw new ProviderError("down", { kind: "http", status: 503, retryable: true }); } };
-    await assert.rejects(runTurn({ provider, fw, skill: SKILL, session: emptySession(), transcript: [{ role: "user", text: "x", at: now() }], replies: [], now }), ProviderError);
-  });
-});

@@ -121,8 +121,8 @@ function check(validators: FrameworkSchemaValidators | undefined, kind: keyof Fr
 }
 
 /** The fact names the turn and session schemas allow. All three lists must agree. */
-export function schemaFactNames(): { turn: string[]; session: string[] } {
-  return { turn: factNames.turn, session: factNames.session };
+export function schemaFactNames(): { writeup: string[]; session: string[] } {
+  return { writeup: factNames.writeup, session: factNames.session };
 }
 
 /** The framework's YAML, as text. The Node loader reads it from disk; the web app bundles it. */
@@ -254,12 +254,12 @@ export function buildFramework(sources: FrameworkSources, options: BuildOptions 
     if (!scoring.gate_facts[name]) issues.push(`scoring.yaml: gate_fact_notes names unknown gate fact ${name}`);
   }
   const fromScoring = [...factBands.keys()].sort();
-  const { turn, session } = schemaFactNames();
-  if (JSON.stringify(fromScoring) !== JSON.stringify([...turn].sort())) {
-    issues.push(`facts in scoring.yaml (${fromScoring.join(", ")}) don't match the turn schema (${[...turn].sort().join(", ")})`);
+  const { writeup, session } = schemaFactNames();
+  if (JSON.stringify(fromScoring) !== JSON.stringify([...writeup].sort())) {
+    issues.push(`facts in scoring.yaml (${fromScoring.join(", ")}) don't match the write-up schema (${[...writeup].sort().join(", ")})`);
   }
-  if (JSON.stringify([...turn].sort()) !== JSON.stringify([...session].sort())) {
-    issues.push("fact names in the turn and session schemas don't match");
+  if (JSON.stringify([...writeup].sort()) !== JSON.stringify([...session].sort())) {
+    issues.push("fact names in the write-up and session schemas don't match");
   }
 
   // Composites and gates reference real criteria and bands

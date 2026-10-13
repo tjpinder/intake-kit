@@ -76,8 +76,15 @@ export function codexSkill(name, source, description) {
     );
     body = replaceExactly(
       body,
-      "`apply-turn` checks every quote against what they actually typed and rejects anything else.",
-      "With the optional prompt hook, `apply-turn` checks every quote against what they actually typed. Without it, nothing checks your quotes and the session is marked unverified, so hold yourself to the rule exactly.",
+      '2. **Each time the user speaks** (the opening statement is the first time), run `node "${CLAUDE_PLUGIN_ROOT}/dist/intake.mjs" turn`.',
+      '2. **Each time the user speaks** (the opening statement is the first time), run `node "' + KIT + '/dist/intake.mjs" turn --message "<their message, exactly as typed>"`. (With the optional prompt hook, leave out `--message`: the hook records it.) When it exits 6, answer the call and run `turn` again without `--message`.',
+      1,
+      "intake turn",
+    );
+    body = replaceExactly(
+      body,
+      "The engine checks every quote against what they typed and drops anything else, so an answer you can't quote isn't recorded.",
+      "The engine checks every quote against the message you passed (or, with the optional prompt hook, what they typed) and drops anything else, so an answer you can't quote isn't recorded. Without the hook the session is marked unverified, so pass their message exactly.",
       1,
       "intake quotes",
     );

@@ -3,7 +3,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { loadFramework } from "../src/lib/framework-fs.ts";
-import { guide, routingHint, statusOf, structureHints } from "../src/lib/guide.ts";
+import { guide, said, statusOf } from "../src/lib/guide.ts";
 import type { Item, Session } from "../src/lib/session.ts";
 
 
@@ -23,29 +23,8 @@ describe("status hints and light passes (from the persona evals)", () => {
   });
   const said = (...texts: string[]) => texts.map((text, i) => ({ role: "user" as const, text, at: `t${i}` }));
 
-  test("a manual workaround is hinted only once the primary item's own interview is done", () => {
-    const s = base();
-    s.items = [item("item-1", "data_report")];
-    const t = said("Today I paste it into Excel by hand every Monday.");
-    assert.ok(!structureHints(s, fwH, t).some((h) => h.includes("manual_process")), "not while still interviewing");
-    const hints = structureHints(s, fwH, t, { primaryInterviewed: true });
-    assert.ok(hints.some((h) => h.includes('"by hand"') && h.includes("`manual_process` item")));
-  });
 
-  test("an integration signal is hinted until the modifier is on an item", () => {
-    const s = base();
-    s.items = [item("item-1", "broken")];
-    const t = said("EDI orders stopped coming in.");
-    assert.ok(structureHints(s, fwH, t).some((h) => h.includes("`integration` modifier")));
-    s.items[0].modifiers = ["integration"];
-    assert.ok(!structureHints(s, fwH, t).some((h) => h.includes("integration")));
-  });
 
-  test("signals match whole words only, and descriptive signals never match", () => {
-    const s = base();
-    s.items = [item("item-1", "manual_process")];
-    assert.deepEqual(structureHints(s, fwH, said("Thanks for the feedback, a metric noun.")), []);
-  });
 
   test("items spawned from an exploratory item get a light pass: no critical areas or acceptance needed", () => {
     const s = base();
@@ -54,14 +33,8 @@ describe("status hints and light passes (from the persona evals)", () => {
     const spawned = st.items.find((i) => i.id === "item-2")!;
     assert.equal(spawned.light_pass, true);
     assert.deepEqual(spawned.critical_unasked, []);
-    assert.ok(st.hints.some((h) => h.includes("exploratory intake")));
   });
 
-  test("hints are passed on in next_step while interviewing", () => {
-    const s = base();
-    s.items = [item("item-1", "broken")];
-    assert.match(statusOf(s, fwH, said("The EDI feed broke.")).next_step, /Also check: .*"EDI"/);
-  });
 });
 
 describe("the write-up asks for bands only where they're scored", () => {
@@ -81,7 +54,6 @@ describe("the write-up asks for bands only where they're scored", () => {
     const st = statusOf(s, fwB, []);
     assert.equal(st.interview_complete, true);
     assert.equal(st.ready_for_reflect_back, true);
-    assert.doesNotMatch(st.next_step, /facts_missing|for no item/, "no band clause when no item needs bands");
   });
 });
 
@@ -104,7 +76,6 @@ describe("band sources (from the persona evals)", () => {
     let st = statusOf(s, fwS, []);
     assert.deepEqual(st.items[0].band_sources_unasked, ["core.systems"]);
     assert.equal(st.interview_complete, false);
-    assert.match(st.next_step, /then ask about core.systems: find out/);
     s.core.systems = answered;
     st = statusOf(s, fwS, []);
     assert.deepEqual(st.items[0].band_sources_unasked, []);
@@ -116,19 +87,6 @@ describe("band sources (from the persona evals)", () => {
   });
 });
 
-describe("routing hint (from the persona evals)", () => {
-  const fwR = loadFramework(".");
-  const opening = (text: string) => [{ role: "user" as const, text, at: "t" }];
-  test("an idea-first opening points at known_idea", () => {
-    assert.match(routingHint(fwR, opening("Could AI write our standard operating procedures? Ours are a mess."))!, /"could AI".*`known_idea`/);
-  });
-  test("the most specific signal wins: where could AI help is exploratory", () => {
-    assert.match(routingHint(fwR, opening("Where could AI help us in our warehouse operation?"))!, /"where could AI help".*`exploratory`/);
-  });
-  test("no signal, no hint; and it only shows before the first item", () => {
-    assert.equal(routingHint(fwR, opening("Hello there.")), null);
-  });
-});
 
 describe("readiness counts what was asked, not what was recorded (first live test)", () => {
   const fw = loadFramework(".");
@@ -186,7 +144,6 @@ describe("readiness counts what was asked, not what was recorded (first live tes
     let st = statusOf(s, fw);
     assert.deepEqual(st.items[0].critical_unprobed, ["core.outcome"]);
     assert.equal(st.interview_complete, false);
-    assert.match(st.next_step, /then ask about core.outcome: they answered vaguely, so ask once about the last time/);
     s.core.outcome.probe_count = 1;
     st = statusOf(s, fw);
     assert.equal(st.interview_complete, true);
@@ -217,27 +174,8 @@ describe("hints after the first live test", () => {
   });
   const said = (text: string) => [{ role: "user" as const, text, at: AT }];
 
-  test("a negated signal doesn't hint a modifier", () => {
-    const s = session([item("item-1", "known_idea")]);
-    assert.ok(!structureHints(s, fw, said("The scripts read files locally, with no database, no API and no network.")).some((h) => h.includes("integration")));
-    assert.ok(!structureHints(s, fw, said("Scripts read the committed files locally, with no database or external API involved.")).some((h) => h.includes("integration")));
-    assert.ok(structureHints(s, fw, said("The orders come in over an API from the customer.")).some((h) => h.includes("integration")));
-  });
 
-  test("a removed modifier isn't hinted again", () => {
-    const s = session([item("item-1", "known_idea", { modifiers_removed: ["integration"] })]);
-    assert.ok(!structureHints(s, fw, said("The orders come in over an API.")).some((h) => h.includes("integration")));
-  });
 
-  test("the manual-work hint asks before adding, and never comes back after a drop", () => {
-    const s = session([item("item-1", "data_report")]);
-    const t = said("If it stops, people go back to doing the task by hand.");
-    const hint = structureHints(s, fw, t, { primaryInterviewed: true }).find((h) => h.includes("manual_process"))!;
-    assert.match(hint, /ask whether it happens today/);
-    assert.match(hint, /router\.drop/);
-    s.items.push(item("item-2", "manual_process", { spawned_from: "item-1", dropped: { reason: "a fallback", quote: "by hand", at: AT } }));
-    assert.ok(!structureHints(s, fw, t, { primaryInterviewed: true }).some((h) => h.includes("manual_process")));
-  });
 
   test("a dropped item needs nothing more and isn't the primary item", () => {
     const s = session([item("item-1", "manual_process", { dropped: { reason: "doesn't apply", quote: "x", at: AT } }), item("item-2", "data_report")]);
@@ -245,5 +183,15 @@ describe("hints after the first live test", () => {
     assert.equal(st.items[0].dropped, true);
     assert.deepEqual(st.items[0].critical_unasked, []);
     assert.deepEqual(st.items[0].always_ask_pending, []);
+  });
+});
+
+describe("signal phrases (used by the manual-work check and the modifier negation rule)", () => {
+  test("match whole words only, and never when negated", () => {
+    assert.equal(said("by hand", "i do it by hand every monday"), true);
+    assert.equal(said("api", "rapid growth"), false);
+    assert.equal(said("api", "no database, no api and no network"), false);
+    assert.equal(said("by hand", "nothing is done by hand"), false);
+    assert.equal(said("a metric noun", "a metric noun"), false, "descriptive signals never match");
   });
 });

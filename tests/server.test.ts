@@ -45,12 +45,15 @@ interface Harness {
 }
 
 /** Each provider call returns the next scripted output with the given token usage. */
+/** The worked example's first turn (classify the opening, phrase the first question), n times over. */
+const firstTurn = (n: number): string[] => Array.from({ length: n }, () => CONVO.steps[0].model.map((m: { output: unknown }) => JSON.stringify(m.output))).flat();
+
 function harness(opts: { env?: Record<string, string>; outputs?: string[]; error?: ProviderError; usage?: { inputTokens: number; outputTokens: number }; verifyOk?: boolean } = {}): Harness {
   const store = new MemoryStore();
   const azureConfigs: AzureConfig[] = [];
   const claudeConfigs: ClaudeConfig[] = [];
   const verifications: string[] = [];
-  const outputs = [...(opts.outputs ?? [JSON.stringify(CONVO.steps[0].turn)])];
+  const outputs = [...(opts.outputs ?? firstTurn(1))];
   const scripted = (name: Provider["name"]): Provider => ({
     name,
     async complete() {
@@ -94,15 +97,15 @@ describe("a good turn", () => {
     const res = await handleTurn(request({}), h.deps);
     assert.equal(res.status, 200, JSON.stringify(res.body));
     assert.equal(res.body.result, "applied");
-    assert.equal(res.body.reply, CONVO.steps[0].turn.reply);
+    assert.equal(res.body.reply, CONVO.steps[0].model[1].output.question);
     assert.equal((res.body.session as Session).items[0].id, "item-1");
     assert.equal((res.body.transcript as Array<{ at: string }>)[0].at, NOW.toISOString(), "the server stamps the new message");
     const usage = res.body.usage as { calls: number; costUSD: number };
-    assert.equal(usage.calls, 1);
-    // 10k input at $0.40/M + 500 output at $1.60/M
-    assert.equal(Number(usage.costUSD.toFixed(6)), 0.024);
-    assert.equal(fromMicros(h.store.values.get(keys.monthSpend(NOW))!), 0.024);
-    assert.equal(fromMicros(h.store.values.get(keys.sessionSpend("2026-10-11-beef"))!), 0.024);
+    assert.equal(usage.calls, 2, "classify the opening, phrase the first question");
+    // Each call: 10k input at $2/M + 500 output at $8/M
+    assert.equal(Number(usage.costUSD.toFixed(6)), 0.048);
+    assert.equal(fromMicros(h.store.values.get(keys.monthSpend(NOW))!), 0.048);
+    assert.equal(fromMicros(h.store.values.get(keys.sessionSpend("2026-10-11-beef"))!), 0.048);
   });
 
   test("the kit's provider gets the configured deployment and an output ceiling", async () => {
@@ -115,13 +118,11 @@ describe("a good turn", () => {
   });
 
   test("a rejected first attempt still counts toward spend", async () => {
-    const bad = structuredClone(CONVO.steps[0].turn);
-    bad.router.new_items[0].trigger_quote = "never said this";
-    const h = harness({ outputs: [JSON.stringify(bad), JSON.stringify(CONVO.steps[0].turn)] });
+    const h = harness({ outputs: ['{"type": "not a type"}', ...firstTurn(1)] });
     const res = await handleTurn(request({}), h.deps);
     assert.equal(res.body.result, "applied");
-    assert.equal((res.body.usage as { calls: number }).calls, 2);
-    assert.equal(fromMicros(h.store.values.get(keys.monthSpend(NOW))!), 0.048);
+    assert.equal((res.body.usage as { calls: number }).calls, 3);
+    assert.ok(Math.abs(fromMicros(h.store.values.get(keys.monthSpend(NOW))!) - 0.072) < 2e-6, "three calls charged");
   });
 });
 
@@ -153,7 +154,7 @@ describe("input validation", () => {
 
 describe("rate limits", () => {
   test("per IP per hour, with Retry-After until the next hour", async () => {
-    const h = harness({ env: { IP_TURNS_PER_HOUR: "2" }, outputs: Array(3).fill(JSON.stringify(CONVO.steps[0].turn)) });
+    const h = harness({ env: { IP_TURNS_PER_HOUR: "2" }, outputs: firstTurn(3) });
     assert.equal((await handleTurn(request({ session: emptySession("2026-10-11-0001") }), h.deps)).status, 200);
     assert.equal((await handleTurn(request({ session: emptySession("2026-10-11-0002") }), h.deps)).status, 200);
     const third = await handleTurn(request({ session: emptySession("2026-10-11-0003") }), h.deps);
@@ -163,7 +164,7 @@ describe("rate limits", () => {
   });
 
   test("different IPs are counted separately, and raw IPs are never stored", async () => {
-    const h = harness({ env: { IP_TURNS_PER_HOUR: "1" }, outputs: Array(2).fill(JSON.stringify(CONVO.steps[0].turn)) });
+    const h = harness({ env: { IP_TURNS_PER_HOUR: "1" }, outputs: firstTurn(2) });
     assert.equal((await handleTurn(request({}, { "x-forwarded-for": "198.51.100.1" }), h.deps)).status, 200);
     assert.equal((await handleTurn(request({ session: emptySession("2026-10-11-0004") }, { "x-forwarded-for": "198.51.100.2" }), h.deps)).status, 200);
     assert.ok([...h.store.values.keys()].every((k) => !k.includes("198.51.100")));
@@ -180,7 +181,7 @@ describe("rate limits", () => {
 
 describe("Turnstile", () => {
   test("verified once per session, then not asked again", async () => {
-    const h = harness({ outputs: [JSON.stringify(CONVO.steps[0].turn), JSON.stringify(CONVO.steps[0].turn)] });
+    const h = harness({ outputs: firstTurn(2) });
     assert.equal((await handleTurn(request({ turnstileToken: "first" }), h.deps)).status, 200);
     assert.equal((await handleTurn(request({ turnstileToken: undefined }), h.deps)).status, 200);
     assert.deepEqual(h.verifications, ["first"]);
@@ -333,5 +334,31 @@ describe("config endpoint and helpers", () => {
     assert.equal(sent!.get("secret"), "secret");
     assert.equal(sent!.get("remoteip"), "203.0.113.9");
     assert.deepEqual(await verifyTurnstile("", null, "secret", fake), { ok: false, errors: ["missing-input-response"] });
+  });
+});
+
+describe("the summary's Confirm button", () => {
+  test("scores and gates with no model call, and adds no message", async () => {
+    const { runEngineTurn } = await import("../src/engine/turn.ts");
+    const { emptyV2Session, scriptedProvider } = await import("./helpers.ts");
+    let s = emptyV2Session("2026-10-11-beef");
+    const transcript: Array<{ role: "user"; text: string; at: string }> = [];
+    const replies: string[] = [];
+    // Replay the worked example up to its summary (every step but the user's "yes").
+    for (const [i, step] of CONVO.steps.slice(0, -1).entries()) {
+      transcript.push({ role: "user", text: step.user, at: `2026-10-11T12:${String(i).padStart(2, "0")}:00.000Z` });
+      const out = await runEngineTurn({ provider: scriptedProvider(step), fw, session: s, transcript, replies, now: () => `2026-10-11T12:${String(i).padStart(2, "0")}:30.000Z` });
+      s = out.session;
+      replies.push(out.reply);
+    }
+    assert.equal(s.session.engine?.phase, "summary");
+    const h = harness({ outputs: [] });
+    const res = await handleTurn(request({ session: s, transcript, replies, action: "confirm" }), h.deps);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    assert.equal(res.body.confirmed, true);
+    const done = res.body.session as Session;
+    assert.deepEqual(done.items.map((i) => i.gate?.decision), ["go", "dont_build"]);
+    assert.equal((res.body.transcript as unknown[]).length, transcript.length, "no new message");
+    assert.equal((res.body.usage as { calls: number }).calls, 0, "no model call");
   });
 });

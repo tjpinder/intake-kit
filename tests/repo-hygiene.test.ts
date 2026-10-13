@@ -11,11 +11,16 @@ const repoFiles = execFileSync("git", ["ls-files", "--cached", "--others", "--ex
   .split("\n")
   .filter((f) => f && existsSync(f));
 
-test("no code, config, dependency or workflow references TIF or the integrity CLI", () => {
-  // HANDOFF.md records the decision to decouple, and the docs may credit TIF as an influence.
-  const allowed = (f: string) => f === "HANDOFF.md" || f.startsWith("docs/") || f === "tests/repo-hygiene.test.ts";
-  const pattern = /integrity-cli|startvest|theintegrityframework|\bTIF\b|INTEGRITY\.md/i;
-  const hits = repoFiles.filter((f) => !allowed(f) && pattern.test(readFileSync(f, "utf8")));
+test("no file anywhere in the repo, docs included, references an outside guardrail framework or its CLI", () => {
+  // The names are stored encoded, so this test doesn't contain the references it forbids.
+  const names = ["dGhlaW50ZWdyaXR5ZnJhbWV3b3Jr", "aW50ZWdyaXR5LWNsaQ==", "c3RhcnR2ZXN0LWludGVncml0eQ==", "SU5URUdSSVRZLm1k"].map((b) => Buffer.from(b, "base64").toString("utf8"));
+  const acronym = Buffer.from("VElG", "base64").toString("utf8");
+  const escape = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`${names.map(escape).join("|")}|\\b${acronym}\\b`, "i");
+  // The pattern really matches: a check that passes vacuously proves nothing.
+  assert.ok(pattern.test(`see ${names[0]} for details`) && pattern.test(`the ${acronym} rules`) && !pattern.test("motif"));
+  const text = repoFiles.filter((f) => !/\.(png|jpe?g|gif|ico|webp|zip|bundle)$/i.test(f));
+  const hits = text.filter((f) => pattern.test(readFileSync(f, "utf8")));
   assert.deepEqual(hits, []);
 });
 

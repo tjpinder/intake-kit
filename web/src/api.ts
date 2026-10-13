@@ -21,20 +21,24 @@ export type ProviderSettings =
   | { kind: "claude"; key: string; model: string };
 
 export interface TurnResponse {
-  result: "applied" | "rejected" | "invalid";
+  /** applied: saved. send_again: the model calls failed; nothing was recorded. */
+  result: "applied" | "send_again";
   reply: string;
   confirmed: boolean;
   session: Session;
   transcript: TranscriptEntry[];
   usage: { calls: number; inputTokens: number; outputTokens: number; costUSD: number | null };
-  debug?: { attempts: TurnDebug["attempts"] };
+  debug?: { calls: TurnDebug["calls"]; events: string[] };
 }
 
 /** One turn as the debug log keeps it: each attempt's raw output, rejections and warnings. */
 export interface TurnDebug {
   at: string;
   result: TurnResponse["result"];
-  attempts: Array<{ model: string; text: string; rejections: Array<{ path: string; reason: string }>; warnings: string[] }>;
+  /** Each model call: its raw output, and whether it passed its schema. */
+  calls: Array<{ name: string; model: string; text: string; ok: boolean; problem: string | null }>;
+  /** What code did with it. */
+  events: string[];
 }
 
 export class ApiError extends Error {
@@ -66,6 +70,8 @@ export async function sendTurn(args: {
   provider: ProviderSettings;
   turnstileToken?: string;
   signal?: AbortSignal;
+  /** The summary's Confirm button. */
+  action?: "confirm";
 }): Promise<TurnResponse> {
   const headers: Record<string, string> = { "content-type": "application/json" };
   const p = args.provider;
@@ -89,6 +95,7 @@ export async function sendTurn(args: {
         provider: p.kind,
         ...(p.kind === "claude" ? { claudeModel: p.model } : {}),
         ...(args.turnstileToken ? { turnstileToken: args.turnstileToken } : {}),
+        ...(args.action ? { action: args.action } : {}),
       }),
     });
   } catch {

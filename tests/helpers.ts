@@ -87,3 +87,29 @@ export function makeSession(items: Item[], opts: { confirmed?: boolean | null; c
     items,
   };
 }
+
+/** One step of a v2 conversation fixture: what the user said and the model outputs the engine asks for, in order. */
+export interface V2Step { user: string; model: Array<{ call: string; output: unknown }> }
+
+/** A provider that answers each engine call from the step's script, by call name. */
+export function scriptedProvider(step: V2Step) {
+  const queue = [...step.model];
+  return {
+    name: "azure-openai" as const,
+    async complete(req: { format?: { name: string } }) {
+      const i = queue.findIndex((m) => m.call === req.format?.name);
+      if (i < 0) throw new Error(`the script has no ${req.format?.name} for "${step.user.slice(0, 40)}"`);
+      return { text: JSON.stringify(queue.splice(i, 1)[0].output), model: "gpt-4.1-mini", usage: { inputTokens: 1000, outputTokens: 100, cachedInputTokens: 0 } };
+    },
+  };
+}
+
+export function emptyV2Session(id = "2026-10-14-beef"): Session {
+  const seeded = () => ({ status: "unknown" as const, value: null, quotes: [] as string[], probe_count: 0 });
+  return {
+    schema_version: 1, framework_version: "0.1.0",
+    session: { id, started_at: "2026-10-14T09:00:00.000Z", mode: "stakeholder", provider: "azure-openai", grounding: "transcript", reflect_back: null, asked: {} },
+    core: { users: seeded(), outcome: seeded(), data: seeded(), systems: seeded(), constraints: seeded(), trust: seeded() },
+    items: [],
+  };
+}

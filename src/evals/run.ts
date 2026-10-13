@@ -10,7 +10,9 @@ import { usableBand } from "../lib/score.ts";
 import { buildSummary, summaryIndex, summaryText } from "../lib/summary.ts";
 import { coverageFor, isCaptured, type Item, type Session } from "../lib/session.ts";
 import { costUSD } from "../llm/pricing.ts";
-import { runTurn } from "../llm/turn-loop.ts";
+import { runEngineTurn } from "../engine/turn.ts";
+import { newEngine, TURN_BUDGET } from "../engine/types.ts";
+import { PRICES } from "../llm/pricing.ts";
 import type { ChatMessage, Provider } from "../llm/types.ts";
 import type { Persona } from "./personas.ts";
 import type { Simulator } from "./simulator.ts";
@@ -31,6 +33,8 @@ export interface RunRecord {
   rejections: Array<{ turn: number; attempt: number; path: string; reason: string }>;
   /** The model's raw output for every attempt, for diagnosis. */
   rawTurns: Array<{ turn: number; attempt: number; text: string }>;
+  /** What the engine did each turn (applied answers, probes, checks, spawns), for diagnosis. */
+  events: string[];
   costUSD: number;
   seconds: number;
   session: Session;
@@ -62,7 +66,7 @@ function emptySession(id: string, provider: Session["session"]["provider"], now:
   return {
     schema_version: 1,
     framework_version: "0.1.0",
-    session: { id, started_at: now.toISOString(), mode: "stakeholder", provider, grounding: "transcript", reflect_back: null, asked: {} },
+    session: { id, started_at: now.toISOString(), mode: "stakeholder", provider, grounding: "transcript", reflect_back: null, asked: {}, engine: newEngine() },
     core: { users: seeded(), outcome: seeded(), data: seeded(), systems: seeded(), constraints: seeded(), trust: seeded() },
     items: [],
   };
@@ -183,20 +187,23 @@ export async function runInterview(args: InterviewArgs): Promise<RunRecord> {
   let error: string | null = null;
   const rejections: RunRecord["rejections"] = [];
   const rawTurns: RunRecord["rawTurns"] = [];
+  const events: string[] = [];
   const spend = (usd: number) => { cost += usd; args.onSpend?.(usd); };
   let userText = args.persona.opening;
 
-  for (let turn = 0; turn < (args.maxTurns ?? 30); turn++) {
+  // The engine forces the summary at its turn budget; a few more turns let the user confirm it.
+  for (let turn = 0; turn < (args.maxTurns ?? TURN_BUDGET + 4); turn++) {
     if (args.shouldStop?.()) { error = "stopped: budget reached"; break; }
     transcript.push({ role: "user", text: userText, at: now() });
     try {
-      const out = await runTurn({ provider: args.interviewer, fw: args.fw, skill: args.skill, session, transcript, replies, now });
-      out.attempts.forEach((a, attempt) => {
-        spend(costUSD(args.interviewerModel, a.usage));
-        for (const r of a.rejections) rejections.push({ turn, attempt: attempt + 1, path: r.path, reason: r.reason });
-        rawTurns.push({ turn, attempt: attempt + 1, text: a.text });
+      const out = await runEngineTurn({ provider: args.interviewer, fw: args.fw, session, transcript, replies, now });
+      out.calls.forEach((c, attempt) => {
+        spend(costUSD(c.model in PRICES ? c.model : args.interviewerModel, c.usage));
+        if (!c.ok) rejections.push({ turn, attempt: attempt + 1, path: c.name, reason: c.problem ?? "unusable output" });
+        rawTurns.push({ turn, attempt: attempt + 1, text: `${c.name}: ${c.text}` });
       });
-      if (out.attempts.length > 1) retriedTurns++;
+      events.push(...out.events.map((e) => `t${turn}: ${e}`));
+      if (out.calls.some((c) => !c.ok)) retriedTurns++;
       if (out.result !== "applied") failedTurns++;
       session = out.session;
       replies.push(out.reply);
@@ -236,6 +243,7 @@ export async function runInterview(args: InterviewArgs): Promise<RunRecord> {
     error,
     rejections,
     rawTurns,
+    events,
     costUSD: cost,
     seconds: (Date.now() - started) / 1000,
     session,
@@ -248,7 +256,7 @@ export async function runInterview(args: InterviewArgs): Promise<RunRecord> {
 const pct = (n: number, d: number) => (d ? `${Math.round((100 * n) / d)}%` : "n/a");
 
 /** Rates per persona and overall, as a markdown report. */
-export function report(records: RunRecord[], meta: { date: string; interviewerModel: string; simulatorModel: string; notRun: string[] }): string {
+export function report(records: RunRecord[], meta: { date: string; commit?: string; interviewerModel: string; simulatorModel: string; notRun: string[] }): string {
   const byPersona = new Map<string, RunRecord[]>();
   for (const r of records) byPersona.set(r.persona, [...(byPersona.get(r.persona) ?? []), r]);
   const row = (name: string, rs: RunRecord[]) => {
@@ -265,7 +273,7 @@ export function report(records: RunRecord[], meta: { date: string; interviewerMo
   const lines = [
     "# Persona eval report",
     "",
-    `Run ${meta.date}. Interviewer: ${meta.interviewerModel} (the real turn loop, same prompt and checks as the web app). Simulated user: ${meta.simulatorModel}, which sees each persona's situation and voice but never its expected outcome.`,
+    `Run ${meta.date}${meta.commit ? ` on commit ${meta.commit}` : ""}. Interviewer: ${meta.interviewerModel} (interview engine v2: code runs the interview; the model classifies and phrases, as in the web app). Simulated user: ${meta.simulatorModel}, which sees each persona's situation and voice but never its expected outcome.`,
     "",
     "Rates are across runs. Completed means the user confirmed the reflect-back within 30 turns. Gates are scored only for completed runs. Checks covers each persona's extra expectations (modifiers, AI overlay, quadrant, unknown critical areas, items that mustn't appear, areas the interviewer must record, band picks). Captured answers are the user's replies stored word for word because the interviewer didn't record them; they never count as scoring evidence. Retried means the model's first attempt at a turn was rejected by the app's checks; failed means nothing from that turn could be saved.",
     "",

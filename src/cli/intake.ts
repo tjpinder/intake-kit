@@ -14,19 +14,22 @@
 // 4 needs a decision from the user, 5 rendered but some files need the user's OK to overwrite,
 // 1 unexpected error.
 
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
 import { loadFramework, readTemplates } from "../lib/framework-fs.ts";
-import { applyTurn } from "../lib/apply-turn.ts";
+import { runEngineTurn } from "../engine/turn.ts";
+import { newEngine } from "../engine/types.ts";
+import { validateExtract, validateOpening, validatePhrase, validateWriteUp } from "../lib/schemas.ts";
+import { ProviderError, type Provider, type TurnRequest } from "../llm/types.ts";
 import { guide, statusOf } from "../lib/guide.ts";
 import { renderAll } from "../lib/render.ts";
 import { buildSummary, summaryText } from "../lib/summary.ts";
 import { lineDiff } from "../lib/diff.ts";
 import { readConfig } from "../lib/checks.ts";
 import {
-  archive, archiveText, ensureStateDir, paths, pluginRoot, readRunState, readSession, readTranscript,
+  appendReply, appendTranscript, archive, archiveText, ensureStateDir, paths, pluginRoot, readReplies, readSession, readTranscript,
   writeRunState, writeSession, writeTranscript,
 } from "../lib/state.ts";
 import type { Session } from "../lib/session.ts";
@@ -88,6 +91,7 @@ function start(dir: string, opts: { mode: string; provider: string; grounding: s
       grounding: opts.grounding as Session["session"]["grounding"],
       reflect_back: null,
       asked: {},
+      engine: newEngine(),
     },
     core: { users: seeded(), outcome: seeded(), data: seeded(), systems: seeded(), constraints: seeded(), trust: seeded() },
     items: [],
@@ -103,62 +107,6 @@ function start(dir: string, opts: { mode: string; provider: string; grounding: s
     }
   }
   return out(0, { result: "started", session_id: session.session.id, session_file: p.session, warnings, status: statusOf(session, fw) });
-}
-
-function applyTurnCommand(dir: string, turnFile: string) {
-  const p = paths(dir);
-  const session = readSession(dir);
-  if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
-  if (!existsSync(turnFile)) return out(4, { result: "no_turn", message: `Write the turn JSON to ${turnFile} first.` });
-
-  let turn: unknown;
-  try {
-    turn = JSON.parse(readFileSync(turnFile, "utf8"));
-  } catch (err) {
-    turn = { __unparseable: (err as Error).message };
-  }
-  const transcript = session.session.grounding === "transcript" ? (readTranscript(dir) ?? []) : null;
-  const fw = loadFramework(pluginRoot());
-  const state = readRunState(dir);
-  // A first attempt that doesn't record the answer to its own last question is sent back; the retry may capture it.
-  const result = applyTurn(session, turn, { fw, transcript, now: now(), lastReply: state.shown_reply ?? undefined, capture: state.consecutive_rejections > 0 });
-
-  if (!result.applied) {
-    const attempt = state.consecutive_rejections + 1;
-    writeFileSync(p.rejections, JSON.stringify({ at: now(), attempt, rejections: result.rejections }) + "\n", { flag: "a" });
-    if (attempt === 1) {
-      writeRunState(dir, { ...state, consecutive_rejections: 1 });
-      return out(2, {
-        result: "rejected",
-        retry: true,
-        message: "Nothing was saved. Fix these and write the whole turn again, then rerun apply-turn. Don't show the reply to the user yet.",
-        rejections: result.rejections,
-      });
-    }
-    const reply = (turn as { reply?: unknown })?.reply;
-    writeRunState(dir, { consecutive_rejections: 0, shown_reply: typeof reply === "string" ? reply : null });
-    return out(3, {
-      result: "rejected",
-      retry: false,
-      message: "Rejected twice in a row, so nothing from this turn was saved. Say your reply to the user and carry on; capture these answers again on a later turn.",
-      rejections: result.rejections,
-    });
-  }
-
-  writeSession(dir, result.session);
-  writeRunState(dir, { consecutive_rejections: 0 });
-  const rb = result.session.session.reflect_back;
-  const proposed = !!rb && !rb.confirmed && rb.proposed_at !== session.session.reflect_back?.proposed_at;
-  if (result.confirmed && existsSync(p.marker)) rmSync(p.marker); // interview over: stop recording prompts
-  return out(0, {
-    result: "applied",
-    scored: result.confirmed,
-    ...(result.confirmed
-      ? { gates: result.session.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons, revisit_trigger: i.gate?.revisit_trigger })) }
-      : { status: statusOf(result.session, fw, transcript ?? []) }),
-    // The playback is built from the session by code, never from the model's reply.
-    ...(proposed ? { summary: summaryText(buildSummary(result.session, fw)) } : {}),
-  });
 }
 
 function renderCommand(dir: string, overwrite: string[], keep: string[]) {
@@ -232,12 +180,117 @@ function renderCommand(dir: string, overwrite: string[], keep: string[]) {
   });
 }
 
-function main() {
+/** A call the engine needs that Claude hasn't answered yet this turn. */
+class NeedCall extends ProviderError {
+  readonly call: string;
+  readonly request: TurnRequest;
+  constructor(call: string, request: TurnRequest) {
+    super(`needs ${call}`, { kind: "config" });
+    this.call = call;
+    this.request = request;
+  }
+}
+
+const VALIDATE: Record<string, (d: unknown) => { ok: boolean; errors: string[] }> = {
+  classify_opening: validateOpening, phrase: validatePhrase, extract: validateExtract, write_up: validateWriteUp,
+};
+
+/**
+ * One user turn through interview engine v2, with Claude as the model. The engine decides
+ * everything; when it needs a model call (classify the opening, phrase the next question, extract
+ * the reply, write up an item), this stops with exit 6 and the call's instructions. Claude writes
+ * its answer to .intake-kit/calls/<call>.json (a JSON array: one entry per call of that kind this
+ * turn) and runs `turn` again. The turn is saved only once it completes.
+ */
+async function turnCommand(dir: string, message: string | undefined) {
+  const p = paths(dir);
+  const session = readSession(dir);
+  if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
+  // Without the prompt hook (grounding unverified), Claude passes the user's message itself.
+  if (message !== undefined) {
+    ensureStateDir(dir);
+    appendTranscript(dir, { role: "user", text: message, at: now() });
+  }
+  const transcript = readTranscript(dir) ?? [];
+  const users = transcript.filter((t) => t.role === "user");
+  const engine = session.session.engine;
+  if (users.length === 0 || (engine && engine.turns >= users.length && engine.phase !== "opening")) {
+    return out(4, { result: "waiting", message: "Nothing new from the user yet. Ask your question and wait for their reply." });
+  }
+
+  // The outputs Claude has written for this turn, checked against each call's schema first.
+  const queues: Record<string, unknown[]> = {};
+  if (existsSync(p.calls)) {
+    for (const file of readdirSync(p.calls).filter((f) => f.endsWith(".json"))) {
+      const name = file.slice(0, -5);
+      if (!VALIDATE[name]) return out(4, { result: "bad_call_file", message: `${file} isn't a call this engine makes` });
+      let data: unknown;
+      try { data = JSON.parse(readFileSync(join(p.calls, file), "utf8")); } catch (err) { return out(2, { result: "invalid", call: name, errors: [`not JSON: ${(err as Error).message}`] }); }
+      const list = Array.isArray(data) ? data : [data];
+      for (const [i, d] of list.entries()) {
+        const v = VALIDATE[name](d);
+        if (!v.ok) return out(2, { result: "invalid", call: name, entry: i, errors: v.errors, message: `Fix ${file} and run turn again.` });
+      }
+      queues[name] = list;
+    }
+  }
+  const provider: Provider = {
+    name: "claude",
+    async complete(request: TurnRequest) {
+      const name = request.format!.name;
+      const next = queues[name]?.shift();
+      if (next === undefined) throw new NeedCall(name, request);
+      return { text: JSON.stringify(next), model: "claude", usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 } };
+    },
+  };
+  const fw = loadFramework(pluginRoot());
+  let outcome;
+  try {
+    outcome = await runEngineTurn({ provider, fw, session, transcript, replies: readReplies(dir), now });
+  } catch (err) {
+    if (!(err instanceof NeedCall)) throw err;
+    const already = queuesUsed(p.calls, err.call);
+    return out(6, {
+      result: "needs",
+      call: err.call,
+      write_to: join(".intake-kit", "calls", `${err.call}.json`),
+      how: already
+        ? `Add your answer as one more entry to the JSON array already in that file (it holds ${already}), then run turn again.`
+        : "Write a JSON array holding your one answer, then run turn again.",
+      instructions: err.request.system,
+      input: err.request.context,
+      schema: err.request.format?.name,
+    });
+  }
+  if (outcome.result !== "applied") return out(3, { result: "send_again", message: "The answers in .intake-kit/calls didn't fit. Ask the user to send their message again.", events: outcome.events });
+  writeSession(dir, outcome.session);
+  appendReply(dir, outcome.reply);
+  if (existsSync(p.calls)) rmSync(p.calls, { recursive: true, force: true });
+  const phase = outcome.session.session.engine?.phase;
+  if (outcome.confirmed && existsSync(p.marker)) rmSync(p.marker); // interview over: stop recording prompts
+  return out(0, {
+    result: "applied",
+    reply: outcome.reply,
+    // The playback is built from the session by code; show it under the reply, word for word.
+    ...(phase === "summary" ? { summary: summaryText(buildSummary(outcome.session, fw)) } : {}),
+    ...(outcome.confirmed ? { gates: outcome.session.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons, revisit_trigger: i.gate?.revisit_trigger })) } : {}),
+    events: outcome.events,
+  });
+}
+
+function queuesUsed(dir: string, call: string): number {
+  const file = join(dir, `${call}.json`);
+  if (!existsSync(file)) return 0;
+  try { const d = JSON.parse(readFileSync(file, "utf8")); return Array.isArray(d) ? d.length : 1; } catch { return 0; }
+}
+
+async function main() {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
     options: {
       dir: { type: "string" },
       turn: { type: "string" },
+      message: { type: "string" },
       mode: { type: "string", default: "stakeholder" },
       provider: { type: "string", default: "claude" },
       grounding: { type: "string", default: "transcript" },
@@ -261,8 +314,8 @@ function main() {
       choice("grounding", values.grounding!, ["transcript", "unverified"]);
       if (values.new && values.resume) out(4, { result: "bad_option", message: "use --new or --resume, not both" });
       return start(dir, { mode: values.mode!, provider: values.provider!, grounding: values.grounding!, new: values.new!, resume: values.resume! });
-    case "apply-turn":
-      return applyTurnCommand(dir, values.turn ?? paths(dir).turn);
+    case "turn":
+      return await turnCommand(dir, values.message);
     case "render":
       return renderCommand(dir, values.overwrite as string[], values.keep as string[]);
     case "status": {
@@ -274,13 +327,11 @@ function main() {
       process.stdout.write(guide(loadFramework(pluginRoot())));
       return;
     default:
-      return out(4, { result: "bad_command", message: "usage: intake.mjs start | apply-turn | render | status | guide  (see the header of src/cli/intake.ts)" });
+      return out(4, { result: "bad_command", message: "usage: intake.mjs start | turn [--message text] | render | status | guide  (see the header of src/cli/intake.ts)" });
   }
 }
 
-try {
-  main();
-} catch (err) {
+main().catch((err) => {
   process.stderr.write(`intake-kit: ${(err as Error).message}\n`);
   process.exit(1);
-}
+});

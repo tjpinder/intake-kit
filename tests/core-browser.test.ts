@@ -8,6 +8,7 @@ import { build } from "esbuild";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { readFrameworkSources, readTemplates } from "../src/lib/framework-fs.ts";
+import { emptyV2Session, scriptedProvider, type V2Step } from "./helpers.ts";
 
 test("src/core.ts bundles for the browser with no Node built-ins", async () => {
   const result = await build({
@@ -29,26 +30,22 @@ test("the browser core runs a full intake from YAML text: replay, score, gate, r
   const fw = core.buildFramework(readFrameworkSources("."), { parseYaml });
   const convo = JSON.parse(readFileSync("tests/fixtures/conversations/pick-exception.json", "utf8"));
 
-  let session: import("../src/core.ts").Session = {
-    schema_version: 1,
-    framework_version: fw.router.framework_version,
-    session: { id: "2026-10-11-a1b2", started_at: "2026-10-11T12:00:00.000Z", mode: "stakeholder", provider: "azure-openai", grounding: "transcript", reflect_back: null },
-    core: Object.fromEntries(["users", "outcome", "data", "systems", "constraints", "trust"].map((k) => [k, { status: "unknown", value: null, quotes: [], probe_count: 0 }])) as any,
-    items: [],
-  };
+  let session = emptyV2Session("2026-10-11-a1b2");
   // In the app the transcript is the chat itself: every user message, exactly as typed.
   const transcript: import("../src/core.ts").TranscriptEntry[] = [];
-  convo.steps.forEach((step: { user: string; turn: object }, i: number) => {
+  const replies: string[] = [];
+  for (const [i, step] of (convo.steps as V2Step[]).entries()) {
     transcript.push({ role: "user", text: step.user, at: `2026-10-11T12:${String(i * 2).padStart(2, "0")}:00.000Z` });
     const now = `2026-10-11T12:${String(i * 2 + 1).padStart(2, "0")}:00.000Z`;
-    const r = core.applyTurn(session, step.turn, { fw, transcript, now });
-    assert.deepEqual(r.rejections, [], `step ${i}`);
+    const r = await core.runEngineTurn({ provider: scriptedProvider(step), fw, session, transcript, replies, now: () => now });
+    assert.equal(r.result, "applied", `step ${i}`);
     session = r.session;
-  });
+    replies.push(r.reply);
+  }
 
   assert.deepEqual(session.items.map((i) => i.gate?.decision), ["go", "dont_build"]);
   const files = core.renderAll(session, fw, readTemplates("."));
-  assert.ok(files.get("SPEC.md")!.includes('[core.users] "I build it, the shift leads use it Tuesday"'));
+  assert.ok(files.get("SPEC.md")!.includes('[core.users] "I build it, the three shift leads use it on Tuesday, and the DC manager signs off on retraining"'));
   assert.equal(core.statusOf(session, fw).reflect_back, "confirmed");
 });
 

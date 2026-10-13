@@ -23,6 +23,10 @@ export function paths(dir: string) {
     state: join(state, "state.json"),
     archive: join(state, "archive"),
     gitignore: join(state, ".gitignore"),
+    /** Interview engine v2 in the plugin: the model outputs for the turn in progress, one file per call. */
+    calls: join(state, "calls"),
+    /** The replies shown to the user, one per line, so the next question can follow the conversation. */
+    replies: join(state, "replies.jsonl"),
   };
 }
 
@@ -78,6 +82,16 @@ export function writeTranscript(dir: string, entries: TranscriptEntry[]): void {
 
 export function appendTranscript(dir: string, entry: TranscriptEntry): void {
   appendFileSync(paths(dir).transcript, JSON.stringify(entry) + "\n");
+}
+
+export function readReplies(dir: string): string[] {
+  const file = paths(dir).replies;
+  if (!existsSync(file)) return [];
+  return readFileSync(file, "utf8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l) as string);
+}
+
+export function appendReply(dir: string, reply: string): void {
+  appendFileSync(paths(dir).replies, JSON.stringify(reply) + "\n");
 }
 
 export function readSession(dir: string): Session | null {

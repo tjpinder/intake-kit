@@ -7379,7 +7379,7 @@ var require_dist = __commonJS({
 });
 
 // src/cli/intake.ts
-import { existsSync as existsSync4, mkdirSync as mkdirSync2, readFileSync as readFileSync4, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
+import { existsSync as existsSync4, mkdirSync as mkdirSync2, readFileSync as readFileSync4, readdirSync as readdirSync3, rmSync, writeFileSync as writeFileSync2 } from "node:fs";
 import { dirname as dirname2, join as join4 } from "node:path";
 import { createHash, randomBytes } from "node:crypto";
 import { parseArgs } from "node:util";
@@ -7409,24 +7409,8 @@ function ucs2length(str) {
   for (const _ of str) length++;
   return length;
 }
-var DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:[Zz]|([+-])(\d{2}):(\d{2}))$/;
-function dateTime(s) {
-  const m = DATE_TIME.exec(s);
-  if (!m) return false;
-  const [y, mo, d, h, mi, se] = m.slice(1, 7).map(Number);
-  const leap = y % 4 === 0 && y % 100 !== 0 || y % 400 === 0;
-  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1];
-  if (!days || d < 1 || d > days || h > 23 || mi > 59 || se > 60) return false;
-  const sign = m[7] === "-" ? -1 : 1, tzH = Number(m[8] ?? 0), tzM = Number(m[9] ?? 0);
-  if (tzH > 23 || tzM > 59) return false;
-  if (se < 60) return true;
-  const utcMin = mi - tzM * sign;
-  const utcHr = h - tzH * sign - (utcMin < 0 ? 1 : 0);
-  return (utcHr === 23 || utcHr === -1) && (utcMin === 59 || utcMin === -1);
-}
 var equal = { default: deepEqual };
 var ucs2 = { default: ucs2length };
-var formats = { fullFormats: { "date-time": { validate: dateTime } } };
 
 // src/lib/generated/framework-validators.js
 var router = validate53;
@@ -11541,7 +11525,7 @@ import { join } from "node:path";
 
 // src/lib/generated/schema-facts.js
 var factNames = {
-  "turn": [
+  "writeup": [
     "rule_clarity",
     "input_digital",
     "input_structured",
@@ -11614,7 +11598,7 @@ function check(validators, kind, data, file, issues) {
   }
 }
 function schemaFactNames() {
-  return { turn: factNames.turn, session: factNames.session };
+  return { writeup: factNames.writeup, session: factNames.session };
 }
 function buildFramework(sources, options = {}) {
   const { parseYaml: parseYaml4, schemas } = options;
@@ -11706,12 +11690,12 @@ function buildFramework(sources, options = {}) {
     if (!scoring2.gate_facts[name]) issues.push(`scoring.yaml: gate_fact_notes names unknown gate fact ${name}`);
   }
   const fromScoring = [...factBands.keys()].sort();
-  const { turn, session } = schemaFactNames();
-  if (JSON.stringify(fromScoring) !== JSON.stringify([...turn].sort())) {
-    issues.push(`facts in scoring.yaml (${fromScoring.join(", ")}) don't match the turn schema (${[...turn].sort().join(", ")})`);
+  const { writeup, session } = schemaFactNames();
+  if (JSON.stringify(fromScoring) !== JSON.stringify([...writeup].sort())) {
+    issues.push(`facts in scoring.yaml (${fromScoring.join(", ")}) don't match the write-up schema (${[...writeup].sort().join(", ")})`);
   }
-  if (JSON.stringify([...turn].sort()) !== JSON.stringify([...session].sort())) {
-    issues.push("fact names in the turn and session schemas don't match");
+  if (JSON.stringify([...writeup].sort()) !== JSON.stringify([...session].sort())) {
+    issues.push("fact names in the write-up and session schemas don't match");
   }
   for (const [name, comp] of Object.entries(scoring2.composites)) {
     for (const c of Object.keys(comp.criteria)) if (!scoring2.criteria[c]) issues.push(`scoring.yaml: composite ${name} uses unknown criterion ${c}`);
@@ -11781,15 +11765,2121 @@ function readTemplates(root) {
   return Object.fromEntries(readdirSync(dir).filter((f) => f.endsWith(".md")).map((f) => [f, readFileSync(join(dir, f), "utf8")]));
 }
 
-// src/lib/grounding.ts
-function normalize(text) {
-  return text.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, "-").replace(/…/g, "...").replace(/\s+/g, " ").trim().toLowerCase();
+// src/lib/generated/v2-validators.js
+var validateOpening = validate52;
+var schema19 = { "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://github.com/tjpinder/intake-kit/schema/v2/opening.schema.json", "title": "Opening classification (schema version 2, first turn only)", "description": "What the model returns for the user's opening statement. Code applies the negation rule, accepts the type or asks the one disambiguating probe, and records the areas the opening already answers.", "type": "object", "additionalProperties": false, "required": ["type", "confidence", "title", "trigger_quote", "modifiers", "also_answers"], "properties": { "type": { "type": "string", "enum": ["broken", "manual_process", "known_idea", "exploratory", "data_report"] }, "confidence": { "type": "string", "enum": ["high", "med", "low"] }, "title": { "type": "string", "description": "A short title for the item, in plain words." }, "trigger_quote": { "type": "string", "description": "The user's exact words, copied from one message they sent." }, "modifiers": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["modifier", "quote"], "properties": { "modifier": { "type": "string", "enum": ["integration", "compliance", "migration"] }, "quote": { "type": "string", "description": "The user's exact words, copied from one message they sent." } } } }, "also_answers": { "type": "array", "items": { "$ref": "#/$defs/also_answer" } } }, "$defs": { "also_answer": { "type": "object", "additionalProperties": false, "required": ["area", "value", "quote"], "properties": { "area": { "type": "string", "description": "A coverage ID from the list given." }, "value": { "type": "string" }, "quote": { "type": "string", "description": "The user's exact words, copied from one message they sent." } } } } };
+function validate532(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate532.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.area === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "area" }, message: "must have required property 'area'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.value === void 0) {
+      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "value" }, message: "must have required property 'value'" };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.quote === void 0) {
+      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "area" || key0 === "value" || key0 === "quote")) {
+        const err3 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err3];
+        } else {
+          vErrors.push(err3);
+        }
+        errors++;
+      }
+    }
+    if (data.area !== void 0) {
+      if (typeof data.area !== "string") {
+        const err4 = { instancePath: instancePath + "/area", schemaPath: "#/properties/area/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err4];
+        } else {
+          vErrors.push(err4);
+        }
+        errors++;
+      }
+    }
+    if (data.value !== void 0) {
+      if (typeof data.value !== "string") {
+        const err5 = { instancePath: instancePath + "/value", schemaPath: "#/properties/value/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err5];
+        } else {
+          vErrors.push(err5);
+        }
+        errors++;
+      }
+    }
+    if (data.quote !== void 0) {
+      if (typeof data.quote !== "string") {
+        const err6 = { instancePath: instancePath + "/quote", schemaPath: "#/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err7 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err7];
+    } else {
+      vErrors.push(err7);
+    }
+    errors++;
+  }
+  validate532.errors = vErrors;
+  return errors === 0;
 }
-function findQuote(quote, transcript) {
-  const q = normalize(quote);
-  if (!q) return null;
-  return transcript.find((entry) => entry.role === "user" && normalize(entry.text).includes(q)) ?? null;
+validate532.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+function validate52(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  ;
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate52.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.type === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "type" }, message: "must have required property 'type'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.confidence === void 0) {
+      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "confidence" }, message: "must have required property 'confidence'" };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.title === void 0) {
+      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "title" }, message: "must have required property 'title'" };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    if (data.trigger_quote === void 0) {
+      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "trigger_quote" }, message: "must have required property 'trigger_quote'" };
+      if (vErrors === null) {
+        vErrors = [err3];
+      } else {
+        vErrors.push(err3);
+      }
+      errors++;
+    }
+    if (data.modifiers === void 0) {
+      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "modifiers" }, message: "must have required property 'modifiers'" };
+      if (vErrors === null) {
+        vErrors = [err4];
+      } else {
+        vErrors.push(err4);
+      }
+      errors++;
+    }
+    if (data.also_answers === void 0) {
+      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "also_answers" }, message: "must have required property 'also_answers'" };
+      if (vErrors === null) {
+        vErrors = [err5];
+      } else {
+        vErrors.push(err5);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "type" || key0 === "confidence" || key0 === "title" || key0 === "trigger_quote" || key0 === "modifiers" || key0 === "also_answers")) {
+        const err6 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+    }
+    if (data.type !== void 0) {
+      let data0 = data.type;
+      if (typeof data0 !== "string") {
+        const err7 = { instancePath: instancePath + "/type", schemaPath: "#/properties/type/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err7];
+        } else {
+          vErrors.push(err7);
+        }
+        errors++;
+      }
+      if (!(data0 === "broken" || data0 === "manual_process" || data0 === "known_idea" || data0 === "exploratory" || data0 === "data_report")) {
+        const err8 = { instancePath: instancePath + "/type", schemaPath: "#/properties/type/enum", keyword: "enum", params: { allowedValues: schema19.properties.type.enum }, message: "must be equal to one of the allowed values" };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
+      }
+    }
+    if (data.confidence !== void 0) {
+      let data1 = data.confidence;
+      if (typeof data1 !== "string") {
+        const err9 = { instancePath: instancePath + "/confidence", schemaPath: "#/properties/confidence/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err9];
+        } else {
+          vErrors.push(err9);
+        }
+        errors++;
+      }
+      if (!(data1 === "high" || data1 === "med" || data1 === "low")) {
+        const err10 = { instancePath: instancePath + "/confidence", schemaPath: "#/properties/confidence/enum", keyword: "enum", params: { allowedValues: schema19.properties.confidence.enum }, message: "must be equal to one of the allowed values" };
+        if (vErrors === null) {
+          vErrors = [err10];
+        } else {
+          vErrors.push(err10);
+        }
+        errors++;
+      }
+    }
+    if (data.title !== void 0) {
+      if (typeof data.title !== "string") {
+        const err11 = { instancePath: instancePath + "/title", schemaPath: "#/properties/title/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err11];
+        } else {
+          vErrors.push(err11);
+        }
+        errors++;
+      }
+    }
+    if (data.trigger_quote !== void 0) {
+      if (typeof data.trigger_quote !== "string") {
+        const err12 = { instancePath: instancePath + "/trigger_quote", schemaPath: "#/properties/trigger_quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err12];
+        } else {
+          vErrors.push(err12);
+        }
+        errors++;
+      }
+    }
+    if (data.modifiers !== void 0) {
+      let data4 = data.modifiers;
+      if (Array.isArray(data4)) {
+        const len0 = data4.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          let data5 = data4[i0];
+          if (data5 && typeof data5 == "object" && !Array.isArray(data5)) {
+            if (data5.modifier === void 0) {
+              const err13 = { instancePath: instancePath + "/modifiers/" + i0, schemaPath: "#/properties/modifiers/items/required", keyword: "required", params: { missingProperty: "modifier" }, message: "must have required property 'modifier'" };
+              if (vErrors === null) {
+                vErrors = [err13];
+              } else {
+                vErrors.push(err13);
+              }
+              errors++;
+            }
+            if (data5.quote === void 0) {
+              const err14 = { instancePath: instancePath + "/modifiers/" + i0, schemaPath: "#/properties/modifiers/items/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
+              if (vErrors === null) {
+                vErrors = [err14];
+              } else {
+                vErrors.push(err14);
+              }
+              errors++;
+            }
+            for (const key1 in data5) {
+              if (!(key1 === "modifier" || key1 === "quote")) {
+                const err15 = { instancePath: instancePath + "/modifiers/" + i0, schemaPath: "#/properties/modifiers/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
+                if (vErrors === null) {
+                  vErrors = [err15];
+                } else {
+                  vErrors.push(err15);
+                }
+                errors++;
+              }
+            }
+            if (data5.modifier !== void 0) {
+              let data6 = data5.modifier;
+              if (typeof data6 !== "string") {
+                const err16 = { instancePath: instancePath + "/modifiers/" + i0 + "/modifier", schemaPath: "#/properties/modifiers/items/properties/modifier/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err16];
+                } else {
+                  vErrors.push(err16);
+                }
+                errors++;
+              }
+              if (!(data6 === "integration" || data6 === "compliance" || data6 === "migration")) {
+                const err17 = { instancePath: instancePath + "/modifiers/" + i0 + "/modifier", schemaPath: "#/properties/modifiers/items/properties/modifier/enum", keyword: "enum", params: { allowedValues: schema19.properties.modifiers.items.properties.modifier.enum }, message: "must be equal to one of the allowed values" };
+                if (vErrors === null) {
+                  vErrors = [err17];
+                } else {
+                  vErrors.push(err17);
+                }
+                errors++;
+              }
+            }
+            if (data5.quote !== void 0) {
+              if (typeof data5.quote !== "string") {
+                const err18 = { instancePath: instancePath + "/modifiers/" + i0 + "/quote", schemaPath: "#/properties/modifiers/items/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err18];
+                } else {
+                  vErrors.push(err18);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err19 = { instancePath: instancePath + "/modifiers/" + i0, schemaPath: "#/properties/modifiers/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            if (vErrors === null) {
+              vErrors = [err19];
+            } else {
+              vErrors.push(err19);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err20 = { instancePath: instancePath + "/modifiers", schemaPath: "#/properties/modifiers/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err20];
+        } else {
+          vErrors.push(err20);
+        }
+        errors++;
+      }
+    }
+    if (data.also_answers !== void 0) {
+      let data8 = data.also_answers;
+      if (Array.isArray(data8)) {
+        const len1 = data8.length;
+        for (let i1 = 0; i1 < len1; i1++) {
+          if (!validate532(data8[i1], { instancePath: instancePath + "/also_answers/" + i1, parentData: data8, parentDataProperty: i1, rootData, dynamicAnchors })) {
+            vErrors = vErrors === null ? validate532.errors : vErrors.concat(validate532.errors);
+            errors = vErrors.length;
+          }
+        }
+      } else {
+        const err21 = { instancePath: instancePath + "/also_answers", schemaPath: "#/properties/also_answers/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err21];
+        } else {
+          vErrors.push(err21);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err22 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err22];
+    } else {
+      vErrors.push(err22);
+    }
+    errors++;
+  }
+  validate52.errors = vErrors;
+  return errors === 0;
 }
+validate52.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var validatePhrase = validate55;
+function validate55(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  ;
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate55.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.question === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "question" }, message: "must have required property 'question'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "question")) {
+        const err1 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err1];
+        } else {
+          vErrors.push(err1);
+        }
+        errors++;
+      }
+    }
+    if (data.question !== void 0) {
+      if (typeof data.question !== "string") {
+        const err2 = { instancePath: instancePath + "/question", schemaPath: "#/properties/question/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err2];
+        } else {
+          vErrors.push(err2);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err3 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err3];
+    } else {
+      vErrors.push(err3);
+    }
+    errors++;
+  }
+  validate55.errors = vErrors;
+  return errors === 0;
+}
+validate55.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var validateExtract = validate562;
+var schema222 = { "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://github.com/tjpinder/intake-kit/schema/v2/extract.schema.json", "title": "Answer extraction (schema version 2)", "description": "How the user's reply answers the one question asked. Code applies it; the model never chooses areas, creates items or decides readiness.", "type": "object", "additionalProperties": false, "required": ["status", "value", "quote", "check", "wrap_up", "also_answers"], "properties": { "status": { "type": "string", "enum": ["answered", "partial", "not_applicable", "declined", "off_topic"] }, "value": { "type": ["string", "null"], "description": "What they said, in a short plain sentence. Null unless answered or partial." }, "quote": { "type": ["string", "null"], "description": "The user's exact words, copied from one message they sent. Null if there's nothing to quote." }, "check": { "type": "string", "enum": ["yes", "no", "unclear", "none"], "description": "Only for a check or confirmation question: yes, no or unclear. Otherwise none." }, "wrap_up": { "type": "boolean", "description": "True only if the user asked to stop or wrap up." }, "also_answers": { "type": "array", "items": { "$ref": "#/$defs/also_answer" } } }, "$defs": { "also_answer": { "type": "object", "additionalProperties": false, "required": ["area", "value", "quote"], "properties": { "area": { "type": "string", "description": "A coverage ID from the list given." }, "value": { "type": "string" }, "quote": { "type": "string", "description": "The user's exact words, copied from one message they sent." } } } } };
+function validate57(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate57.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.area === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "area" }, message: "must have required property 'area'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.value === void 0) {
+      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "value" }, message: "must have required property 'value'" };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.quote === void 0) {
+      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "area" || key0 === "value" || key0 === "quote")) {
+        const err3 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err3];
+        } else {
+          vErrors.push(err3);
+        }
+        errors++;
+      }
+    }
+    if (data.area !== void 0) {
+      if (typeof data.area !== "string") {
+        const err4 = { instancePath: instancePath + "/area", schemaPath: "#/properties/area/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err4];
+        } else {
+          vErrors.push(err4);
+        }
+        errors++;
+      }
+    }
+    if (data.value !== void 0) {
+      if (typeof data.value !== "string") {
+        const err5 = { instancePath: instancePath + "/value", schemaPath: "#/properties/value/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err5];
+        } else {
+          vErrors.push(err5);
+        }
+        errors++;
+      }
+    }
+    if (data.quote !== void 0) {
+      if (typeof data.quote !== "string") {
+        const err6 = { instancePath: instancePath + "/quote", schemaPath: "#/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err7 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err7];
+    } else {
+      vErrors.push(err7);
+    }
+    errors++;
+  }
+  validate57.errors = vErrors;
+  return errors === 0;
+}
+validate57.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+function validate562(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  ;
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate562.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.status === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "status" }, message: "must have required property 'status'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.value === void 0) {
+      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "value" }, message: "must have required property 'value'" };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.quote === void 0) {
+      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    if (data.check === void 0) {
+      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "check" }, message: "must have required property 'check'" };
+      if (vErrors === null) {
+        vErrors = [err3];
+      } else {
+        vErrors.push(err3);
+      }
+      errors++;
+    }
+    if (data.wrap_up === void 0) {
+      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "wrap_up" }, message: "must have required property 'wrap_up'" };
+      if (vErrors === null) {
+        vErrors = [err4];
+      } else {
+        vErrors.push(err4);
+      }
+      errors++;
+    }
+    if (data.also_answers === void 0) {
+      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "also_answers" }, message: "must have required property 'also_answers'" };
+      if (vErrors === null) {
+        vErrors = [err5];
+      } else {
+        vErrors.push(err5);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "status" || key0 === "value" || key0 === "quote" || key0 === "check" || key0 === "wrap_up" || key0 === "also_answers")) {
+        const err6 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+    }
+    if (data.status !== void 0) {
+      let data0 = data.status;
+      if (typeof data0 !== "string") {
+        const err7 = { instancePath: instancePath + "/status", schemaPath: "#/properties/status/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err7];
+        } else {
+          vErrors.push(err7);
+        }
+        errors++;
+      }
+      if (!(data0 === "answered" || data0 === "partial" || data0 === "not_applicable" || data0 === "declined" || data0 === "off_topic")) {
+        const err8 = { instancePath: instancePath + "/status", schemaPath: "#/properties/status/enum", keyword: "enum", params: { allowedValues: schema222.properties.status.enum }, message: "must be equal to one of the allowed values" };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
+      }
+    }
+    if (data.value !== void 0) {
+      let data1 = data.value;
+      if (typeof data1 !== "string" && data1 !== null) {
+        const err9 = { instancePath: instancePath + "/value", schemaPath: "#/properties/value/type", keyword: "type", params: { type: schema222.properties.value.type }, message: "must be string,null" };
+        if (vErrors === null) {
+          vErrors = [err9];
+        } else {
+          vErrors.push(err9);
+        }
+        errors++;
+      }
+    }
+    if (data.quote !== void 0) {
+      let data2 = data.quote;
+      if (typeof data2 !== "string" && data2 !== null) {
+        const err10 = { instancePath: instancePath + "/quote", schemaPath: "#/properties/quote/type", keyword: "type", params: { type: schema222.properties.quote.type }, message: "must be string,null" };
+        if (vErrors === null) {
+          vErrors = [err10];
+        } else {
+          vErrors.push(err10);
+        }
+        errors++;
+      }
+    }
+    if (data.check !== void 0) {
+      let data3 = data.check;
+      if (typeof data3 !== "string") {
+        const err11 = { instancePath: instancePath + "/check", schemaPath: "#/properties/check/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err11];
+        } else {
+          vErrors.push(err11);
+        }
+        errors++;
+      }
+      if (!(data3 === "yes" || data3 === "no" || data3 === "unclear" || data3 === "none")) {
+        const err12 = { instancePath: instancePath + "/check", schemaPath: "#/properties/check/enum", keyword: "enum", params: { allowedValues: schema222.properties.check.enum }, message: "must be equal to one of the allowed values" };
+        if (vErrors === null) {
+          vErrors = [err12];
+        } else {
+          vErrors.push(err12);
+        }
+        errors++;
+      }
+    }
+    if (data.wrap_up !== void 0) {
+      if (typeof data.wrap_up !== "boolean") {
+        const err13 = { instancePath: instancePath + "/wrap_up", schemaPath: "#/properties/wrap_up/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+        if (vErrors === null) {
+          vErrors = [err13];
+        } else {
+          vErrors.push(err13);
+        }
+        errors++;
+      }
+    }
+    if (data.also_answers !== void 0) {
+      let data5 = data.also_answers;
+      if (Array.isArray(data5)) {
+        const len0 = data5.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          if (!validate57(data5[i0], { instancePath: instancePath + "/also_answers/" + i0, parentData: data5, parentDataProperty: i0, rootData, dynamicAnchors })) {
+            vErrors = vErrors === null ? validate57.errors : vErrors.concat(validate57.errors);
+            errors = vErrors.length;
+          }
+        }
+      } else {
+        const err14 = { instancePath: instancePath + "/also_answers", schemaPath: "#/properties/also_answers/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err14];
+        } else {
+          vErrors.push(err14);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err15 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err15];
+    } else {
+      vErrors.push(err15);
+    }
+    errors++;
+  }
+  validate562.errors = vErrors;
+  return errors === 0;
+}
+validate562.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var validateWriteUp = validate59;
+var schema252 = { "type": "object", "additionalProperties": false, "required": ["item", "fact", "band", "evidence", "quote"], "properties": { "item": { "type": "string" }, "fact": { "type": "string", "enum": ["rule_clarity", "input_digital", "input_structured", "ways_done", "stability", "documentation", "steps_apps", "access", "value", "ai_applies", "eval_ability", "error_cost", "human_review", "simpler_option", "fallback", "sensitive_data", "push", "pull", "anxiety", "habit", "existing_asset", "decision_depends", "broken_cause", "workaround_permanent", "success_metric"] }, "band": { "type": "string", "description": "One of the band names scoring.yaml defines for this fact." }, "evidence": { "type": "array", "items": { "type": "string" }, "description": "Coverage IDs the band was derived from." }, "quote": { "type": ["string", "null"], "description": "The user's words behind the band, when there is one." } } };
+function validate602(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate602.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.item === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.fact === void 0) {
+      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "fact" }, message: "must have required property 'fact'" };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.band === void 0) {
+      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "band" }, message: "must have required property 'band'" };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    if (data.evidence === void 0) {
+      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "evidence" }, message: "must have required property 'evidence'" };
+      if (vErrors === null) {
+        vErrors = [err3];
+      } else {
+        vErrors.push(err3);
+      }
+      errors++;
+    }
+    if (data.quote === void 0) {
+      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
+      if (vErrors === null) {
+        vErrors = [err4];
+      } else {
+        vErrors.push(err4);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "item" || key0 === "fact" || key0 === "band" || key0 === "evidence" || key0 === "quote")) {
+        const err5 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err5];
+        } else {
+          vErrors.push(err5);
+        }
+        errors++;
+      }
+    }
+    if (data.item !== void 0) {
+      if (typeof data.item !== "string") {
+        const err6 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+    }
+    if (data.fact !== void 0) {
+      let data1 = data.fact;
+      if (typeof data1 !== "string") {
+        const err7 = { instancePath: instancePath + "/fact", schemaPath: "#/properties/fact/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err7];
+        } else {
+          vErrors.push(err7);
+        }
+        errors++;
+      }
+      if (!(data1 === "rule_clarity" || data1 === "input_digital" || data1 === "input_structured" || data1 === "ways_done" || data1 === "stability" || data1 === "documentation" || data1 === "steps_apps" || data1 === "access" || data1 === "value" || data1 === "ai_applies" || data1 === "eval_ability" || data1 === "error_cost" || data1 === "human_review" || data1 === "simpler_option" || data1 === "fallback" || data1 === "sensitive_data" || data1 === "push" || data1 === "pull" || data1 === "anxiety" || data1 === "habit" || data1 === "existing_asset" || data1 === "decision_depends" || data1 === "broken_cause" || data1 === "workaround_permanent" || data1 === "success_metric")) {
+        const err8 = { instancePath: instancePath + "/fact", schemaPath: "#/properties/fact/enum", keyword: "enum", params: { allowedValues: schema252.properties.fact.enum }, message: "must be equal to one of the allowed values" };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
+      }
+    }
+    if (data.band !== void 0) {
+      if (typeof data.band !== "string") {
+        const err9 = { instancePath: instancePath + "/band", schemaPath: "#/properties/band/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err9];
+        } else {
+          vErrors.push(err9);
+        }
+        errors++;
+      }
+    }
+    if (data.evidence !== void 0) {
+      let data3 = data.evidence;
+      if (Array.isArray(data3)) {
+        const len0 = data3.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          if (typeof data3[i0] !== "string") {
+            const err10 = { instancePath: instancePath + "/evidence/" + i0, schemaPath: "#/properties/evidence/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err10];
+            } else {
+              vErrors.push(err10);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err11 = { instancePath: instancePath + "/evidence", schemaPath: "#/properties/evidence/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err11];
+        } else {
+          vErrors.push(err11);
+        }
+        errors++;
+      }
+    }
+    if (data.quote !== void 0) {
+      let data5 = data.quote;
+      if (typeof data5 !== "string" && data5 !== null) {
+        const err12 = { instancePath: instancePath + "/quote", schemaPath: "#/properties/quote/type", keyword: "type", params: { type: schema252.properties.quote.type }, message: "must be string,null" };
+        if (vErrors === null) {
+          vErrors = [err12];
+        } else {
+          vErrors.push(err12);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err13 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err13];
+    } else {
+      vErrors.push(err13);
+    }
+    errors++;
+  }
+  validate602.errors = vErrors;
+  return errors === 0;
+}
+validate602.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var schema262 = { "type": "object", "additionalProperties": false, "required": ["item", "field", "text"], "properties": { "item": { "type": ["string", "null"] }, "field": { "type": "string", "enum": ["problem_statement", "current_state", "mvp", "out_of_scope", "mitigation"] }, "text": { "type": "string" } } };
+function validate62(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate62.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.item === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.field === void 0) {
+      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "field" }, message: "must have required property 'field'" };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.text === void 0) {
+      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "text" }, message: "must have required property 'text'" };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "item" || key0 === "field" || key0 === "text")) {
+        const err3 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err3];
+        } else {
+          vErrors.push(err3);
+        }
+        errors++;
+      }
+    }
+    if (data.item !== void 0) {
+      let data0 = data.item;
+      if (typeof data0 !== "string" && data0 !== null) {
+        const err4 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: schema262.properties.item.type }, message: "must be string,null" };
+        if (vErrors === null) {
+          vErrors = [err4];
+        } else {
+          vErrors.push(err4);
+        }
+        errors++;
+      }
+    }
+    if (data.field !== void 0) {
+      let data1 = data.field;
+      if (typeof data1 !== "string") {
+        const err5 = { instancePath: instancePath + "/field", schemaPath: "#/properties/field/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err5];
+        } else {
+          vErrors.push(err5);
+        }
+        errors++;
+      }
+      if (!(data1 === "problem_statement" || data1 === "current_state" || data1 === "mvp" || data1 === "out_of_scope" || data1 === "mitigation")) {
+        const err6 = { instancePath: instancePath + "/field", schemaPath: "#/properties/field/enum", keyword: "enum", params: { allowedValues: schema262.properties.field.enum }, message: "must be equal to one of the allowed values" };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+    }
+    if (data.text !== void 0) {
+      if (typeof data.text !== "string") {
+        const err7 = { instancePath: instancePath + "/text", schemaPath: "#/properties/text/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err7];
+        } else {
+          vErrors.push(err7);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err8 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err8];
+    } else {
+      vErrors.push(err8);
+    }
+    errors++;
+  }
+  validate62.errors = vErrors;
+  return errors === 0;
+}
+validate62.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var schema272 = { "type": "object", "additionalProperties": false, "required": ["item", "kind", "given", "when", "then", "evidence"], "properties": { "item": { "type": "string" }, "kind": { "type": "string", "enum": ["criterion", "error_case"] }, "given": { "type": "string" }, "when": { "type": "string" }, "then": { "type": "string" }, "evidence": { "type": "array", "items": { "type": "string" }, "description": "Coverage IDs with a recorded answer and quote." } } };
+function validate64(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate64.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.item === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.kind === void 0) {
+      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "kind" }, message: "must have required property 'kind'" };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.given === void 0) {
+      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "given" }, message: "must have required property 'given'" };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    if (data.when === void 0) {
+      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "when" }, message: "must have required property 'when'" };
+      if (vErrors === null) {
+        vErrors = [err3];
+      } else {
+        vErrors.push(err3);
+      }
+      errors++;
+    }
+    if (data.then === void 0) {
+      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "then" }, message: "must have required property 'then'" };
+      if (vErrors === null) {
+        vErrors = [err4];
+      } else {
+        vErrors.push(err4);
+      }
+      errors++;
+    }
+    if (data.evidence === void 0) {
+      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "evidence" }, message: "must have required property 'evidence'" };
+      if (vErrors === null) {
+        vErrors = [err5];
+      } else {
+        vErrors.push(err5);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "item" || key0 === "kind" || key0 === "given" || key0 === "when" || key0 === "then" || key0 === "evidence")) {
+        const err6 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+    }
+    if (data.item !== void 0) {
+      if (typeof data.item !== "string") {
+        const err7 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err7];
+        } else {
+          vErrors.push(err7);
+        }
+        errors++;
+      }
+    }
+    if (data.kind !== void 0) {
+      let data1 = data.kind;
+      if (typeof data1 !== "string") {
+        const err8 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
+      }
+      if (!(data1 === "criterion" || data1 === "error_case")) {
+        const err9 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema272.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+        if (vErrors === null) {
+          vErrors = [err9];
+        } else {
+          vErrors.push(err9);
+        }
+        errors++;
+      }
+    }
+    if (data.given !== void 0) {
+      if (typeof data.given !== "string") {
+        const err10 = { instancePath: instancePath + "/given", schemaPath: "#/properties/given/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err10];
+        } else {
+          vErrors.push(err10);
+        }
+        errors++;
+      }
+    }
+    if (data.when !== void 0) {
+      if (typeof data.when !== "string") {
+        const err11 = { instancePath: instancePath + "/when", schemaPath: "#/properties/when/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err11];
+        } else {
+          vErrors.push(err11);
+        }
+        errors++;
+      }
+    }
+    if (data.then !== void 0) {
+      if (typeof data.then !== "string") {
+        const err12 = { instancePath: instancePath + "/then", schemaPath: "#/properties/then/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err12];
+        } else {
+          vErrors.push(err12);
+        }
+        errors++;
+      }
+    }
+    if (data.evidence !== void 0) {
+      let data5 = data.evidence;
+      if (Array.isArray(data5)) {
+        const len0 = data5.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          if (typeof data5[i0] !== "string") {
+            const err13 = { instancePath: instancePath + "/evidence/" + i0, schemaPath: "#/properties/evidence/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err13];
+            } else {
+              vErrors.push(err13);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err14 = { instancePath: instancePath + "/evidence", schemaPath: "#/properties/evidence/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err14];
+        } else {
+          vErrors.push(err14);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err15 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err15];
+    } else {
+      vErrors.push(err15);
+    }
+    errors++;
+  }
+  validate64.errors = vErrors;
+  return errors === 0;
+}
+validate64.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var schema28 = { "type": "object", "additionalProperties": false, "required": ["item", "kind", "text", "evidence"], "properties": { "item": { "type": "string" }, "kind": { "type": "string", "enum": ["kill_criterion", "fallback", "review_point", "data_rule"] }, "text": { "type": "string" }, "evidence": { "type": "array", "items": { "type": "string" } } } };
+function validate66(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate66.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.item === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.kind === void 0) {
+      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "kind" }, message: "must have required property 'kind'" };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.text === void 0) {
+      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "text" }, message: "must have required property 'text'" };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    if (data.evidence === void 0) {
+      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "evidence" }, message: "must have required property 'evidence'" };
+      if (vErrors === null) {
+        vErrors = [err3];
+      } else {
+        vErrors.push(err3);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "item" || key0 === "kind" || key0 === "text" || key0 === "evidence")) {
+        const err4 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err4];
+        } else {
+          vErrors.push(err4);
+        }
+        errors++;
+      }
+    }
+    if (data.item !== void 0) {
+      if (typeof data.item !== "string") {
+        const err5 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err5];
+        } else {
+          vErrors.push(err5);
+        }
+        errors++;
+      }
+    }
+    if (data.kind !== void 0) {
+      let data1 = data.kind;
+      if (typeof data1 !== "string") {
+        const err6 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+      if (!(data1 === "kill_criterion" || data1 === "fallback" || data1 === "review_point" || data1 === "data_rule")) {
+        const err7 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema28.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+        if (vErrors === null) {
+          vErrors = [err7];
+        } else {
+          vErrors.push(err7);
+        }
+        errors++;
+      }
+    }
+    if (data.text !== void 0) {
+      if (typeof data.text !== "string") {
+        const err8 = { instancePath: instancePath + "/text", schemaPath: "#/properties/text/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
+      }
+    }
+    if (data.evidence !== void 0) {
+      let data3 = data.evidence;
+      if (Array.isArray(data3)) {
+        const len0 = data3.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          if (typeof data3[i0] !== "string") {
+            const err9 = { instancePath: instancePath + "/evidence/" + i0, schemaPath: "#/properties/evidence/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err9];
+            } else {
+              vErrors.push(err9);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err10 = { instancePath: instancePath + "/evidence", schemaPath: "#/properties/evidence/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err10];
+        } else {
+          vErrors.push(err10);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err11 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err11];
+    } else {
+      vErrors.push(err11);
+    }
+    errors++;
+  }
+  validate66.errors = vErrors;
+  return errors === 0;
+}
+validate66.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var schema29 = { "type": "object", "additionalProperties": false, "required": ["item", "area", "question", "who_can_answer", "artifact_needed"], "properties": { "item": { "type": ["string", "null"] }, "area": { "type": "string" }, "question": { "type": "string" }, "who_can_answer": { "type": ["string", "null"] }, "artifact_needed": { "type": ["string", "null"] } } };
+function validate682(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate682.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.item === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.area === void 0) {
+      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "area" }, message: "must have required property 'area'" };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.question === void 0) {
+      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "question" }, message: "must have required property 'question'" };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    if (data.who_can_answer === void 0) {
+      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "who_can_answer" }, message: "must have required property 'who_can_answer'" };
+      if (vErrors === null) {
+        vErrors = [err3];
+      } else {
+        vErrors.push(err3);
+      }
+      errors++;
+    }
+    if (data.artifact_needed === void 0) {
+      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "artifact_needed" }, message: "must have required property 'artifact_needed'" };
+      if (vErrors === null) {
+        vErrors = [err4];
+      } else {
+        vErrors.push(err4);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "item" || key0 === "area" || key0 === "question" || key0 === "who_can_answer" || key0 === "artifact_needed")) {
+        const err5 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err5];
+        } else {
+          vErrors.push(err5);
+        }
+        errors++;
+      }
+    }
+    if (data.item !== void 0) {
+      let data0 = data.item;
+      if (typeof data0 !== "string" && data0 !== null) {
+        const err6 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: schema29.properties.item.type }, message: "must be string,null" };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+    }
+    if (data.area !== void 0) {
+      if (typeof data.area !== "string") {
+        const err7 = { instancePath: instancePath + "/area", schemaPath: "#/properties/area/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err7];
+        } else {
+          vErrors.push(err7);
+        }
+        errors++;
+      }
+    }
+    if (data.question !== void 0) {
+      if (typeof data.question !== "string") {
+        const err8 = { instancePath: instancePath + "/question", schemaPath: "#/properties/question/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
+      }
+    }
+    if (data.who_can_answer !== void 0) {
+      let data3 = data.who_can_answer;
+      if (typeof data3 !== "string" && data3 !== null) {
+        const err9 = { instancePath: instancePath + "/who_can_answer", schemaPath: "#/properties/who_can_answer/type", keyword: "type", params: { type: schema29.properties.who_can_answer.type }, message: "must be string,null" };
+        if (vErrors === null) {
+          vErrors = [err9];
+        } else {
+          vErrors.push(err9);
+        }
+        errors++;
+      }
+    }
+    if (data.artifact_needed !== void 0) {
+      let data4 = data.artifact_needed;
+      if (typeof data4 !== "string" && data4 !== null) {
+        const err10 = { instancePath: instancePath + "/artifact_needed", schemaPath: "#/properties/artifact_needed/type", keyword: "type", params: { type: schema29.properties.artifact_needed.type }, message: "must be string,null" };
+        if (vErrors === null) {
+          vErrors = [err10];
+        } else {
+          vErrors.push(err10);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err11 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err11];
+    } else {
+      vErrors.push(err11);
+    }
+    errors++;
+  }
+  validate682.errors = vErrors;
+  return errors === 0;
+}
+validate682.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+function validate59(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
+  ;
+  let vErrors = null;
+  let errors = 0;
+  const evaluated0 = validate59.evaluated;
+  if (evaluated0.dynamicProps) {
+    evaluated0.props = void 0;
+  }
+  if (evaluated0.dynamicItems) {
+    evaluated0.items = void 0;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.facts === void 0) {
+      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "facts" }, message: "must have required property 'facts'" };
+      if (vErrors === null) {
+        vErrors = [err0];
+      } else {
+        vErrors.push(err0);
+      }
+      errors++;
+    }
+    if (data.prose === void 0) {
+      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "prose" }, message: "must have required property 'prose'" };
+      if (vErrors === null) {
+        vErrors = [err1];
+      } else {
+        vErrors.push(err1);
+      }
+      errors++;
+    }
+    if (data.acceptance === void 0) {
+      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "acceptance" }, message: "must have required property 'acceptance'" };
+      if (vErrors === null) {
+        vErrors = [err2];
+      } else {
+        vErrors.push(err2);
+      }
+      errors++;
+    }
+    if (data.guardrails === void 0) {
+      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "guardrails" }, message: "must have required property 'guardrails'" };
+      if (vErrors === null) {
+        vErrors = [err3];
+      } else {
+        vErrors.push(err3);
+      }
+      errors++;
+    }
+    if (data.open_questions === void 0) {
+      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "open_questions" }, message: "must have required property 'open_questions'" };
+      if (vErrors === null) {
+        vErrors = [err4];
+      } else {
+        vErrors.push(err4);
+      }
+      errors++;
+    }
+    if (data.reflect_back_text === void 0) {
+      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "reflect_back_text" }, message: "must have required property 'reflect_back_text'" };
+      if (vErrors === null) {
+        vErrors = [err5];
+      } else {
+        vErrors.push(err5);
+      }
+      errors++;
+    }
+    for (const key0 in data) {
+      if (!(key0 === "facts" || key0 === "prose" || key0 === "acceptance" || key0 === "guardrails" || key0 === "open_questions" || key0 === "reflect_back_text")) {
+        const err6 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        if (vErrors === null) {
+          vErrors = [err6];
+        } else {
+          vErrors.push(err6);
+        }
+        errors++;
+      }
+    }
+    if (data.facts !== void 0) {
+      let data0 = data.facts;
+      if (Array.isArray(data0)) {
+        const len0 = data0.length;
+        for (let i0 = 0; i0 < len0; i0++) {
+          if (!validate602(data0[i0], { instancePath: instancePath + "/facts/" + i0, parentData: data0, parentDataProperty: i0, rootData, dynamicAnchors })) {
+            vErrors = vErrors === null ? validate602.errors : vErrors.concat(validate602.errors);
+            errors = vErrors.length;
+          }
+        }
+      } else {
+        const err7 = { instancePath: instancePath + "/facts", schemaPath: "#/properties/facts/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err7];
+        } else {
+          vErrors.push(err7);
+        }
+        errors++;
+      }
+    }
+    if (data.prose !== void 0) {
+      let data2 = data.prose;
+      if (Array.isArray(data2)) {
+        const len1 = data2.length;
+        for (let i1 = 0; i1 < len1; i1++) {
+          if (!validate62(data2[i1], { instancePath: instancePath + "/prose/" + i1, parentData: data2, parentDataProperty: i1, rootData, dynamicAnchors })) {
+            vErrors = vErrors === null ? validate62.errors : vErrors.concat(validate62.errors);
+            errors = vErrors.length;
+          }
+        }
+      } else {
+        const err8 = { instancePath: instancePath + "/prose", schemaPath: "#/properties/prose/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
+      }
+    }
+    if (data.acceptance !== void 0) {
+      let data4 = data.acceptance;
+      if (Array.isArray(data4)) {
+        const len2 = data4.length;
+        for (let i2 = 0; i2 < len2; i2++) {
+          if (!validate64(data4[i2], { instancePath: instancePath + "/acceptance/" + i2, parentData: data4, parentDataProperty: i2, rootData, dynamicAnchors })) {
+            vErrors = vErrors === null ? validate64.errors : vErrors.concat(validate64.errors);
+            errors = vErrors.length;
+          }
+        }
+      } else {
+        const err9 = { instancePath: instancePath + "/acceptance", schemaPath: "#/properties/acceptance/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err9];
+        } else {
+          vErrors.push(err9);
+        }
+        errors++;
+      }
+    }
+    if (data.guardrails !== void 0) {
+      let data6 = data.guardrails;
+      if (Array.isArray(data6)) {
+        const len3 = data6.length;
+        for (let i3 = 0; i3 < len3; i3++) {
+          if (!validate66(data6[i3], { instancePath: instancePath + "/guardrails/" + i3, parentData: data6, parentDataProperty: i3, rootData, dynamicAnchors })) {
+            vErrors = vErrors === null ? validate66.errors : vErrors.concat(validate66.errors);
+            errors = vErrors.length;
+          }
+        }
+      } else {
+        const err10 = { instancePath: instancePath + "/guardrails", schemaPath: "#/properties/guardrails/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err10];
+        } else {
+          vErrors.push(err10);
+        }
+        errors++;
+      }
+    }
+    if (data.open_questions !== void 0) {
+      let data8 = data.open_questions;
+      if (Array.isArray(data8)) {
+        const len4 = data8.length;
+        for (let i4 = 0; i4 < len4; i4++) {
+          if (!validate682(data8[i4], { instancePath: instancePath + "/open_questions/" + i4, parentData: data8, parentDataProperty: i4, rootData, dynamicAnchors })) {
+            vErrors = vErrors === null ? validate682.errors : vErrors.concat(validate682.errors);
+            errors = vErrors.length;
+          }
+        }
+      } else {
+        const err11 = { instancePath: instancePath + "/open_questions", schemaPath: "#/properties/open_questions/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        if (vErrors === null) {
+          vErrors = [err11];
+        } else {
+          vErrors.push(err11);
+        }
+        errors++;
+      }
+    }
+    if (data.reflect_back_text !== void 0) {
+      if (typeof data.reflect_back_text !== "string") {
+        const err12 = { instancePath: instancePath + "/reflect_back_text", schemaPath: "#/properties/reflect_back_text/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err12];
+        } else {
+          vErrors.push(err12);
+        }
+        errors++;
+      }
+    }
+  } else {
+    const err13 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    if (vErrors === null) {
+      vErrors = [err13];
+    } else {
+      vErrors.push(err13);
+    }
+    errors++;
+  }
+  validate59.errors = vErrors;
+  return errors === 0;
+}
+validate59.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+
+// src/lib/schemas.ts
+function run(fn, data) {
+  const ok = fn(data);
+  return { ok, errors: ok ? [] : formatErrors(fn.errors ?? []) };
+}
+function formatErrors(errors) {
+  return errors.map((e) => `${e.instancePath || "/"} ${e.message ?? e.keyword}`);
+}
+var validateOpening2 = (data) => run(validateOpening, data);
+var validatePhrase2 = (data) => run(validatePhrase, data);
+var validateExtract2 = (data) => run(validateExtract, data);
+var validateWriteUp2 = (data) => run(validateWriteUp, data);
+
+// schema/v2/opening.schema.json
+var opening_schema_default = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "https://github.com/tjpinder/intake-kit/schema/v2/opening.schema.json",
+  title: "Opening classification (schema version 2, first turn only)",
+  description: "What the model returns for the user's opening statement. Code applies the negation rule, accepts the type or asks the one disambiguating probe, and records the areas the opening already answers.",
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "type",
+    "confidence",
+    "title",
+    "trigger_quote",
+    "modifiers",
+    "also_answers"
+  ],
+  properties: {
+    type: {
+      type: "string",
+      enum: [
+        "broken",
+        "manual_process",
+        "known_idea",
+        "exploratory",
+        "data_report"
+      ]
+    },
+    confidence: {
+      type: "string",
+      enum: [
+        "high",
+        "med",
+        "low"
+      ]
+    },
+    title: {
+      type: "string",
+      description: "A short title for the item, in plain words."
+    },
+    trigger_quote: {
+      type: "string",
+      description: "The user's exact words, copied from one message they sent."
+    },
+    modifiers: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "modifier",
+          "quote"
+        ],
+        properties: {
+          modifier: {
+            type: "string",
+            enum: [
+              "integration",
+              "compliance",
+              "migration"
+            ]
+          },
+          quote: {
+            type: "string",
+            description: "The user's exact words, copied from one message they sent."
+          }
+        }
+      }
+    },
+    also_answers: {
+      type: "array",
+      items: {
+        $ref: "#/$defs/also_answer"
+      }
+    }
+  },
+  $defs: {
+    also_answer: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "area",
+        "value",
+        "quote"
+      ],
+      properties: {
+        area: {
+          type: "string",
+          description: "A coverage ID from the list given."
+        },
+        value: {
+          type: "string"
+        },
+        quote: {
+          type: "string",
+          description: "The user's exact words, copied from one message they sent."
+        }
+      }
+    }
+  }
+};
+
+// schema/v2/phrase.schema.json
+var phrase_schema_default = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "https://github.com/tjpinder/intake-kit/schema/v2/phrase.schema.json",
+  title: "Question phrasing (schema version 2)",
+  description: "The question for the one area code chose. Nothing else.",
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "question"
+  ],
+  properties: {
+    question: {
+      type: "string",
+      description: "One short question, in plain words, for the target area only."
+    }
+  }
+};
+
+// schema/v2/extract.schema.json
+var extract_schema_default = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "https://github.com/tjpinder/intake-kit/schema/v2/extract.schema.json",
+  title: "Answer extraction (schema version 2)",
+  description: "How the user's reply answers the one question asked. Code applies it; the model never chooses areas, creates items or decides readiness.",
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "status",
+    "value",
+    "quote",
+    "check",
+    "wrap_up",
+    "also_answers"
+  ],
+  properties: {
+    status: {
+      type: "string",
+      enum: [
+        "answered",
+        "partial",
+        "not_applicable",
+        "declined",
+        "off_topic"
+      ]
+    },
+    value: {
+      type: [
+        "string",
+        "null"
+      ],
+      description: "What they said, in a short plain sentence. Null unless answered or partial."
+    },
+    quote: {
+      type: [
+        "string",
+        "null"
+      ],
+      description: "The user's exact words, copied from one message they sent. Null if there's nothing to quote."
+    },
+    check: {
+      type: "string",
+      enum: [
+        "yes",
+        "no",
+        "unclear",
+        "none"
+      ],
+      description: "Only for a check or confirmation question: yes, no or unclear. Otherwise none."
+    },
+    wrap_up: {
+      type: "boolean",
+      description: "True only if the user asked to stop or wrap up."
+    },
+    also_answers: {
+      type: "array",
+      items: {
+        $ref: "#/$defs/also_answer"
+      }
+    }
+  },
+  $defs: {
+    also_answer: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "area",
+        "value",
+        "quote"
+      ],
+      properties: {
+        area: {
+          type: "string",
+          description: "A coverage ID from the list given."
+        },
+        value: {
+          type: "string"
+        },
+        quote: {
+          type: "string",
+          description: "The user's exact words, copied from one message they sent."
+        }
+      }
+    }
+  }
+};
+
+// schema/v2/writeup.schema.json
+var writeup_schema_default = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "https://github.com/tjpinder/intake-kit/schema/v2/writeup.schema.json",
+  title: "Write-up (schema version 2, at the summary)",
+  description: "Band picks, prose, acceptance criteria, guardrails and open questions for one item, from what the user already said. Code validates every piece; scores and gates are computed by code.",
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "facts",
+    "prose",
+    "acceptance",
+    "guardrails",
+    "open_questions",
+    "reflect_back_text"
+  ],
+  properties: {
+    facts: {
+      type: "array",
+      description: "Band picks for scoring criteria, AI overlay checks, adoption and gate facts. The model picks a band name; code maps it to a score via scoring.yaml.",
+      items: {
+        $ref: "#/$defs/fact"
+      }
+    },
+    prose: {
+      type: "array",
+      description: "Prose the spec pack needs that isn't a single coverage answer. Captured into the session file before rendering.",
+      items: {
+        $ref: "#/$defs/prose"
+      }
+    },
+    acceptance: {
+      type: "array",
+      description: "Acceptance criteria and error cases in Given/When/Then form. Each cites the coverage IDs it rests on; code attaches the user's quote when rendering.",
+      items: {
+        $ref: "#/$defs/acceptance"
+      }
+    },
+    guardrails: {
+      type: "array",
+      description: "Guardrail statements drawn from what the user said about trust, data and risk. Each cites the coverage IDs it rests on.",
+      items: {
+        $ref: "#/$defs/guardrail"
+      }
+    },
+    open_questions: {
+      type: "array",
+      items: {
+        $ref: "#/$defs/open_question"
+      }
+    },
+    reflect_back_text: {
+      type: "string",
+      description: "A short plain-language playback of the item, for the record."
+    }
+  },
+  $defs: {
+    fact: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "item",
+        "fact",
+        "band",
+        "evidence",
+        "quote"
+      ],
+      properties: {
+        item: {
+          type: "string"
+        },
+        fact: {
+          type: "string",
+          enum: [
+            "rule_clarity",
+            "input_digital",
+            "input_structured",
+            "ways_done",
+            "stability",
+            "documentation",
+            "steps_apps",
+            "access",
+            "value",
+            "ai_applies",
+            "eval_ability",
+            "error_cost",
+            "human_review",
+            "simpler_option",
+            "fallback",
+            "sensitive_data",
+            "push",
+            "pull",
+            "anxiety",
+            "habit",
+            "existing_asset",
+            "decision_depends",
+            "broken_cause",
+            "workaround_permanent",
+            "success_metric"
+          ]
+        },
+        band: {
+          type: "string",
+          description: "One of the band names scoring.yaml defines for this fact."
+        },
+        evidence: {
+          type: "array",
+          items: {
+            type: "string"
+          },
+          description: "Coverage IDs the band was derived from."
+        },
+        quote: {
+          type: [
+            "string",
+            "null"
+          ],
+          description: "The user's words behind the band, when there is one."
+        }
+      }
+    },
+    prose: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "item",
+        "field",
+        "text"
+      ],
+      properties: {
+        item: {
+          type: [
+            "string",
+            "null"
+          ]
+        },
+        field: {
+          type: "string",
+          enum: [
+            "problem_statement",
+            "current_state",
+            "mvp",
+            "out_of_scope",
+            "mitigation"
+          ]
+        },
+        text: {
+          type: "string"
+        }
+      }
+    },
+    acceptance: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "item",
+        "kind",
+        "given",
+        "when",
+        "then",
+        "evidence"
+      ],
+      properties: {
+        item: {
+          type: "string"
+        },
+        kind: {
+          type: "string",
+          enum: [
+            "criterion",
+            "error_case"
+          ]
+        },
+        given: {
+          type: "string"
+        },
+        when: {
+          type: "string"
+        },
+        then: {
+          type: "string"
+        },
+        evidence: {
+          type: "array",
+          items: {
+            type: "string"
+          },
+          description: "Coverage IDs with a recorded answer and quote."
+        }
+      }
+    },
+    guardrail: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "item",
+        "kind",
+        "text",
+        "evidence"
+      ],
+      properties: {
+        item: {
+          type: "string"
+        },
+        kind: {
+          type: "string",
+          enum: [
+            "kill_criterion",
+            "fallback",
+            "review_point",
+            "data_rule"
+          ]
+        },
+        text: {
+          type: "string"
+        },
+        evidence: {
+          type: "array",
+          items: {
+            type: "string"
+          }
+        }
+      }
+    },
+    open_question: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "item",
+        "area",
+        "question",
+        "who_can_answer",
+        "artifact_needed"
+      ],
+      properties: {
+        item: {
+          type: [
+            "string",
+            "null"
+          ]
+        },
+        area: {
+          type: "string"
+        },
+        question: {
+          type: "string"
+        },
+        who_can_answer: {
+          type: [
+            "string",
+            "null"
+          ]
+        },
+        artifact_needed: {
+          type: [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+};
 
 // src/lib/session.ts
 var isCaptured = (e) => e?.source === "captured";
@@ -12070,6 +14160,16 @@ function scoreAndGate(session, fw) {
   return { session: out2, scored: true };
 }
 
+// src/lib/grounding.ts
+function normalize(text) {
+  return text.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, "-").replace(/…/g, "...").replace(/\s+/g, " ").trim().toLowerCase();
+}
+function findQuote(quote, transcript) {
+  const q = normalize(quote);
+  if (!q) return null;
+  return transcript.find((entry) => entry.role === "user" && normalize(entry.text).includes(q)) ?? null;
+}
+
 // src/lib/guide.ts
 var list = (xs) => xs.map((x) => `"${x}"`).join(", ");
 function areaBlock(a) {
@@ -12157,46 +14257,6 @@ function said(signal, text) {
   return false;
 }
 var NEGATION = /^(no|not|without|never|nor|none|nothing|nobody|isn't|aren't|don't|doesn't|didn't|isnt|arent|dont|doesnt|didnt)$/;
-function routingHint(fw, transcript) {
-  const opening = transcript.find((t) => t.role === "user");
-  if (!opening) return null;
-  const text = normalize(opening.text);
-  let best = null;
-  for (const [type, def] of Object.entries(fw.router.types)) {
-    for (const signal of def.signals) {
-      if (said(signal, text) && (!best || signal.length > best.signal.length)) best = { type, signal };
-    }
-  }
-  if (!best) return null;
-  return `The opening says "${best.signal}", a ${fw.router.types[best.type].label.toLowerCase()} signal: start with a \`${best.type}\` item unless the user's words clearly point elsewhere.`;
-}
-function structureHints(session, fw, transcript, opts = {}) {
-  const live = session.items.filter((i) => !i.superseded_by && !i.dropped);
-  if (live.length === 0) return [];
-  const text = normalize(transcript.filter((t) => t.role === "user").map((t) => t.text).join("\n"));
-  const hints = [];
-  const primary = live[0];
-  for (const [mod, def] of Object.entries(fw.router.modifiers)) {
-    const m = mod;
-    if (live.some((i) => i.modifiers.includes(m)) || session.items.some((i) => i.modifiers_removed?.includes(m))) continue;
-    const heard = def.signals.filter((sig) => said(sig, text));
-    if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}: if it's part of ${primary.id}, add the \`${mod}\` modifier (set it in that item's \`modifiers\`) and cover its areas.`);
-  }
-  if (!session.session.asked && opts.primaryInterviewed && primary.type !== "manual_process" && primary.type !== "exploratory" && !session.items.some((i) => i.type === "manual_process")) {
-    const heard = fw.router.types.manual_process.signals.filter((sig) => said(sig, text));
-    if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}. If that might be manual work they do today that ${primary.id} would replace (not just what they'd fall back to if something failed), ask whether it happens today and when it last did. Only once they describe it happening, add it as one \`manual_process\` item with spawned_from "${primary.id}", and supersede it by ${primary.id} (router.supersede) once they say it would go away; it needs only a light pass (how often, how long). If they say it doesn't apply, add nothing, or drop the item (router.drop) if you already added it.`);
-  }
-  if (live.some((i) => i.type === "exploratory") && live.length < 4) {
-    hints.push("This is an exploratory intake: for each concrete example the user gives, add its own item with spawned_from the exploratory item and the type that fits the example (usually manual_process; never exploratory), and ask only one or two things about it (the last time it happened, roughly what it costs a week). Don't interview any one example in depth; aim for three or more.");
-  }
-  return hints;
-}
-function manualCheck(session, fw, item, transcript) {
-  if (!session.session.asked || session.session.asked[`${item.id}:${MANUAL_CHECK}`]) return [];
-  if (item.type === "manual_process" || item.type === "exploratory" || session.items.some((i) => i.type === "manual_process")) return [];
-  const text = normalize(transcript.filter((t) => t.role === "user").map((t) => t.text).join("\n"));
-  return fw.router.types.manual_process.signals.some((sig) => said(sig, text)) ? [MANUAL_CHECK] : [];
-}
 function statusOf(session, fw, transcript = []) {
   const rb = session.session.reflect_back;
   const core = Object.entries(session.core).map(([key, e]) => ({
@@ -12205,7 +14265,6 @@ function statusOf(session, fw, transcript = []) {
     asked: wasAsked(session, null, `core.${key}`),
     probe_available: !!e.updated_at && (e.status === "assumed" || e.status === "unknown") && e.probe_count === 0
   }));
-  const primaryId = session.items.find((i) => !i.superseded_by && !i.dropped && i.spawned_from == null)?.id;
   const last = session.session.last_target;
   const items = session.items.map((item) => {
     const modules = [item.type, ...item.modifiers.map((m) => `mod.${m}`)];
@@ -12244,7 +14303,6 @@ function statusOf(session, fw, transcript = []) {
       critical_unasked: light ? [] : critical.filter((id) => !asked(id)),
       critical_unprobed: light ? [] : follow.map((f) => f.area),
       follow_ups: light ? [] : follow,
-      checks_pending: light || primaryId !== item.id ? [] : manualCheck(session, fw, item, transcript),
       band_sources_unasked: light || item.superseded_by || item.type === "exploratory" ? [] : bandSourcesUnasked(item, fw, asked),
       probe_available: probeable,
       facts_missing: factsMissing,
@@ -12260,6896 +14318,245 @@ function statusOf(session, fw, transcript = []) {
       }
     };
   });
-  const interviewed = (i) => i.critical_unasked.length === 0 && i.critical_unprobed.length === 0 && i.checks_pending.length === 0 && i.always_ask_pending.length === 0 && i.band_sources_unasked.length === 0;
+  const interviewed = (i) => i.critical_unasked.length === 0 && i.critical_unprobed.length === 0 && i.always_ask_pending.length === 0 && i.band_sources_unasked.length === 0;
   const interviewComplete = items.length > 0 && items.every(interviewed);
   const writeUpComplete = items.every(
     (i) => (!needsBands(i) || i.facts_missing.length === 0) && (!needsAcceptance(i) || i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)
   );
   const reflect = !rb ? "none" : rb.confirmed ? "confirmed" : "proposed";
-  const primary = items.find((i) => !i.superseded_by && !i.dropped);
-  const primaryInterviewed = !!primary && interviewed(primary);
-  const hints = reflect === "none" ? structureHints(session, fw, transcript, { primaryInterviewed }) : [];
-  const plan = reflect === "none" ? planFrom(session, fw, items) : { primary: null, alternate: null };
   return {
     reflect_back: reflect,
     core,
     items,
     interview_complete: interviewComplete,
-    ready_for_reflect_back: interviewComplete && writeUpComplete,
-    next_step: nextStep(reflect, interviewComplete, items, hints, items.length === 0 ? routingHint(fw, transcript) : null, plan, fw),
-    next_question: plan,
-    hints
+    ready_for_reflect_back: interviewComplete && writeUpComplete
   };
 }
-function nextStep(reflect, interviewComplete, items, hints, routing = null, plan = { primary: null, alternate: null }, fw) {
-  if (reflect === "confirmed") return "The intake is complete. Thank the user briefly.";
-  if (reflect === "proposed") {
-    const review = items.filter((i) => i.preview_quadrant === "review" && !i.has_mitigation && !i.superseded_by);
-    return [
-      `You've played back a summary. If the user's latest message agrees with it (yes, that's right, that captures it), send \`reflect_back\` with status "confirmed" and the same text; don't propose it again. If they corrected something, send status "corrected" with the corrections listed.`,
-      ...review.length ? [`${review.map((i) => i.id).join(", ")} would score in the Review quadrant, which can't reach Go without a written mitigation: add a one-line \`mitigation\` prose for it from what the user has already said would reduce the risk (their fallback, review step or rule). Ask only if they've said nothing at all about how risk is handled, and not about core.trust once it has had its question and follow-up.`] : []
-    ].join(" ");
+
+// src/engine/plan.ts
+var SPEC_FILES = ["SPEC.md", "ACCEPTANCE.md", "GUARDRAILS.md"];
+var modulesOf = (item) => ["core", item.type, ...item.modifiers.map((m) => `mod.${m}`)];
+var areasIn = (fw, mods) => mods.flatMap((m) => fw.modules[m]?.areas ?? []);
+function requiredAreas(item, fw) {
+  const mods = modulesOf(item);
+  const areas = areasIn(fw, mods);
+  const ids = new Set(criticalAreas(item, fw));
+  for (const a of areas) if (a.always_ask) ids.add(a.id);
+  for (const m of mods) for (const id of fw.modules[m]?.asks_core ?? []) ids.add(id);
+  const applies = new Set(areas.map((a) => a.id));
+  for (const c of Object.values(fw.scoring.criteria)) {
+    const src = c.usually_from.find((id) => applies.has(id));
+    if (src) ids.add(src);
   }
-  if (items.length === 0) return ["Create the first item from the user's opening statement and ask your first question.", ...routing ? [routing] : []].join(" ");
-  const check2 = hints.length ? ` Also check: ${hints.join(" ")}` : "";
-  if (!interviewComplete && plan.primary && fw) {
-    return [
-      `Keep interviewing. Record every answer in the user's latest message, then ask about ${describeTarget(fw, plan.primary)}`,
-      ...plan.alternate ? [`If their latest message already answers that in full, record it and ask instead about ${describeTarget(fw, plan.alternate)}`] : [],
-      `Ask nothing else.${check2}`
-    ].join(" ");
-  }
-  if (!interviewComplete) return `Keep interviewing. Record every answer the user gives as you go.${check2}`;
-  const banded = items.filter(needsBands).map((i) => i.id);
-  const buildable = items.filter(needsAcceptance).map((i) => i.id);
-  return [
-    ...hints.length ? [`First check: ${hints.join(" ")} If one applies, add it and ask about it instead of writing up. Otherwise:`] : [],
-    "Every needed area has been asked, so stop asking questions now. In this one turn:",
-    ...banded.length ? [`add a band for every fact listed in facts_missing for ${banded.join(", ")} (skip the other items), picked from what the user already said (use \`unknown\` where they didn't say), in \`facts\` only, never in \`updates\`; a band's quote is optional, so leave it null unless you copy the user's exact words;`] : [],
-    ...buildable.length ? [`write acceptance criteria (at least one criterion and one error case) and guardrails (at least a kill criterion and a fallback) for ${buildable.join(", ")}, from what you heard;`] : [],
-    "write a one-line `mitigation` prose for any item where the user described how a risk is handled (a fallback, someone checking);",
-    "and propose the reflect-back."
-  ].join(" ");
+  const feeders = /* @__PURE__ */ new Map();
+  for (const a of areas) for (const f of a.feeds) if (SPEC_FILES.includes(f.file)) feeders.set(`${f.file}#${f.section}`, [...feeders.get(`${f.file}#${f.section}`) ?? [], a.id]);
+  for (const list2 of feeders.values()) if (list2.length === 1) ids.add(list2[0]);
+  return ids;
 }
-var MANUAL_CHECK = "check.manual_work";
-var CORE_ORDER = ["core.outcome", "core.data", "core.users", "core.trust", "core.systems", "core.constraints"];
-function planTargets(session, fw, transcript = []) {
-  return planFrom(session, fw, statusOf(session, fw, transcript).items);
+function lightPass(item, fw) {
+  const c = fw.router.checks;
+  const list2 = item.type === c?.manual_work.spawns ? c.manual_work.light_pass : c?.existing_asset.light_pass ?? [];
+  const applies = new Set(areasIn(fw, modulesOf(item)).map((a) => a.id));
+  return list2.filter((id) => applies.has(id));
 }
-function planFrom(session, fw, items) {
-  const plan = [];
-  const seen = /* @__PURE__ */ new Set();
-  const add = (item, area, why = "first") => {
-    const core = area.startsWith("core.");
-    const key = core ? area : `${item}:${area}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    plan.push({ item: core ? null : item, area, probe: why !== "first" && why !== "check", why });
+function queueFor(item, fw) {
+  if (item.spawned_from) return lightPass(item, fw);
+  const req = requiredAreas(item, fw);
+  const anchor = fw.modules[item.type]?.anchor;
+  const out2 = [];
+  const add = (id) => {
+    if (req.has(id) && !out2.includes(id)) out2.push(id);
   };
-  const live = items.filter((i) => !i.superseded_by && !i.dropped);
-  const byOrder = (ids) => [...ids].sort((a, b) => (CORE_ORDER.indexOf(a) + 1 || 99) - (CORE_ORDER.indexOf(b) + 1 || 99));
-  for (const i of live.filter((x) => !x.light_pass)) {
-    for (const id of i.critical_unasked.filter((id2) => !id2.startsWith("core."))) add(i.id, id);
-    for (const id of byOrder(i.critical_unasked.filter((id2) => id2.startsWith("core.")))) add(i.id, id);
-    for (const id of byOrder(i.band_sources_unasked)) add(i.id, id);
-    for (const id of i.always_ask_pending) add(i.id, id);
+  if (anchor) {
+    req.add(anchor);
+    add(anchor);
   }
-  for (const i of live) for (const f of i.follow_ups) add(i.id, f.area, f.why);
-  for (const i of live) for (const c of i.checks_pending) add(i.id, c, "check");
-  for (const i of live.filter((x) => x.light_pass)) {
-    const item = session.items.find((x) => x.id === i.id);
-    const first = criticalAreas(item, fw).find((id) => !id.startsWith("core."));
-    if (first && !wasAsked(session, item, first)) add(i.id, first);
-  }
-  return { primary: plan[0] ?? null, alternate: plan[1] ?? null };
+  for (const a of fw.modules.core.areas) add(a.id);
+  for (const a of fw.modules[item.type]?.areas ?? []) add(a.id);
+  for (const m of item.modifiers) for (const a of fw.modules[`mod.${m}`]?.areas ?? []) add(a.id);
+  return out2;
 }
-function describeTarget(fw, t) {
-  const whose = t.item ? ` for ${t.item}` : "";
-  if (t.area === MANUAL_CHECK) {
-    return `whether the manual work they mentioned is something they do today${whose}, or only what they'd fall back to if it failed: ask whether it happens today and when it last did. Only if they describe it happening, add it as one \`manual_process\` item with spawned_from "${t.item}" (supersede it by ${t.item} once they say it would go away). If not, add nothing.`;
-  }
-  const area = fw.areas.get(t.area);
-  if (!area) return `${t.area}${whose}`;
-  if (t.why === "no_baseline") return `${t.area}${whose}: they said how they'd judge it but gave no number for today. Ask: "What's it costing now, in hours, errors or chargebacks?"`;
-  if (t.why === "unanswered") return `${t.area}${whose}: it was asked but nothing was recorded, so ask once more: find out ${area.must_capture.charAt(0).toLowerCase()}${area.must_capture.slice(1)}.`;
-  if (t.why === "vague") return `${t.area}${whose}: they answered vaguely, so ask once about the last time it actually happened (what exactly happened, who was involved).`;
-  return `${t.area}${whose}: find out ${area.must_capture.charAt(0).toLowerCase()}${area.must_capture.slice(1)}. For example: "${area.probes[0]}" (adapt the wording to their situation).`;
+var stateOf = (engine, key) => engine.areas[key] ?? { probed: false, confirm: "none", partial: null };
+var areaKey = (item, area) => askedKey(item.id, area);
+function areaDone(session, item, area, fw) {
+  const e = coverageFor(session, item, area);
+  const st = stateOf(session.session.engine, areaKey(item, area));
+  if (!e?.updated_at || isCaptured(e)) return false;
+  if (st.partial && !st.probed) return false;
+  if (e.status === "assumed" && criticalAreas(item, fw).includes(area) && st.confirm !== "done") return false;
+  return true;
 }
-
-// src/lib/generated/session-validator.js
-var validateSession = validate52;
-var schema19 = { "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://github.com/tjpinder/intake-kit/schema/session.schema.json", "title": "Intake session file, intake-answers.yaml (schema_version 1)", "description": "The source of truth every output is rendered from. Only apply-turn writes coverage, facts, router and prose fields; only code writes scoring and gate. Never written by the model directly.", "type": "object", "additionalProperties": false, "required": ["schema_version", "framework_version", "session", "core", "items"], "properties": { "schema_version": { "const": 1 }, "framework_version": { "$ref": "#/$defs/semver", "description": "Version of the router, module and scoring YAML used." }, "session": { "type": "object", "additionalProperties": false, "required": ["id", "started_at", "mode", "provider", "grounding", "reflect_back"], "properties": { "id": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}-[0-9a-f]{4,}$" }, "started_at": { "type": "string", "format": "date-time" }, "mode": { "enum": ["stakeholder", "builder"] }, "provider": { "enum": ["claude", "azure-openai", "openai", "codex"] }, "grounding": { "enum": ["transcript", "unverified"], "description": "transcript: every quote was checked against the user's recorded words. unverified: no transcript was available (e.g. Codex without the hook), so quotes weren't checked." }, "reflect_back": { "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["text", "confirmed", "corrections"], "properties": { "text": { "type": "string", "minLength": 1 }, "confirmed": { "type": "boolean" }, "corrections": { "type": "array", "items": { "type": "string", "minLength": 1 } }, "proposed_at": { "type": "string", "format": "date-time" } } }] }, "last_target": { "description": "The area the last applied turn asked about, and the reply that asked it. If the next turn doesn't record the area, the user's reply is captured as an assumed answer, but only when that reply is the one the user saw.", "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["item", "area"], "properties": { "item": { "type": ["string", "null"] }, "area": { "type": "string" }, "reply": { "type": "string" } } }] }, "asked": { "description": "When each area was first asked about, stamped by code from the area it chose for each applied turn's question: core areas by ID, an item's own areas as <item>:<area>. Readiness counts an area as asked only if it's here or was answered in full.", "type": "object", "propertyNames": { "pattern": "^(core\\.[a-z_]+|item-\\d+:[a-z_.]+)$" }, "additionalProperties": { "type": "string", "format": "date-time" } }, "engine": { "description": "Interview engine v2 state. Code owns every field: the phase, the user replies used against the turn budget, the one question waiting for an answer, each area's probe and confirmation state, and each check's result.", "type": "object", "additionalProperties": false, "required": ["version", "phase", "turns", "pending", "areas", "checks", "disambiguated"], "properties": { "version": { "const": 2 }, "phase": { "enum": ["opening", "interview", "summary", "confirmed"] }, "turns": { "type": "integer", "minimum": 0 }, "disambiguated": { "type": "boolean" }, "pending": { "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["item", "area", "kind", "check", "question"], "properties": { "item": { "type": ["string", "null"] }, "area": { "type": "string", "minLength": 1 }, "kind": { "enum": ["ask", "probe", "confirm", "check", "disambiguate", "summary"] }, "check": { "enum": ["manual_work", "existing_asset", null] }, "question": { "type": "string" } } }] }, "areas": { "type": "object", "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["probed", "confirm", "partial"], "properties": { "probed": { "type": "boolean" }, "confirm": { "enum": ["none", "asked", "done"] }, "partial": { "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["value", "quote"], "properties": { "value": { "type": ["string", "null"] }, "quote": { "type": ["string", "null"] } } }] } } } }, "checks": { "type": "object", "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["asks", "result"], "properties": { "asks": { "type": "integer", "minimum": 0, "maximum": 2 }, "result": { "enum": ["yes", "no", "unclear", null] } } } } } } } }, "core": { "type": "object", "additionalProperties": false, "required": ["users", "outcome", "data", "systems", "constraints", "trust"], "properties": { "users": { "$ref": "#/$defs/coverage_entry" }, "outcome": { "$ref": "#/$defs/coverage_entry" }, "data": { "$ref": "#/$defs/coverage_entry" }, "systems": { "$ref": "#/$defs/coverage_entry" }, "constraints": { "$ref": "#/$defs/coverage_entry" }, "trust": { "$ref": "#/$defs/coverage_entry" } } }, "items": { "type": "array", "items": { "$ref": "#/$defs/item" } } }, "$defs": { "semver": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" }, "item_id": { "type": "string", "pattern": "^item-\\d+$" }, "core_area": { "enum": ["users", "outcome", "data", "systems", "constraints", "trust"] }, "coverage_id": { "type": "string", "pattern": "^(core|broken|manual_process|known_idea|exploratory|data_report)\\.[a-z][a-z0-9_]*$|^mod\\.(integration|compliance|migration)\\.[a-z][a-z0-9_]*$" }, "item_type": { "enum": ["broken", "manual_process", "known_idea", "exploratory", "data_report"] }, "quote": { "type": "string", "minLength": 1 }, "coverage_entry": { "description": "Status rules: covered needs a value and at least one quote; assumed needs a quote; unknown has a null value; probe_count is at most 1.", "type": "object", "additionalProperties": false, "required": ["status", "value", "quotes", "probe_count"], "properties": { "status": { "enum": ["covered", "assumed", "unknown", "not_applicable", "declined"] }, "value": { "type": ["string", "null"] }, "quotes": { "type": "array", "items": { "$ref": "#/$defs/quote" } }, "probe_count": { "type": "integer", "minimum": 0, "maximum": 1 }, "updated_at": { "type": "string", "format": "date-time" }, "source": { "enum": ["captured"], "description": "captured: the user's reply stored word for word because the interviewer didn't record the answer to its own question. Shown for confirmation, never used as scoring evidence." } }, "allOf": [{ "if": { "properties": { "status": { "const": "covered" } } }, "then": { "properties": { "value": { "type": "string", "minLength": 1 }, "quotes": { "type": "array", "minItems": 1 } } } }, { "if": { "properties": { "status": { "const": "assumed" } } }, "then": { "properties": { "quotes": { "type": "array", "minItems": 1 } } } }, { "if": { "properties": { "status": { "const": "unknown" } } }, "then": { "properties": { "value": { "type": "null" } } } }] }, "fact_entry": { "description": "A band the model picked, with its evidence. scoring.yaml maps bands to scores; the band name itself is checked against scoring.yaml by code.", "type": "object", "additionalProperties": false, "required": ["band", "evidence", "quotes"], "properties": { "band": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_+-]*$" }, "evidence": { "type": "array", "items": { "$ref": "#/$defs/coverage_id" } }, "quotes": { "type": "array", "items": { "$ref": "#/$defs/quote" } } } }, "item": { "type": "object", "additionalProperties": false, "required": ["id", "title", "type", "confidence", "trigger_quote", "modifiers", "spawned_from", "superseded_by", "type_history", "core_overrides", "coverage", "facts", "prose", "acceptance", "guardrails", "scoring", "gate", "open_questions"], "properties": { "id": { "$ref": "#/$defs/item_id" }, "title": { "type": "string", "minLength": 1 }, "type": { "$ref": "#/$defs/item_type" }, "confidence": { "enum": ["high", "med", "low"] }, "trigger_quote": { "$ref": "#/$defs/quote" }, "modifiers": { "type": "array", "uniqueItems": true, "items": { "enum": ["integration", "compliance", "migration"] } }, "spawned_from": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/item_id" }] }, "superseded_by": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/item_id" }] }, "modifiers_removed": { "description": "Modifiers taken back during the interview, so they aren't suggested again.", "type": "array", "items": { "enum": ["integration", "compliance", "migration"] } }, "dropped": { "description": "Set when the item turned out not to apply (the user said so). Gated Don't build with the reason; never confused with being replaced by another item.", "type": "object", "additionalProperties": false, "required": ["reason", "quote", "at"], "properties": { "reason": { "type": "string", "minLength": 1 }, "quote": { "$ref": "#/$defs/quote" }, "at": { "type": "string", "format": "date-time" } } }, "type_history": { "type": "array", "minItems": 1, "items": { "type": "object", "additionalProperties": false, "required": ["from", "to", "reason", "quote", "at"], "properties": { "from": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/item_type" }] }, "to": { "$ref": "#/$defs/item_type" }, "reason": { "type": "string", "minLength": 1 }, "quote": { "$ref": "#/$defs/quote" }, "at": { "type": "string", "format": "date-time" } } } }, "core_overrides": { "type": "object", "propertyNames": { "$ref": "#/$defs/core_area" }, "additionalProperties": { "$ref": "#/$defs/coverage_entry" } }, "coverage": { "type": "object", "propertyNames": { "$ref": "#/$defs/coverage_id", "not": { "pattern": "^core\\." } }, "additionalProperties": { "$ref": "#/$defs/coverage_entry" } }, "facts": { "type": "object", "propertyNames": { "enum": ["rule_clarity", "input_digital", "input_structured", "ways_done", "stability", "documentation", "steps_apps", "access", "value", "ai_applies", "eval_ability", "error_cost", "human_review", "simpler_option", "fallback", "sensitive_data", "push", "pull", "anxiety", "habit", "existing_asset", "decision_depends", "broken_cause", "workaround_permanent", "success_metric"] }, "additionalProperties": { "$ref": "#/$defs/fact_entry" } }, "prose": { "type": "object", "additionalProperties": false, "properties": { "problem_statement": { "type": "string", "minLength": 1 }, "current_state": { "type": "string", "minLength": 1 }, "mvp": { "type": "string", "minLength": 1 }, "out_of_scope": { "type": "string", "minLength": 1 }, "mitigation": { "type": "string", "minLength": 1 } } }, "acceptance": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["kind", "given", "when", "then", "evidence"], "properties": { "kind": { "enum": ["criterion", "error_case"] }, "given": { "type": "string", "minLength": 1 }, "when": { "type": "string", "minLength": 1 }, "then": { "type": "string", "minLength": 1 }, "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/coverage_id" } } } } }, "guardrails": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["kind", "text", "evidence"], "properties": { "kind": { "enum": ["kill_criterion", "fallback", "review_point", "data_rule"] }, "text": { "type": "string", "minLength": 1 }, "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/coverage_id" } } } } }, "scoring": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/scoring" }], "description": "Written by code only. Null until the reflect-back is confirmed." }, "gate": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/gate" }], "description": "Written by code only. Null until scored." }, "open_questions": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["area", "question", "who_can_answer", "artifact_needed"], "properties": { "area": { "$ref": "#/$defs/coverage_id" }, "question": { "type": "string", "minLength": 1 }, "who_can_answer": { "type": ["string", "null"] }, "artifact_needed": { "type": ["string", "null"] } } } } }, "allOf": [{ "description": "A gate needs scoring first.", "if": { "properties": { "gate": { "type": "object" } }, "required": ["gate"] }, "then": { "properties": { "scoring": { "type": "object" } } } }] }, "scoring": { "type": "object", "additionalProperties": false, "required": ["criteria", "automation_potential", "ease", "quadrant", "ai_overlay", "adoption", "rules_version"], "properties": { "criteria": { "type": "object", "propertyNames": { "enum": ["rule_clarity", "input_digital", "input_structured", "ways_done", "stability", "documentation", "steps_apps", "access", "value"] }, "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["score", "band", "evidence"], "properties": { "score": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 }, "band": { "type": "string" }, "evidence": { "type": "array", "items": { "$ref": "#/$defs/coverage_id" } } } } }, "automation_potential": { "type": ["number", "null"], "minimum": 1, "maximum": 5 }, "ease": { "type": ["number", "null"], "minimum": 1, "maximum": 5 }, "quadrant": { "enum": ["prioritize", "review", "defer", null] }, "ai_overlay": { "type": "object", "additionalProperties": false, "required": ["applies", "checks"], "properties": { "applies": { "type": "boolean" }, "checks": { "type": "object", "propertyNames": { "enum": ["eval_ability", "error_cost", "human_review", "simpler_option", "fallback", "sensitive_data"] }, "additionalProperties": { "enum": ["pass", "fail", "unknown"] } } } }, "adoption": { "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["push", "pull", "anxiety", "habit"], "properties": { "push": { "enum": ["low", "med", "high", "unknown"] }, "pull": { "enum": ["low", "med", "high", "unknown"] }, "anxiety": { "enum": ["low", "med", "high", "unknown"] }, "habit": { "enum": ["low", "med", "high", "unknown"] } } }] }, "rules_version": { "$ref": "#/$defs/semver" } } }, "gate": { "type": "object", "additionalProperties": false, "required": ["decision", "reasons", "revisit_trigger", "rules_version"], "properties": { "decision": { "enum": ["go", "gather_more", "dont_build", "fix_not_build"] }, "reasons": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }, "revisit_trigger": { "type": ["string", "null"] }, "rules_version": { "$ref": "#/$defs/semver" } }, "allOf": [{ "description": "Don't build always records what would make it worth revisiting.", "if": { "properties": { "decision": { "const": "dont_build" } } }, "then": { "properties": { "revisit_trigger": { "type": "string", "minLength": 1 } } } }] } } };
-var pattern32 = new RegExp("^\\d+\\.\\d+\\.\\d+$", "u");
-function validate532(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate532.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = void 0;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = void 0;
-  }
-  if (typeof data === "string") {
-    if (!pattern32.test(data)) {
-      const err0 = { instancePath, schemaPath: "#/pattern", keyword: "pattern", params: { pattern: "^\\d+\\.\\d+\\.\\d+$" }, message: 'must match pattern "^\\d+\\.\\d+\\.\\d+$"' };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-  } else {
-    const err1 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-    if (vErrors === null) {
-      vErrors = [err1];
-    } else {
-      vErrors.push(err1);
-    }
-    errors++;
-  }
-  validate532.errors = vErrors;
-  return errors === 0;
+function manualCheckDue(session, item, fw, transcript) {
+  const c = fw.router.checks?.manual_work;
+  if (!c || !c.applies_to.includes(item.type) || item.spawned_from) return false;
+  if (session.items.some((i) => i.type === c.spawns)) return false;
+  const check2 = session.session.engine.checks[`${item.id}:manual_work`];
+  if (check2 && (check2.result === "yes" || check2.result === "no" || check2.asks >= 2)) return false;
+  const text = normalize(transcript.filter((t) => t.role === "user").map((t) => t.text).join("\n"));
+  return fw.router.types[c.spawns].signals.some((s) => said(s, text));
 }
-validate532.evaluated = { "dynamicProps": false, "dynamicItems": false };
-var schema21 = { "description": "Status rules: covered needs a value and at least one quote; assumed needs a quote; unknown has a null value; probe_count is at most 1.", "type": "object", "additionalProperties": false, "required": ["status", "value", "quotes", "probe_count"], "properties": { "status": { "enum": ["covered", "assumed", "unknown", "not_applicable", "declined"] }, "value": { "type": ["string", "null"] }, "quotes": { "type": "array", "items": { "$ref": "#/$defs/quote" } }, "probe_count": { "type": "integer", "minimum": 0, "maximum": 1 }, "updated_at": { "type": "string", "format": "date-time" }, "source": { "enum": ["captured"], "description": "captured: the user's reply stored word for word because the interviewer didn't record the answer to its own question. Shown for confirmation, never used as scoring evidence." } }, "allOf": [{ "if": { "properties": { "status": { "const": "covered" } } }, "then": { "properties": { "value": { "type": "string", "minLength": 1 }, "quotes": { "type": "array", "minItems": 1 } } } }, { "if": { "properties": { "status": { "const": "assumed" } } }, "then": { "properties": { "quotes": { "type": "array", "minItems": 1 } } } }, { "if": { "properties": { "status": { "const": "unknown" } } }, "then": { "properties": { "value": { "type": "null" } } } }] };
-var func2 = ucs2.default;
-function validate562(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate562.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = void 0;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = void 0;
-  }
-  if (typeof data === "string") {
-    if (func2(data) < 1) {
-      const err0 = { instancePath, schemaPath: "#/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-  } else {
-    const err1 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-    if (vErrors === null) {
-      vErrors = [err1];
-    } else {
-      vErrors.push(err1);
-    }
-    errors++;
-  }
-  validate562.errors = vErrors;
-  return errors === 0;
-}
-validate562.evaluated = { "dynamicProps": false, "dynamicItems": false };
-var formats0 = formats.fullFormats["date-time"];
-function validate55(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate55.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = void 0;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = void 0;
-  }
-  const _errs2 = errors;
-  let valid1 = true;
-  const _errs3 = errors;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.status !== void 0) {
-      if ("covered" !== data.status) {
-        const err0 = {};
-        if (vErrors === null) {
-          vErrors = [err0];
-        } else {
-          vErrors.push(err0);
-        }
-        errors++;
-      }
-    }
-  }
-  var _valid0 = _errs3 === errors;
-  errors = _errs2;
-  if (vErrors !== null) {
-    if (_errs2) {
-      vErrors.length = _errs2;
-    } else {
-      vErrors = null;
-    }
-  }
-  if (_valid0) {
-    const _errs5 = errors;
-    if (data && typeof data == "object" && !Array.isArray(data)) {
-      if (data.value !== void 0) {
-        let data1 = data.value;
-        if (typeof data1 === "string") {
-          if (func2(data1) < 1) {
-            const err1 = { instancePath: instancePath + "/value", schemaPath: "#/allOf/0/then/properties/value/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-            if (vErrors === null) {
-              vErrors = [err1];
-            } else {
-              vErrors.push(err1);
-            }
-            errors++;
-          }
-        } else {
-          const err2 = { instancePath: instancePath + "/value", schemaPath: "#/allOf/0/then/properties/value/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-          if (vErrors === null) {
-            vErrors = [err2];
-          } else {
-            vErrors.push(err2);
-          }
-          errors++;
-        }
-      }
-      if (data.quotes !== void 0) {
-        let data2 = data.quotes;
-        if (Array.isArray(data2)) {
-          if (data2.length < 1) {
-            const err3 = { instancePath: instancePath + "/quotes", schemaPath: "#/allOf/0/then/properties/quotes/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
-            if (vErrors === null) {
-              vErrors = [err3];
-            } else {
-              vErrors.push(err3);
-            }
-            errors++;
-          }
-        } else {
-          const err4 = { instancePath: instancePath + "/quotes", schemaPath: "#/allOf/0/then/properties/quotes/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-          if (vErrors === null) {
-            vErrors = [err4];
-          } else {
-            vErrors.push(err4);
-          }
-          errors++;
-        }
-      }
-    }
-    var _valid0 = _errs5 === errors;
-    valid1 = _valid0;
-    if (valid1) {
-      var props0 = {};
-      props0.value = true;
-      props0.quotes = true;
-      props0.status = true;
-    }
-  }
-  if (!valid1) {
-    const err5 = { instancePath, schemaPath: "#/allOf/0/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
-    if (vErrors === null) {
-      vErrors = [err5];
-    } else {
-      vErrors.push(err5);
-    }
-    errors++;
-  }
-  const _errs11 = errors;
-  let valid4 = true;
-  const _errs12 = errors;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.status !== void 0) {
-      if ("assumed" !== data.status) {
-        const err6 = {};
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-  }
-  var _valid1 = _errs12 === errors;
-  errors = _errs11;
-  if (vErrors !== null) {
-    if (_errs11) {
-      vErrors.length = _errs11;
-    } else {
-      vErrors = null;
-    }
-  }
-  if (_valid1) {
-    const _errs14 = errors;
-    if (data && typeof data == "object" && !Array.isArray(data)) {
-      if (data.quotes !== void 0) {
-        let data4 = data.quotes;
-        if (Array.isArray(data4)) {
-          if (data4.length < 1) {
-            const err7 = { instancePath: instancePath + "/quotes", schemaPath: "#/allOf/1/then/properties/quotes/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
-            if (vErrors === null) {
-              vErrors = [err7];
-            } else {
-              vErrors.push(err7);
-            }
-            errors++;
-          }
-        } else {
-          const err8 = { instancePath: instancePath + "/quotes", schemaPath: "#/allOf/1/then/properties/quotes/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-          if (vErrors === null) {
-            vErrors = [err8];
-          } else {
-            vErrors.push(err8);
-          }
-          errors++;
-        }
-      }
-    }
-    var _valid1 = _errs14 === errors;
-    valid4 = _valid1;
-    if (valid4) {
-      var props1 = {};
-      props1.quotes = true;
-      props1.status = true;
-    }
-  }
-  if (!valid4) {
-    const err9 = { instancePath, schemaPath: "#/allOf/1/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
-    if (vErrors === null) {
-      vErrors = [err9];
-    } else {
-      vErrors.push(err9);
-    }
-    errors++;
-  }
-  if (props0 !== true && props1 !== void 0) {
-    if (props1 === true) {
-      props0 = true;
-    } else {
-      props0 = props0 || {};
-      Object.assign(props0, props1);
-    }
-  }
-  const _errs18 = errors;
-  let valid7 = true;
-  const _errs19 = errors;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.status !== void 0) {
-      if ("unknown" !== data.status) {
-        const err10 = {};
-        if (vErrors === null) {
-          vErrors = [err10];
-        } else {
-          vErrors.push(err10);
-        }
-        errors++;
-      }
-    }
-  }
-  var _valid2 = _errs19 === errors;
-  errors = _errs18;
-  if (vErrors !== null) {
-    if (_errs18) {
-      vErrors.length = _errs18;
-    } else {
-      vErrors = null;
-    }
-  }
-  if (_valid2) {
-    const _errs21 = errors;
-    if (data && typeof data == "object" && !Array.isArray(data)) {
-      if (data.value !== void 0) {
-        if (data.value !== null) {
-          const err11 = { instancePath: instancePath + "/value", schemaPath: "#/allOf/2/then/properties/value/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-          if (vErrors === null) {
-            vErrors = [err11];
-          } else {
-            vErrors.push(err11);
-          }
-          errors++;
-        }
-      }
-    }
-    var _valid2 = _errs21 === errors;
-    valid7 = _valid2;
-    if (valid7) {
-      var props2 = {};
-      props2.value = true;
-      props2.status = true;
-    }
-  }
-  if (!valid7) {
-    const err12 = { instancePath, schemaPath: "#/allOf/2/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
-    if (vErrors === null) {
-      vErrors = [err12];
-    } else {
-      vErrors.push(err12);
-    }
-    errors++;
-  }
-  if (props0 !== true && props2 !== void 0) {
-    if (props2 === true) {
-      props0 = true;
-    } else {
-      props0 = props0 || {};
-      Object.assign(props0, props2);
-    }
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.status === void 0) {
-      const err13 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "status" }, message: "must have required property 'status'" };
-      if (vErrors === null) {
-        vErrors = [err13];
-      } else {
-        vErrors.push(err13);
-      }
-      errors++;
-    }
-    if (data.value === void 0) {
-      const err14 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "value" }, message: "must have required property 'value'" };
-      if (vErrors === null) {
-        vErrors = [err14];
-      } else {
-        vErrors.push(err14);
-      }
-      errors++;
-    }
-    if (data.quotes === void 0) {
-      const err15 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "quotes" }, message: "must have required property 'quotes'" };
-      if (vErrors === null) {
-        vErrors = [err15];
-      } else {
-        vErrors.push(err15);
-      }
-      errors++;
-    }
-    if (data.probe_count === void 0) {
-      const err16 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "probe_count" }, message: "must have required property 'probe_count'" };
-      if (vErrors === null) {
-        vErrors = [err16];
-      } else {
-        vErrors.push(err16);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "status" || key0 === "value" || key0 === "quotes" || key0 === "probe_count" || key0 === "updated_at" || key0 === "source")) {
-        const err17 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err17];
-        } else {
-          vErrors.push(err17);
-        }
-        errors++;
-      }
-    }
-    if (data.status !== void 0) {
-      let data7 = data.status;
-      if (!(data7 === "covered" || data7 === "assumed" || data7 === "unknown" || data7 === "not_applicable" || data7 === "declined")) {
-        const err18 = { instancePath: instancePath + "/status", schemaPath: "#/properties/status/enum", keyword: "enum", params: { allowedValues: schema21.properties.status.enum }, message: "must be equal to one of the allowed values" };
-        if (vErrors === null) {
-          vErrors = [err18];
-        } else {
-          vErrors.push(err18);
-        }
-        errors++;
-      }
-    }
-    if (data.value !== void 0) {
-      let data8 = data.value;
-      if (typeof data8 !== "string" && data8 !== null) {
-        const err19 = { instancePath: instancePath + "/value", schemaPath: "#/properties/value/type", keyword: "type", params: { type: schema21.properties.value.type }, message: "must be string,null" };
-        if (vErrors === null) {
-          vErrors = [err19];
-        } else {
-          vErrors.push(err19);
-        }
-        errors++;
-      }
-    }
-    if (data.quotes !== void 0) {
-      let data9 = data.quotes;
-      if (Array.isArray(data9)) {
-        const len0 = data9.length;
-        for (let i0 = 0; i0 < len0; i0++) {
-          if (!validate562(data9[i0], { instancePath: instancePath + "/quotes/" + i0, parentData: data9, parentDataProperty: i0, rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate562.errors : vErrors.concat(validate562.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err20 = { instancePath: instancePath + "/quotes", schemaPath: "#/properties/quotes/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err20];
-        } else {
-          vErrors.push(err20);
-        }
-        errors++;
-      }
-    }
-    if (data.probe_count !== void 0) {
-      let data11 = data.probe_count;
-      if (!(typeof data11 == "number" && (!(data11 % 1) && !isNaN(data11)) && isFinite(data11))) {
-        const err21 = { instancePath: instancePath + "/probe_count", schemaPath: "#/properties/probe_count/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
-        if (vErrors === null) {
-          vErrors = [err21];
-        } else {
-          vErrors.push(err21);
-        }
-        errors++;
-      }
-      if (typeof data11 == "number" && isFinite(data11)) {
-        if (data11 > 1 || isNaN(data11)) {
-          const err22 = { instancePath: instancePath + "/probe_count", schemaPath: "#/properties/probe_count/maximum", keyword: "maximum", params: { comparison: "<=", limit: 1 }, message: "must be <= 1" };
-          if (vErrors === null) {
-            vErrors = [err22];
-          } else {
-            vErrors.push(err22);
-          }
-          errors++;
-        }
-        if (data11 < 0 || isNaN(data11)) {
-          const err23 = { instancePath: instancePath + "/probe_count", schemaPath: "#/properties/probe_count/minimum", keyword: "minimum", params: { comparison: ">=", limit: 0 }, message: "must be >= 0" };
-          if (vErrors === null) {
-            vErrors = [err23];
-          } else {
-            vErrors.push(err23);
-          }
-          errors++;
-        }
-      }
-    }
-    if (data.updated_at !== void 0) {
-      let data12 = data.updated_at;
-      if (typeof data12 === "string") {
-        if (!formats0.validate(data12)) {
-          const err24 = { instancePath: instancePath + "/updated_at", schemaPath: "#/properties/updated_at/format", keyword: "format", params: { format: "date-time" }, message: 'must match format "date-time"' };
-          if (vErrors === null) {
-            vErrors = [err24];
-          } else {
-            vErrors.push(err24);
-          }
-          errors++;
-        }
-      } else {
-        const err25 = { instancePath: instancePath + "/updated_at", schemaPath: "#/properties/updated_at/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err25];
-        } else {
-          vErrors.push(err25);
-        }
-        errors++;
-      }
-    }
-    if (data.source !== void 0) {
-      if (!(data.source === "captured")) {
-        const err26 = { instancePath: instancePath + "/source", schemaPath: "#/properties/source/enum", keyword: "enum", params: { allowedValues: schema21.properties.source.enum }, message: "must be equal to one of the allowed values" };
-        if (vErrors === null) {
-          vErrors = [err26];
-        } else {
-          vErrors.push(err26);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err27 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err27];
-    } else {
-      vErrors.push(err27);
-    }
-    errors++;
-  }
-  validate55.errors = vErrors;
-  return errors === 0;
-}
-validate55.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema23 = { "type": "object", "additionalProperties": false, "required": ["id", "title", "type", "confidence", "trigger_quote", "modifiers", "spawned_from", "superseded_by", "type_history", "core_overrides", "coverage", "facts", "prose", "acceptance", "guardrails", "scoring", "gate", "open_questions"], "properties": { "id": { "$ref": "#/$defs/item_id" }, "title": { "type": "string", "minLength": 1 }, "type": { "$ref": "#/$defs/item_type" }, "confidence": { "enum": ["high", "med", "low"] }, "trigger_quote": { "$ref": "#/$defs/quote" }, "modifiers": { "type": "array", "uniqueItems": true, "items": { "enum": ["integration", "compliance", "migration"] } }, "spawned_from": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/item_id" }] }, "superseded_by": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/item_id" }] }, "modifiers_removed": { "description": "Modifiers taken back during the interview, so they aren't suggested again.", "type": "array", "items": { "enum": ["integration", "compliance", "migration"] } }, "dropped": { "description": "Set when the item turned out not to apply (the user said so). Gated Don't build with the reason; never confused with being replaced by another item.", "type": "object", "additionalProperties": false, "required": ["reason", "quote", "at"], "properties": { "reason": { "type": "string", "minLength": 1 }, "quote": { "$ref": "#/$defs/quote" }, "at": { "type": "string", "format": "date-time" } } }, "type_history": { "type": "array", "minItems": 1, "items": { "type": "object", "additionalProperties": false, "required": ["from", "to", "reason", "quote", "at"], "properties": { "from": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/item_type" }] }, "to": { "$ref": "#/$defs/item_type" }, "reason": { "type": "string", "minLength": 1 }, "quote": { "$ref": "#/$defs/quote" }, "at": { "type": "string", "format": "date-time" } } } }, "core_overrides": { "type": "object", "propertyNames": { "$ref": "#/$defs/core_area" }, "additionalProperties": { "$ref": "#/$defs/coverage_entry" } }, "coverage": { "type": "object", "propertyNames": { "$ref": "#/$defs/coverage_id", "not": { "pattern": "^core\\." } }, "additionalProperties": { "$ref": "#/$defs/coverage_entry" } }, "facts": { "type": "object", "propertyNames": { "enum": ["rule_clarity", "input_digital", "input_structured", "ways_done", "stability", "documentation", "steps_apps", "access", "value", "ai_applies", "eval_ability", "error_cost", "human_review", "simpler_option", "fallback", "sensitive_data", "push", "pull", "anxiety", "habit", "existing_asset", "decision_depends", "broken_cause", "workaround_permanent", "success_metric"] }, "additionalProperties": { "$ref": "#/$defs/fact_entry" } }, "prose": { "type": "object", "additionalProperties": false, "properties": { "problem_statement": { "type": "string", "minLength": 1 }, "current_state": { "type": "string", "minLength": 1 }, "mvp": { "type": "string", "minLength": 1 }, "out_of_scope": { "type": "string", "minLength": 1 }, "mitigation": { "type": "string", "minLength": 1 } } }, "acceptance": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["kind", "given", "when", "then", "evidence"], "properties": { "kind": { "enum": ["criterion", "error_case"] }, "given": { "type": "string", "minLength": 1 }, "when": { "type": "string", "minLength": 1 }, "then": { "type": "string", "minLength": 1 }, "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/coverage_id" } } } } }, "guardrails": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["kind", "text", "evidence"], "properties": { "kind": { "enum": ["kill_criterion", "fallback", "review_point", "data_rule"] }, "text": { "type": "string", "minLength": 1 }, "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/coverage_id" } } } } }, "scoring": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/scoring" }], "description": "Written by code only. Null until the reflect-back is confirmed." }, "gate": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/gate" }], "description": "Written by code only. Null until scored." }, "open_questions": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["area", "question", "who_can_answer", "artifact_needed"], "properties": { "area": { "$ref": "#/$defs/coverage_id" }, "question": { "type": "string", "minLength": 1 }, "who_can_answer": { "type": ["string", "null"] }, "artifact_needed": { "type": ["string", "null"] } } } } }, "allOf": [{ "description": "A gate needs scoring first.", "if": { "properties": { "gate": { "type": "object" } }, "required": ["gate"] }, "then": { "properties": { "scoring": { "type": "object" } } } }] };
-var func12 = Object.prototype.hasOwnProperty;
-var func02 = equal.default;
-var pattern62 = new RegExp("^item-\\d+$", "u");
-function validate65(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate65.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = void 0;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = void 0;
-  }
-  if (typeof data === "string") {
-    if (!pattern62.test(data)) {
-      const err0 = { instancePath, schemaPath: "#/pattern", keyword: "pattern", params: { pattern: "^item-\\d+$" }, message: 'must match pattern "^item-\\d+$"' };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-  } else {
-    const err1 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-    if (vErrors === null) {
-      vErrors = [err1];
-    } else {
-      vErrors.push(err1);
-    }
-    errors++;
-  }
-  validate65.errors = vErrors;
-  return errors === 0;
-}
-validate65.evaluated = { "dynamicProps": false, "dynamicItems": false };
-var schema252 = { "enum": ["broken", "manual_process", "known_idea", "exploratory", "data_report"] };
-function validate67(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate67.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = void 0;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = void 0;
-  }
-  if (!(data === "broken" || data === "manual_process" || data === "known_idea" || data === "exploratory" || data === "data_report")) {
-    const err0 = { instancePath, schemaPath: "#/enum", keyword: "enum", params: { allowedValues: schema252.enum }, message: "must be equal to one of the allowed values" };
-    if (vErrors === null) {
-      vErrors = [err0];
-    } else {
-      vErrors.push(err0);
-    }
-    errors++;
-  }
-  validate67.errors = vErrors;
-  return errors === 0;
-}
-validate67.evaluated = { "dynamicProps": false, "dynamicItems": false };
-var schema262 = { "enum": ["users", "outcome", "data", "systems", "constraints", "trust"] };
-function validate76(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate76.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = void 0;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = void 0;
-  }
-  if (!(data === "users" || data === "outcome" || data === "data" || data === "systems" || data === "constraints" || data === "trust")) {
-    const err0 = { instancePath, schemaPath: "#/enum", keyword: "enum", params: { allowedValues: schema262.enum }, message: "must be equal to one of the allowed values" };
-    if (vErrors === null) {
-      vErrors = [err0];
-    } else {
-      vErrors.push(err0);
-    }
-    errors++;
-  }
-  validate76.errors = vErrors;
-  return errors === 0;
-}
-validate76.evaluated = { "dynamicProps": false, "dynamicItems": false };
-var pattern72 = new RegExp("^(core|broken|manual_process|known_idea|exploratory|data_report)\\.[a-z][a-z0-9_]*$|^mod\\.(integration|compliance|migration)\\.[a-z][a-z0-9_]*$", "u");
-function validate792(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate792.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = void 0;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = void 0;
-  }
-  if (typeof data === "string") {
-    if (!pattern72.test(data)) {
-      const err0 = { instancePath, schemaPath: "#/pattern", keyword: "pattern", params: { pattern: "^(core|broken|manual_process|known_idea|exploratory|data_report)\\.[a-z][a-z0-9_]*$|^mod\\.(integration|compliance|migration)\\.[a-z][a-z0-9_]*$" }, message: 'must match pattern "^(core|broken|manual_process|known_idea|exploratory|data_report)\\.[a-z][a-z0-9_]*$|^mod\\.(integration|compliance|migration)\\.[a-z][a-z0-9_]*$"' };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-  } else {
-    const err1 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-    if (vErrors === null) {
-      vErrors = [err1];
-    } else {
-      vErrors.push(err1);
-    }
-    errors++;
-  }
-  validate792.errors = vErrors;
-  return errors === 0;
-}
-validate792.evaluated = { "dynamicProps": false, "dynamicItems": false };
-var pattern9 = new RegExp("^[a-z0-9][a-z0-9_+-]*$", "u");
-function validate82(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate82.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = void 0;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = void 0;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.band === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "band" }, message: "must have required property 'band'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.evidence === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "evidence" }, message: "must have required property 'evidence'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.quotes === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "quotes" }, message: "must have required property 'quotes'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "band" || key0 === "evidence" || key0 === "quotes")) {
-        const err3 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err3];
-        } else {
-          vErrors.push(err3);
-        }
-        errors++;
-      }
-    }
-    if (data.band !== void 0) {
-      let data0 = data.band;
-      if (typeof data0 === "string") {
-        if (!pattern9.test(data0)) {
-          const err4 = { instancePath: instancePath + "/band", schemaPath: "#/properties/band/pattern", keyword: "pattern", params: { pattern: "^[a-z0-9][a-z0-9_+-]*$" }, message: 'must match pattern "^[a-z0-9][a-z0-9_+-]*$"' };
-          if (vErrors === null) {
-            vErrors = [err4];
-          } else {
-            vErrors.push(err4);
-          }
-          errors++;
-        }
-      } else {
-        const err5 = { instancePath: instancePath + "/band", schemaPath: "#/properties/band/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-    }
-    if (data.evidence !== void 0) {
-      let data1 = data.evidence;
-      if (Array.isArray(data1)) {
-        const len0 = data1.length;
-        for (let i0 = 0; i0 < len0; i0++) {
-          if (!validate792(data1[i0], { instancePath: instancePath + "/evidence/" + i0, parentData: data1, parentDataProperty: i0, rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate792.errors : vErrors.concat(validate792.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err6 = { instancePath: instancePath + "/evidence", schemaPath: "#/properties/evidence/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-    if (data.quotes !== void 0) {
-      let data3 = data.quotes;
-      if (Array.isArray(data3)) {
-        const len1 = data3.length;
-        for (let i1 = 0; i1 < len1; i1++) {
-          if (!validate562(data3[i1], { instancePath: instancePath + "/quotes/" + i1, parentData: data3, parentDataProperty: i1, rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate562.errors : vErrors.concat(validate562.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err7 = { instancePath: instancePath + "/quotes", schemaPath: "#/properties/quotes/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err8 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err8];
-    } else {
-      vErrors.push(err8);
-    }
-    errors++;
-  }
-  validate82.errors = vErrors;
-  return errors === 0;
-}
-validate82.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema29 = { "type": "object", "additionalProperties": false, "required": ["criteria", "automation_potential", "ease", "quadrant", "ai_overlay", "adoption", "rules_version"], "properties": { "criteria": { "type": "object", "propertyNames": { "enum": ["rule_clarity", "input_digital", "input_structured", "ways_done", "stability", "documentation", "steps_apps", "access", "value"] }, "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["score", "band", "evidence"], "properties": { "score": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 }, "band": { "type": "string" }, "evidence": { "type": "array", "items": { "$ref": "#/$defs/coverage_id" } } } } }, "automation_potential": { "type": ["number", "null"], "minimum": 1, "maximum": 5 }, "ease": { "type": ["number", "null"], "minimum": 1, "maximum": 5 }, "quadrant": { "enum": ["prioritize", "review", "defer", null] }, "ai_overlay": { "type": "object", "additionalProperties": false, "required": ["applies", "checks"], "properties": { "applies": { "type": "boolean" }, "checks": { "type": "object", "propertyNames": { "enum": ["eval_ability", "error_cost", "human_review", "simpler_option", "fallback", "sensitive_data"] }, "additionalProperties": { "enum": ["pass", "fail", "unknown"] } } } }, "adoption": { "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["push", "pull", "anxiety", "habit"], "properties": { "push": { "enum": ["low", "med", "high", "unknown"] }, "pull": { "enum": ["low", "med", "high", "unknown"] }, "anxiety": { "enum": ["low", "med", "high", "unknown"] }, "habit": { "enum": ["low", "med", "high", "unknown"] } } }] }, "rules_version": { "$ref": "#/$defs/semver" } } };
-function validate88(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate88.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = void 0;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = void 0;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.criteria === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "criteria" }, message: "must have required property 'criteria'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.automation_potential === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "automation_potential" }, message: "must have required property 'automation_potential'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.ease === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "ease" }, message: "must have required property 'ease'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    if (data.quadrant === void 0) {
-      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "quadrant" }, message: "must have required property 'quadrant'" };
-      if (vErrors === null) {
-        vErrors = [err3];
-      } else {
-        vErrors.push(err3);
-      }
-      errors++;
-    }
-    if (data.ai_overlay === void 0) {
-      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "ai_overlay" }, message: "must have required property 'ai_overlay'" };
-      if (vErrors === null) {
-        vErrors = [err4];
-      } else {
-        vErrors.push(err4);
-      }
-      errors++;
-    }
-    if (data.adoption === void 0) {
-      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "adoption" }, message: "must have required property 'adoption'" };
-      if (vErrors === null) {
-        vErrors = [err5];
-      } else {
-        vErrors.push(err5);
-      }
-      errors++;
-    }
-    if (data.rules_version === void 0) {
-      const err6 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "rules_version" }, message: "must have required property 'rules_version'" };
-      if (vErrors === null) {
-        vErrors = [err6];
-      } else {
-        vErrors.push(err6);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "criteria" || key0 === "automation_potential" || key0 === "ease" || key0 === "quadrant" || key0 === "ai_overlay" || key0 === "adoption" || key0 === "rules_version")) {
-        const err7 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-    }
-    if (data.criteria !== void 0) {
-      let data0 = data.criteria;
-      if (data0 && typeof data0 == "object" && !Array.isArray(data0)) {
-        for (const key1 in data0) {
-          const _errs4 = errors;
-          if (!(key1 === "rule_clarity" || key1 === "input_digital" || key1 === "input_structured" || key1 === "ways_done" || key1 === "stability" || key1 === "documentation" || key1 === "steps_apps" || key1 === "access" || key1 === "value")) {
-            const err8 = { instancePath: instancePath + "/criteria", schemaPath: "#/properties/criteria/propertyNames/enum", keyword: "enum", params: { allowedValues: schema29.properties.criteria.propertyNames.enum }, message: "must be equal to one of the allowed values", propertyName: key1 };
-            if (vErrors === null) {
-              vErrors = [err8];
-            } else {
-              vErrors.push(err8);
-            }
-            errors++;
-          }
-          var valid1 = _errs4 === errors;
-          if (!valid1) {
-            const err9 = { instancePath: instancePath + "/criteria", schemaPath: "#/properties/criteria/propertyNames", keyword: "propertyNames", params: { propertyName: key1 }, message: "property name must be valid" };
-            if (vErrors === null) {
-              vErrors = [err9];
-            } else {
-              vErrors.push(err9);
-            }
-            errors++;
-          }
-        }
-        for (const key2 in data0) {
-          let data1 = data0[key2];
-          if (data1 && typeof data1 == "object" && !Array.isArray(data1)) {
-            if (data1.score === void 0) {
-              const err10 = { instancePath: instancePath + "/criteria/" + key2.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/criteria/additionalProperties/required", keyword: "required", params: { missingProperty: "score" }, message: "must have required property 'score'" };
-              if (vErrors === null) {
-                vErrors = [err10];
-              } else {
-                vErrors.push(err10);
-              }
-              errors++;
-            }
-            if (data1.band === void 0) {
-              const err11 = { instancePath: instancePath + "/criteria/" + key2.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/criteria/additionalProperties/required", keyword: "required", params: { missingProperty: "band" }, message: "must have required property 'band'" };
-              if (vErrors === null) {
-                vErrors = [err11];
-              } else {
-                vErrors.push(err11);
-              }
-              errors++;
-            }
-            if (data1.evidence === void 0) {
-              const err12 = { instancePath: instancePath + "/criteria/" + key2.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/criteria/additionalProperties/required", keyword: "required", params: { missingProperty: "evidence" }, message: "must have required property 'evidence'" };
-              if (vErrors === null) {
-                vErrors = [err12];
-              } else {
-                vErrors.push(err12);
-              }
-              errors++;
-            }
-            for (const key3 in data1) {
-              if (!(key3 === "score" || key3 === "band" || key3 === "evidence")) {
-                const err13 = { instancePath: instancePath + "/criteria/" + key2.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/criteria/additionalProperties/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key3 }, message: "must NOT have additional properties" };
-                if (vErrors === null) {
-                  vErrors = [err13];
-                } else {
-                  vErrors.push(err13);
-                }
-                errors++;
-              }
-            }
-            if (data1.score !== void 0) {
-              let data2 = data1.score;
-              if (!(typeof data2 == "number" && (!(data2 % 1) && !isNaN(data2)) && isFinite(data2)) && data2 !== null) {
-                const err14 = { instancePath: instancePath + "/criteria/" + key2.replace(/~/g, "~0").replace(/\//g, "~1") + "/score", schemaPath: "#/properties/criteria/additionalProperties/properties/score/type", keyword: "type", params: { type: schema29.properties.criteria.additionalProperties.properties.score.type }, message: "must be integer,null" };
-                if (vErrors === null) {
-                  vErrors = [err14];
-                } else {
-                  vErrors.push(err14);
-                }
-                errors++;
-              }
-              if (typeof data2 == "number" && isFinite(data2)) {
-                if (data2 > 5 || isNaN(data2)) {
-                  const err15 = { instancePath: instancePath + "/criteria/" + key2.replace(/~/g, "~0").replace(/\//g, "~1") + "/score", schemaPath: "#/properties/criteria/additionalProperties/properties/score/maximum", keyword: "maximum", params: { comparison: "<=", limit: 5 }, message: "must be <= 5" };
-                  if (vErrors === null) {
-                    vErrors = [err15];
-                  } else {
-                    vErrors.push(err15);
-                  }
-                  errors++;
-                }
-                if (data2 < 1 || isNaN(data2)) {
-                  const err16 = { instancePath: instancePath + "/criteria/" + key2.replace(/~/g, "~0").replace(/\//g, "~1") + "/score", schemaPath: "#/properties/criteria/additionalProperties/properties/score/minimum", keyword: "minimum", params: { comparison: ">=", limit: 1 }, message: "must be >= 1" };
-                  if (vErrors === null) {
-                    vErrors = [err16];
-                  } else {
-                    vErrors.push(err16);
-                  }
-                  errors++;
-                }
-              }
-            }
-            if (data1.band !== void 0) {
-              if (typeof data1.band !== "string") {
-                const err17 = { instancePath: instancePath + "/criteria/" + key2.replace(/~/g, "~0").replace(/\//g, "~1") + "/band", schemaPath: "#/properties/criteria/additionalProperties/properties/band/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err17];
-                } else {
-                  vErrors.push(err17);
-                }
-                errors++;
-              }
-            }
-            if (data1.evidence !== void 0) {
-              let data4 = data1.evidence;
-              if (Array.isArray(data4)) {
-                const len0 = data4.length;
-                for (let i0 = 0; i0 < len0; i0++) {
-                  if (!validate792(data4[i0], { instancePath: instancePath + "/criteria/" + key2.replace(/~/g, "~0").replace(/\//g, "~1") + "/evidence/" + i0, parentData: data4, parentDataProperty: i0, rootData, dynamicAnchors })) {
-                    vErrors = vErrors === null ? validate792.errors : vErrors.concat(validate792.errors);
-                    errors = vErrors.length;
-                  }
-                }
-              } else {
-                const err18 = { instancePath: instancePath + "/criteria/" + key2.replace(/~/g, "~0").replace(/\//g, "~1") + "/evidence", schemaPath: "#/properties/criteria/additionalProperties/properties/evidence/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-                if (vErrors === null) {
-                  vErrors = [err18];
-                } else {
-                  vErrors.push(err18);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err19 = { instancePath: instancePath + "/criteria/" + key2.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/criteria/additionalProperties/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            if (vErrors === null) {
-              vErrors = [err19];
-            } else {
-              vErrors.push(err19);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err20 = { instancePath: instancePath + "/criteria", schemaPath: "#/properties/criteria/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        if (vErrors === null) {
-          vErrors = [err20];
-        } else {
-          vErrors.push(err20);
-        }
-        errors++;
-      }
-    }
-    if (data.automation_potential !== void 0) {
-      let data6 = data.automation_potential;
-      if (!(typeof data6 == "number" && isFinite(data6)) && data6 !== null) {
-        const err21 = { instancePath: instancePath + "/automation_potential", schemaPath: "#/properties/automation_potential/type", keyword: "type", params: { type: schema29.properties.automation_potential.type }, message: "must be number,null" };
-        if (vErrors === null) {
-          vErrors = [err21];
-        } else {
-          vErrors.push(err21);
-        }
-        errors++;
-      }
-      if (typeof data6 == "number" && isFinite(data6)) {
-        if (data6 > 5 || isNaN(data6)) {
-          const err22 = { instancePath: instancePath + "/automation_potential", schemaPath: "#/properties/automation_potential/maximum", keyword: "maximum", params: { comparison: "<=", limit: 5 }, message: "must be <= 5" };
-          if (vErrors === null) {
-            vErrors = [err22];
-          } else {
-            vErrors.push(err22);
-          }
-          errors++;
-        }
-        if (data6 < 1 || isNaN(data6)) {
-          const err23 = { instancePath: instancePath + "/automation_potential", schemaPath: "#/properties/automation_potential/minimum", keyword: "minimum", params: { comparison: ">=", limit: 1 }, message: "must be >= 1" };
-          if (vErrors === null) {
-            vErrors = [err23];
-          } else {
-            vErrors.push(err23);
-          }
-          errors++;
-        }
-      }
-    }
-    if (data.ease !== void 0) {
-      let data7 = data.ease;
-      if (!(typeof data7 == "number" && isFinite(data7)) && data7 !== null) {
-        const err24 = { instancePath: instancePath + "/ease", schemaPath: "#/properties/ease/type", keyword: "type", params: { type: schema29.properties.ease.type }, message: "must be number,null" };
-        if (vErrors === null) {
-          vErrors = [err24];
-        } else {
-          vErrors.push(err24);
-        }
-        errors++;
-      }
-      if (typeof data7 == "number" && isFinite(data7)) {
-        if (data7 > 5 || isNaN(data7)) {
-          const err25 = { instancePath: instancePath + "/ease", schemaPath: "#/properties/ease/maximum", keyword: "maximum", params: { comparison: "<=", limit: 5 }, message: "must be <= 5" };
-          if (vErrors === null) {
-            vErrors = [err25];
-          } else {
-            vErrors.push(err25);
-          }
-          errors++;
-        }
-        if (data7 < 1 || isNaN(data7)) {
-          const err26 = { instancePath: instancePath + "/ease", schemaPath: "#/properties/ease/minimum", keyword: "minimum", params: { comparison: ">=", limit: 1 }, message: "must be >= 1" };
-          if (vErrors === null) {
-            vErrors = [err26];
-          } else {
-            vErrors.push(err26);
-          }
-          errors++;
-        }
-      }
-    }
-    if (data.quadrant !== void 0) {
-      let data8 = data.quadrant;
-      if (!(data8 === "prioritize" || data8 === "review" || data8 === "defer" || data8 === null)) {
-        const err27 = { instancePath: instancePath + "/quadrant", schemaPath: "#/properties/quadrant/enum", keyword: "enum", params: { allowedValues: schema29.properties.quadrant.enum }, message: "must be equal to one of the allowed values" };
-        if (vErrors === null) {
-          vErrors = [err27];
-        } else {
-          vErrors.push(err27);
-        }
-        errors++;
-      }
-    }
-    if (data.ai_overlay !== void 0) {
-      let data9 = data.ai_overlay;
-      if (data9 && typeof data9 == "object" && !Array.isArray(data9)) {
-        if (data9.applies === void 0) {
-          const err28 = { instancePath: instancePath + "/ai_overlay", schemaPath: "#/properties/ai_overlay/required", keyword: "required", params: { missingProperty: "applies" }, message: "must have required property 'applies'" };
-          if (vErrors === null) {
-            vErrors = [err28];
-          } else {
-            vErrors.push(err28);
-          }
-          errors++;
-        }
-        if (data9.checks === void 0) {
-          const err29 = { instancePath: instancePath + "/ai_overlay", schemaPath: "#/properties/ai_overlay/required", keyword: "required", params: { missingProperty: "checks" }, message: "must have required property 'checks'" };
-          if (vErrors === null) {
-            vErrors = [err29];
-          } else {
-            vErrors.push(err29);
-          }
-          errors++;
-        }
-        for (const key4 in data9) {
-          if (!(key4 === "applies" || key4 === "checks")) {
-            const err30 = { instancePath: instancePath + "/ai_overlay", schemaPath: "#/properties/ai_overlay/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key4 }, message: "must NOT have additional properties" };
-            if (vErrors === null) {
-              vErrors = [err30];
-            } else {
-              vErrors.push(err30);
-            }
-            errors++;
-          }
-        }
-        if (data9.applies !== void 0) {
-          if (typeof data9.applies !== "boolean") {
-            const err31 = { instancePath: instancePath + "/ai_overlay/applies", schemaPath: "#/properties/ai_overlay/properties/applies/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
-            if (vErrors === null) {
-              vErrors = [err31];
-            } else {
-              vErrors.push(err31);
-            }
-            errors++;
-          }
-        }
-        if (data9.checks !== void 0) {
-          let data11 = data9.checks;
-          if (data11 && typeof data11 == "object" && !Array.isArray(data11)) {
-            for (const key5 in data11) {
-              const _errs28 = errors;
-              if (!(key5 === "eval_ability" || key5 === "error_cost" || key5 === "human_review" || key5 === "simpler_option" || key5 === "fallback" || key5 === "sensitive_data")) {
-                const err32 = { instancePath: instancePath + "/ai_overlay/checks", schemaPath: "#/properties/ai_overlay/properties/checks/propertyNames/enum", keyword: "enum", params: { allowedValues: schema29.properties.ai_overlay.properties.checks.propertyNames.enum }, message: "must be equal to one of the allowed values", propertyName: key5 };
-                if (vErrors === null) {
-                  vErrors = [err32];
-                } else {
-                  vErrors.push(err32);
-                }
-                errors++;
-              }
-              var valid7 = _errs28 === errors;
-              if (!valid7) {
-                const err33 = { instancePath: instancePath + "/ai_overlay/checks", schemaPath: "#/properties/ai_overlay/properties/checks/propertyNames", keyword: "propertyNames", params: { propertyName: key5 }, message: "property name must be valid" };
-                if (vErrors === null) {
-                  vErrors = [err33];
-                } else {
-                  vErrors.push(err33);
-                }
-                errors++;
-              }
-            }
-            for (const key6 in data11) {
-              let data12 = data11[key6];
-              if (!(data12 === "pass" || data12 === "fail" || data12 === "unknown")) {
-                const err34 = { instancePath: instancePath + "/ai_overlay/checks/" + key6.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/ai_overlay/properties/checks/additionalProperties/enum", keyword: "enum", params: { allowedValues: schema29.properties.ai_overlay.properties.checks.additionalProperties.enum }, message: "must be equal to one of the allowed values" };
-                if (vErrors === null) {
-                  vErrors = [err34];
-                } else {
-                  vErrors.push(err34);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err35 = { instancePath: instancePath + "/ai_overlay/checks", schemaPath: "#/properties/ai_overlay/properties/checks/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            if (vErrors === null) {
-              vErrors = [err35];
-            } else {
-              vErrors.push(err35);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err36 = { instancePath: instancePath + "/ai_overlay", schemaPath: "#/properties/ai_overlay/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        if (vErrors === null) {
-          vErrors = [err36];
-        } else {
-          vErrors.push(err36);
-        }
-        errors++;
-      }
-    }
-    if (data.adoption !== void 0) {
-      let data13 = data.adoption;
-      const _errs32 = errors;
-      let valid9 = false;
-      let passing0 = null;
-      const _errs33 = errors;
-      if (data13 !== null) {
-        const err37 = { instancePath: instancePath + "/adoption", schemaPath: "#/properties/adoption/oneOf/0/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-        if (vErrors === null) {
-          vErrors = [err37];
-        } else {
-          vErrors.push(err37);
-        }
-        errors++;
-      }
-      var _valid0 = _errs33 === errors;
-      if (_valid0) {
-        valid9 = true;
-        passing0 = 0;
-      }
-      const _errs35 = errors;
-      if (data13 && typeof data13 == "object" && !Array.isArray(data13)) {
-        if (data13.push === void 0) {
-          const err38 = { instancePath: instancePath + "/adoption", schemaPath: "#/properties/adoption/oneOf/1/required", keyword: "required", params: { missingProperty: "push" }, message: "must have required property 'push'" };
-          if (vErrors === null) {
-            vErrors = [err38];
-          } else {
-            vErrors.push(err38);
-          }
-          errors++;
-        }
-        if (data13.pull === void 0) {
-          const err39 = { instancePath: instancePath + "/adoption", schemaPath: "#/properties/adoption/oneOf/1/required", keyword: "required", params: { missingProperty: "pull" }, message: "must have required property 'pull'" };
-          if (vErrors === null) {
-            vErrors = [err39];
-          } else {
-            vErrors.push(err39);
-          }
-          errors++;
-        }
-        if (data13.anxiety === void 0) {
-          const err40 = { instancePath: instancePath + "/adoption", schemaPath: "#/properties/adoption/oneOf/1/required", keyword: "required", params: { missingProperty: "anxiety" }, message: "must have required property 'anxiety'" };
-          if (vErrors === null) {
-            vErrors = [err40];
-          } else {
-            vErrors.push(err40);
-          }
-          errors++;
-        }
-        if (data13.habit === void 0) {
-          const err41 = { instancePath: instancePath + "/adoption", schemaPath: "#/properties/adoption/oneOf/1/required", keyword: "required", params: { missingProperty: "habit" }, message: "must have required property 'habit'" };
-          if (vErrors === null) {
-            vErrors = [err41];
-          } else {
-            vErrors.push(err41);
-          }
-          errors++;
-        }
-        for (const key7 in data13) {
-          if (!(key7 === "push" || key7 === "pull" || key7 === "anxiety" || key7 === "habit")) {
-            const err42 = { instancePath: instancePath + "/adoption", schemaPath: "#/properties/adoption/oneOf/1/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key7 }, message: "must NOT have additional properties" };
-            if (vErrors === null) {
-              vErrors = [err42];
-            } else {
-              vErrors.push(err42);
-            }
-            errors++;
-          }
-        }
-        if (data13.push !== void 0) {
-          let data14 = data13.push;
-          if (!(data14 === "low" || data14 === "med" || data14 === "high" || data14 === "unknown")) {
-            const err43 = { instancePath: instancePath + "/adoption/push", schemaPath: "#/properties/adoption/oneOf/1/properties/push/enum", keyword: "enum", params: { allowedValues: schema29.properties.adoption.oneOf[1].properties.push.enum }, message: "must be equal to one of the allowed values" };
-            if (vErrors === null) {
-              vErrors = [err43];
-            } else {
-              vErrors.push(err43);
-            }
-            errors++;
-          }
-        }
-        if (data13.pull !== void 0) {
-          let data15 = data13.pull;
-          if (!(data15 === "low" || data15 === "med" || data15 === "high" || data15 === "unknown")) {
-            const err44 = { instancePath: instancePath + "/adoption/pull", schemaPath: "#/properties/adoption/oneOf/1/properties/pull/enum", keyword: "enum", params: { allowedValues: schema29.properties.adoption.oneOf[1].properties.pull.enum }, message: "must be equal to one of the allowed values" };
-            if (vErrors === null) {
-              vErrors = [err44];
-            } else {
-              vErrors.push(err44);
-            }
-            errors++;
-          }
-        }
-        if (data13.anxiety !== void 0) {
-          let data16 = data13.anxiety;
-          if (!(data16 === "low" || data16 === "med" || data16 === "high" || data16 === "unknown")) {
-            const err45 = { instancePath: instancePath + "/adoption/anxiety", schemaPath: "#/properties/adoption/oneOf/1/properties/anxiety/enum", keyword: "enum", params: { allowedValues: schema29.properties.adoption.oneOf[1].properties.anxiety.enum }, message: "must be equal to one of the allowed values" };
-            if (vErrors === null) {
-              vErrors = [err45];
-            } else {
-              vErrors.push(err45);
-            }
-            errors++;
-          }
-        }
-        if (data13.habit !== void 0) {
-          let data17 = data13.habit;
-          if (!(data17 === "low" || data17 === "med" || data17 === "high" || data17 === "unknown")) {
-            const err46 = { instancePath: instancePath + "/adoption/habit", schemaPath: "#/properties/adoption/oneOf/1/properties/habit/enum", keyword: "enum", params: { allowedValues: schema29.properties.adoption.oneOf[1].properties.habit.enum }, message: "must be equal to one of the allowed values" };
-            if (vErrors === null) {
-              vErrors = [err46];
-            } else {
-              vErrors.push(err46);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err47 = { instancePath: instancePath + "/adoption", schemaPath: "#/properties/adoption/oneOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        if (vErrors === null) {
-          vErrors = [err47];
-        } else {
-          vErrors.push(err47);
-        }
-        errors++;
-      }
-      var _valid0 = _errs35 === errors;
-      if (_valid0 && valid9) {
-        valid9 = false;
-        passing0 = [passing0, 1];
-      } else {
-        if (_valid0) {
-          valid9 = true;
-          passing0 = 1;
-        }
-      }
-      if (!valid9) {
-        const err48 = { instancePath: instancePath + "/adoption", schemaPath: "#/properties/adoption/oneOf", keyword: "oneOf", params: { passingSchemas: passing0 }, message: "must match exactly one schema in oneOf" };
-        if (vErrors === null) {
-          vErrors = [err48];
-        } else {
-          vErrors.push(err48);
-        }
-        errors++;
-      } else {
-        errors = _errs32;
-        if (vErrors !== null) {
-          if (_errs32) {
-            vErrors.length = _errs32;
-          } else {
-            vErrors = null;
-          }
-        }
-      }
-    }
-    if (data.rules_version !== void 0) {
-      if (!validate532(data.rules_version, { instancePath: instancePath + "/rules_version", parentData: data, parentDataProperty: "rules_version", rootData, dynamicAnchors })) {
-        vErrors = vErrors === null ? validate532.errors : vErrors.concat(validate532.errors);
-        errors = vErrors.length;
-      }
-    }
-  } else {
-    const err49 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err49];
-    } else {
-      vErrors.push(err49);
-    }
-    errors++;
-  }
-  validate88.errors = vErrors;
-  return errors === 0;
-}
-validate88.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema30 = { "type": "object", "additionalProperties": false, "required": ["decision", "reasons", "revisit_trigger", "rules_version"], "properties": { "decision": { "enum": ["go", "gather_more", "dont_build", "fix_not_build"] }, "reasons": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }, "revisit_trigger": { "type": ["string", "null"] }, "rules_version": { "$ref": "#/$defs/semver" } }, "allOf": [{ "description": "Don't build always records what would make it worth revisiting.", "if": { "properties": { "decision": { "const": "dont_build" } } }, "then": { "properties": { "revisit_trigger": { "type": "string", "minLength": 1 } } } }] };
-function validate92(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate92.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = void 0;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = void 0;
-  }
-  const _errs2 = errors;
-  let valid1 = true;
-  const _errs3 = errors;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.decision !== void 0) {
-      if ("dont_build" !== data.decision) {
-        const err0 = {};
-        if (vErrors === null) {
-          vErrors = [err0];
-        } else {
-          vErrors.push(err0);
-        }
-        errors++;
-      }
-    }
-  }
-  var _valid0 = _errs3 === errors;
-  errors = _errs2;
-  if (vErrors !== null) {
-    if (_errs2) {
-      vErrors.length = _errs2;
-    } else {
-      vErrors = null;
-    }
-  }
-  if (_valid0) {
-    const _errs5 = errors;
-    if (data && typeof data == "object" && !Array.isArray(data)) {
-      if (data.revisit_trigger !== void 0) {
-        let data1 = data.revisit_trigger;
-        if (typeof data1 === "string") {
-          if (func2(data1) < 1) {
-            const err1 = { instancePath: instancePath + "/revisit_trigger", schemaPath: "#/allOf/0/then/properties/revisit_trigger/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-            if (vErrors === null) {
-              vErrors = [err1];
-            } else {
-              vErrors.push(err1);
-            }
-            errors++;
-          }
-        } else {
-          const err2 = { instancePath: instancePath + "/revisit_trigger", schemaPath: "#/allOf/0/then/properties/revisit_trigger/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-          if (vErrors === null) {
-            vErrors = [err2];
-          } else {
-            vErrors.push(err2);
-          }
-          errors++;
-        }
-      }
-    }
-    var _valid0 = _errs5 === errors;
-    valid1 = _valid0;
-    if (valid1) {
-      var props0 = {};
-      props0.revisit_trigger = true;
-      props0.decision = true;
-    }
-  }
-  if (!valid1) {
-    const err3 = { instancePath, schemaPath: "#/allOf/0/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
-    if (vErrors === null) {
-      vErrors = [err3];
-    } else {
-      vErrors.push(err3);
-    }
-    errors++;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.decision === void 0) {
-      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "decision" }, message: "must have required property 'decision'" };
-      if (vErrors === null) {
-        vErrors = [err4];
-      } else {
-        vErrors.push(err4);
-      }
-      errors++;
-    }
-    if (data.reasons === void 0) {
-      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "reasons" }, message: "must have required property 'reasons'" };
-      if (vErrors === null) {
-        vErrors = [err5];
-      } else {
-        vErrors.push(err5);
-      }
-      errors++;
-    }
-    if (data.revisit_trigger === void 0) {
-      const err6 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "revisit_trigger" }, message: "must have required property 'revisit_trigger'" };
-      if (vErrors === null) {
-        vErrors = [err6];
-      } else {
-        vErrors.push(err6);
-      }
-      errors++;
-    }
-    if (data.rules_version === void 0) {
-      const err7 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "rules_version" }, message: "must have required property 'rules_version'" };
-      if (vErrors === null) {
-        vErrors = [err7];
-      } else {
-        vErrors.push(err7);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "decision" || key0 === "reasons" || key0 === "revisit_trigger" || key0 === "rules_version")) {
-        const err8 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err8];
-        } else {
-          vErrors.push(err8);
-        }
-        errors++;
-      }
-    }
-    if (data.decision !== void 0) {
-      let data2 = data.decision;
-      if (!(data2 === "go" || data2 === "gather_more" || data2 === "dont_build" || data2 === "fix_not_build")) {
-        const err9 = { instancePath: instancePath + "/decision", schemaPath: "#/properties/decision/enum", keyword: "enum", params: { allowedValues: schema30.properties.decision.enum }, message: "must be equal to one of the allowed values" };
-        if (vErrors === null) {
-          vErrors = [err9];
-        } else {
-          vErrors.push(err9);
-        }
-        errors++;
-      }
-    }
-    if (data.reasons !== void 0) {
-      let data3 = data.reasons;
-      if (Array.isArray(data3)) {
-        if (data3.length < 1) {
-          const err10 = { instancePath: instancePath + "/reasons", schemaPath: "#/properties/reasons/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
-          if (vErrors === null) {
-            vErrors = [err10];
-          } else {
-            vErrors.push(err10);
-          }
-          errors++;
-        }
-        const len0 = data3.length;
-        for (let i0 = 0; i0 < len0; i0++) {
-          let data4 = data3[i0];
-          if (typeof data4 === "string") {
-            if (func2(data4) < 1) {
-              const err11 = { instancePath: instancePath + "/reasons/" + i0, schemaPath: "#/properties/reasons/items/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-              if (vErrors === null) {
-                vErrors = [err11];
-              } else {
-                vErrors.push(err11);
-              }
-              errors++;
-            }
-          } else {
-            const err12 = { instancePath: instancePath + "/reasons/" + i0, schemaPath: "#/properties/reasons/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err12];
-            } else {
-              vErrors.push(err12);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err13 = { instancePath: instancePath + "/reasons", schemaPath: "#/properties/reasons/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err13];
-        } else {
-          vErrors.push(err13);
-        }
-        errors++;
-      }
-    }
-    if (data.revisit_trigger !== void 0) {
-      let data5 = data.revisit_trigger;
-      if (typeof data5 !== "string" && data5 !== null) {
-        const err14 = { instancePath: instancePath + "/revisit_trigger", schemaPath: "#/properties/revisit_trigger/type", keyword: "type", params: { type: schema30.properties.revisit_trigger.type }, message: "must be string,null" };
-        if (vErrors === null) {
-          vErrors = [err14];
-        } else {
-          vErrors.push(err14);
-        }
-        errors++;
-      }
-    }
-    if (data.rules_version !== void 0) {
-      if (!validate532(data.rules_version, { instancePath: instancePath + "/rules_version", parentData: data, parentDataProperty: "rules_version", rootData, dynamicAnchors })) {
-        vErrors = vErrors === null ? validate532.errors : vErrors.concat(validate532.errors);
-        errors = vErrors.length;
-      }
-    }
-  } else {
-    const err15 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err15];
-    } else {
-      vErrors.push(err15);
-    }
-    errors++;
-  }
-  validate92.errors = vErrors;
-  return errors === 0;
-}
-validate92.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var pattern82 = new RegExp("^core\\.", "u");
-function validate64(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate64.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = void 0;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = void 0;
-  }
-  const _errs2 = errors;
-  let valid1 = true;
-  const _errs3 = errors;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    let missing0;
-    if (data.gate === void 0 && (missing0 = "gate")) {
-      const err0 = {};
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    } else {
-      if (data.gate !== void 0) {
-        let data0 = data.gate;
-        if (!(data0 && typeof data0 == "object" && !Array.isArray(data0))) {
-          const err1 = {};
-          if (vErrors === null) {
-            vErrors = [err1];
-          } else {
-            vErrors.push(err1);
-          }
-          errors++;
-        }
-      }
-    }
-  }
-  var _valid0 = _errs3 === errors;
-  errors = _errs2;
-  if (vErrors !== null) {
-    if (_errs2) {
-      vErrors.length = _errs2;
-    } else {
-      vErrors = null;
-    }
-  }
-  if (_valid0) {
-    const _errs6 = errors;
-    if (data && typeof data == "object" && !Array.isArray(data)) {
-      if (data.scoring !== void 0) {
-        let data1 = data.scoring;
-        if (!(data1 && typeof data1 == "object" && !Array.isArray(data1))) {
-          const err2 = { instancePath: instancePath + "/scoring", schemaPath: "#/allOf/0/then/properties/scoring/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-          if (vErrors === null) {
-            vErrors = [err2];
-          } else {
-            vErrors.push(err2);
-          }
-          errors++;
-        }
-      }
-    }
-    var _valid0 = _errs6 === errors;
-    valid1 = _valid0;
-    if (valid1) {
-      var props0 = {};
-      props0.scoring = true;
-      props0.gate = true;
-    }
-  }
-  if (!valid1) {
-    const err3 = { instancePath, schemaPath: "#/allOf/0/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
-    if (vErrors === null) {
-      vErrors = [err3];
-    } else {
-      vErrors.push(err3);
-    }
-    errors++;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.id === void 0) {
-      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "id" }, message: "must have required property 'id'" };
-      if (vErrors === null) {
-        vErrors = [err4];
-      } else {
-        vErrors.push(err4);
-      }
-      errors++;
-    }
-    if (data.title === void 0) {
-      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "title" }, message: "must have required property 'title'" };
-      if (vErrors === null) {
-        vErrors = [err5];
-      } else {
-        vErrors.push(err5);
-      }
-      errors++;
-    }
-    if (data.type === void 0) {
-      const err6 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "type" }, message: "must have required property 'type'" };
-      if (vErrors === null) {
-        vErrors = [err6];
-      } else {
-        vErrors.push(err6);
-      }
-      errors++;
-    }
-    if (data.confidence === void 0) {
-      const err7 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "confidence" }, message: "must have required property 'confidence'" };
-      if (vErrors === null) {
-        vErrors = [err7];
-      } else {
-        vErrors.push(err7);
-      }
-      errors++;
-    }
-    if (data.trigger_quote === void 0) {
-      const err8 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "trigger_quote" }, message: "must have required property 'trigger_quote'" };
-      if (vErrors === null) {
-        vErrors = [err8];
-      } else {
-        vErrors.push(err8);
-      }
-      errors++;
-    }
-    if (data.modifiers === void 0) {
-      const err9 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "modifiers" }, message: "must have required property 'modifiers'" };
-      if (vErrors === null) {
-        vErrors = [err9];
-      } else {
-        vErrors.push(err9);
-      }
-      errors++;
-    }
-    if (data.spawned_from === void 0) {
-      const err10 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "spawned_from" }, message: "must have required property 'spawned_from'" };
-      if (vErrors === null) {
-        vErrors = [err10];
-      } else {
-        vErrors.push(err10);
-      }
-      errors++;
-    }
-    if (data.superseded_by === void 0) {
-      const err11 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "superseded_by" }, message: "must have required property 'superseded_by'" };
-      if (vErrors === null) {
-        vErrors = [err11];
-      } else {
-        vErrors.push(err11);
-      }
-      errors++;
-    }
-    if (data.type_history === void 0) {
-      const err12 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "type_history" }, message: "must have required property 'type_history'" };
-      if (vErrors === null) {
-        vErrors = [err12];
-      } else {
-        vErrors.push(err12);
-      }
-      errors++;
-    }
-    if (data.core_overrides === void 0) {
-      const err13 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "core_overrides" }, message: "must have required property 'core_overrides'" };
-      if (vErrors === null) {
-        vErrors = [err13];
-      } else {
-        vErrors.push(err13);
-      }
-      errors++;
-    }
-    if (data.coverage === void 0) {
-      const err14 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "coverage" }, message: "must have required property 'coverage'" };
-      if (vErrors === null) {
-        vErrors = [err14];
-      } else {
-        vErrors.push(err14);
-      }
-      errors++;
-    }
-    if (data.facts === void 0) {
-      const err15 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "facts" }, message: "must have required property 'facts'" };
-      if (vErrors === null) {
-        vErrors = [err15];
-      } else {
-        vErrors.push(err15);
-      }
-      errors++;
-    }
-    if (data.prose === void 0) {
-      const err16 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "prose" }, message: "must have required property 'prose'" };
-      if (vErrors === null) {
-        vErrors = [err16];
-      } else {
-        vErrors.push(err16);
-      }
-      errors++;
-    }
-    if (data.acceptance === void 0) {
-      const err17 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "acceptance" }, message: "must have required property 'acceptance'" };
-      if (vErrors === null) {
-        vErrors = [err17];
-      } else {
-        vErrors.push(err17);
-      }
-      errors++;
-    }
-    if (data.guardrails === void 0) {
-      const err18 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "guardrails" }, message: "must have required property 'guardrails'" };
-      if (vErrors === null) {
-        vErrors = [err18];
-      } else {
-        vErrors.push(err18);
-      }
-      errors++;
-    }
-    if (data.scoring === void 0) {
-      const err19 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "scoring" }, message: "must have required property 'scoring'" };
-      if (vErrors === null) {
-        vErrors = [err19];
-      } else {
-        vErrors.push(err19);
-      }
-      errors++;
-    }
-    if (data.gate === void 0) {
-      const err20 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "gate" }, message: "must have required property 'gate'" };
-      if (vErrors === null) {
-        vErrors = [err20];
-      } else {
-        vErrors.push(err20);
-      }
-      errors++;
-    }
-    if (data.open_questions === void 0) {
-      const err21 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "open_questions" }, message: "must have required property 'open_questions'" };
-      if (vErrors === null) {
-        vErrors = [err21];
-      } else {
-        vErrors.push(err21);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!func12.call(schema23.properties, key0)) {
-        const err22 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err22];
-        } else {
-          vErrors.push(err22);
-        }
-        errors++;
-      }
-    }
-    if (data.id !== void 0) {
-      if (!validate65(data.id, { instancePath: instancePath + "/id", parentData: data, parentDataProperty: "id", rootData, dynamicAnchors })) {
-        vErrors = vErrors === null ? validate65.errors : vErrors.concat(validate65.errors);
-        errors = vErrors.length;
-      }
-    }
-    if (data.title !== void 0) {
-      let data3 = data.title;
-      if (typeof data3 === "string") {
-        if (func2(data3) < 1) {
-          const err23 = { instancePath: instancePath + "/title", schemaPath: "#/properties/title/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          if (vErrors === null) {
-            vErrors = [err23];
-          } else {
-            vErrors.push(err23);
-          }
-          errors++;
-        }
-      } else {
-        const err24 = { instancePath: instancePath + "/title", schemaPath: "#/properties/title/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err24];
-        } else {
-          vErrors.push(err24);
-        }
-        errors++;
-      }
-    }
-    if (data.type !== void 0) {
-      if (!validate67(data.type, { instancePath: instancePath + "/type", parentData: data, parentDataProperty: "type", rootData, dynamicAnchors })) {
-        vErrors = vErrors === null ? validate67.errors : vErrors.concat(validate67.errors);
-        errors = vErrors.length;
-      }
-    }
-    if (data.confidence !== void 0) {
-      let data5 = data.confidence;
-      if (!(data5 === "high" || data5 === "med" || data5 === "low")) {
-        const err25 = { instancePath: instancePath + "/confidence", schemaPath: "#/properties/confidence/enum", keyword: "enum", params: { allowedValues: schema23.properties.confidence.enum }, message: "must be equal to one of the allowed values" };
-        if (vErrors === null) {
-          vErrors = [err25];
-        } else {
-          vErrors.push(err25);
-        }
-        errors++;
-      }
-    }
-    if (data.trigger_quote !== void 0) {
-      if (!validate562(data.trigger_quote, { instancePath: instancePath + "/trigger_quote", parentData: data, parentDataProperty: "trigger_quote", rootData, dynamicAnchors })) {
-        vErrors = vErrors === null ? validate562.errors : vErrors.concat(validate562.errors);
-        errors = vErrors.length;
-      }
-    }
-    if (data.modifiers !== void 0) {
-      let data7 = data.modifiers;
-      if (Array.isArray(data7)) {
-        const len0 = data7.length;
-        for (let i0 = 0; i0 < len0; i0++) {
-          let data8 = data7[i0];
-          if (!(data8 === "integration" || data8 === "compliance" || data8 === "migration")) {
-            const err26 = { instancePath: instancePath + "/modifiers/" + i0, schemaPath: "#/properties/modifiers/items/enum", keyword: "enum", params: { allowedValues: schema23.properties.modifiers.items.enum }, message: "must be equal to one of the allowed values" };
-            if (vErrors === null) {
-              vErrors = [err26];
-            } else {
-              vErrors.push(err26);
-            }
-            errors++;
-          }
-        }
-        let i1 = data7.length;
-        let j0;
-        if (i1 > 1) {
-          outer0: for (; i1--; ) {
-            for (j0 = i1; j0--; ) {
-              if (func02(data7[i1], data7[j0])) {
-                const err27 = { instancePath: instancePath + "/modifiers", schemaPath: "#/properties/modifiers/uniqueItems", keyword: "uniqueItems", params: { i: i1, j: j0 }, message: "must NOT have duplicate items (items ## " + j0 + " and " + i1 + " are identical)" };
-                if (vErrors === null) {
-                  vErrors = [err27];
-                } else {
-                  vErrors.push(err27);
-                }
-                errors++;
-                break outer0;
-              }
-            }
-          }
-        }
-      } else {
-        const err28 = { instancePath: instancePath + "/modifiers", schemaPath: "#/properties/modifiers/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err28];
-        } else {
-          vErrors.push(err28);
-        }
-        errors++;
-      }
-    }
-    if (data.spawned_from !== void 0) {
-      let data9 = data.spawned_from;
-      const _errs20 = errors;
-      let valid8 = false;
-      let passing0 = null;
-      const _errs21 = errors;
-      if (data9 !== null) {
-        const err29 = { instancePath: instancePath + "/spawned_from", schemaPath: "#/properties/spawned_from/oneOf/0/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-        if (vErrors === null) {
-          vErrors = [err29];
-        } else {
-          vErrors.push(err29);
-        }
-        errors++;
-      }
-      var _valid1 = _errs21 === errors;
-      if (_valid1) {
-        valid8 = true;
-        passing0 = 0;
-      }
-      const _errs23 = errors;
-      if (!validate65(data9, { instancePath: instancePath + "/spawned_from", parentData: data, parentDataProperty: "spawned_from", rootData, dynamicAnchors })) {
-        vErrors = vErrors === null ? validate65.errors : vErrors.concat(validate65.errors);
-        errors = vErrors.length;
-      }
-      var _valid1 = _errs23 === errors;
-      if (_valid1 && valid8) {
-        valid8 = false;
-        passing0 = [passing0, 1];
-      } else {
-        if (_valid1) {
-          valid8 = true;
-          passing0 = 1;
-        }
-      }
-      if (!valid8) {
-        const err30 = { instancePath: instancePath + "/spawned_from", schemaPath: "#/properties/spawned_from/oneOf", keyword: "oneOf", params: { passingSchemas: passing0 }, message: "must match exactly one schema in oneOf" };
-        if (vErrors === null) {
-          vErrors = [err30];
-        } else {
-          vErrors.push(err30);
-        }
-        errors++;
-      } else {
-        errors = _errs20;
-        if (vErrors !== null) {
-          if (_errs20) {
-            vErrors.length = _errs20;
-          } else {
-            vErrors = null;
-          }
-        }
-      }
-    }
-    if (data.superseded_by !== void 0) {
-      let data10 = data.superseded_by;
-      const _errs25 = errors;
-      let valid9 = false;
-      let passing1 = null;
-      const _errs26 = errors;
-      if (data10 !== null) {
-        const err31 = { instancePath: instancePath + "/superseded_by", schemaPath: "#/properties/superseded_by/oneOf/0/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-        if (vErrors === null) {
-          vErrors = [err31];
-        } else {
-          vErrors.push(err31);
-        }
-        errors++;
-      }
-      var _valid2 = _errs26 === errors;
-      if (_valid2) {
-        valid9 = true;
-        passing1 = 0;
-      }
-      const _errs28 = errors;
-      if (!validate65(data10, { instancePath: instancePath + "/superseded_by", parentData: data, parentDataProperty: "superseded_by", rootData, dynamicAnchors })) {
-        vErrors = vErrors === null ? validate65.errors : vErrors.concat(validate65.errors);
-        errors = vErrors.length;
-      }
-      var _valid2 = _errs28 === errors;
-      if (_valid2 && valid9) {
-        valid9 = false;
-        passing1 = [passing1, 1];
-      } else {
-        if (_valid2) {
-          valid9 = true;
-          passing1 = 1;
-        }
-      }
-      if (!valid9) {
-        const err32 = { instancePath: instancePath + "/superseded_by", schemaPath: "#/properties/superseded_by/oneOf", keyword: "oneOf", params: { passingSchemas: passing1 }, message: "must match exactly one schema in oneOf" };
-        if (vErrors === null) {
-          vErrors = [err32];
-        } else {
-          vErrors.push(err32);
-        }
-        errors++;
-      } else {
-        errors = _errs25;
-        if (vErrors !== null) {
-          if (_errs25) {
-            vErrors.length = _errs25;
-          } else {
-            vErrors = null;
-          }
-        }
-      }
-    }
-    if (data.modifiers_removed !== void 0) {
-      let data11 = data.modifiers_removed;
-      if (Array.isArray(data11)) {
-        const len1 = data11.length;
-        for (let i2 = 0; i2 < len1; i2++) {
-          let data12 = data11[i2];
-          if (!(data12 === "integration" || data12 === "compliance" || data12 === "migration")) {
-            const err33 = { instancePath: instancePath + "/modifiers_removed/" + i2, schemaPath: "#/properties/modifiers_removed/items/enum", keyword: "enum", params: { allowedValues: schema23.properties.modifiers_removed.items.enum }, message: "must be equal to one of the allowed values" };
-            if (vErrors === null) {
-              vErrors = [err33];
-            } else {
-              vErrors.push(err33);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err34 = { instancePath: instancePath + "/modifiers_removed", schemaPath: "#/properties/modifiers_removed/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err34];
-        } else {
-          vErrors.push(err34);
-        }
-        errors++;
-      }
-    }
-    if (data.dropped !== void 0) {
-      let data13 = data.dropped;
-      if (data13 && typeof data13 == "object" && !Array.isArray(data13)) {
-        if (data13.reason === void 0) {
-          const err35 = { instancePath: instancePath + "/dropped", schemaPath: "#/properties/dropped/required", keyword: "required", params: { missingProperty: "reason" }, message: "must have required property 'reason'" };
-          if (vErrors === null) {
-            vErrors = [err35];
-          } else {
-            vErrors.push(err35);
-          }
-          errors++;
-        }
-        if (data13.quote === void 0) {
-          const err36 = { instancePath: instancePath + "/dropped", schemaPath: "#/properties/dropped/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
-          if (vErrors === null) {
-            vErrors = [err36];
-          } else {
-            vErrors.push(err36);
-          }
-          errors++;
-        }
-        if (data13.at === void 0) {
-          const err37 = { instancePath: instancePath + "/dropped", schemaPath: "#/properties/dropped/required", keyword: "required", params: { missingProperty: "at" }, message: "must have required property 'at'" };
-          if (vErrors === null) {
-            vErrors = [err37];
-          } else {
-            vErrors.push(err37);
-          }
-          errors++;
-        }
-        for (const key1 in data13) {
-          if (!(key1 === "reason" || key1 === "quote" || key1 === "at")) {
-            const err38 = { instancePath: instancePath + "/dropped", schemaPath: "#/properties/dropped/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
-            if (vErrors === null) {
-              vErrors = [err38];
-            } else {
-              vErrors.push(err38);
-            }
-            errors++;
-          }
-        }
-        if (data13.reason !== void 0) {
-          let data14 = data13.reason;
-          if (typeof data14 === "string") {
-            if (func2(data14) < 1) {
-              const err39 = { instancePath: instancePath + "/dropped/reason", schemaPath: "#/properties/dropped/properties/reason/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-              if (vErrors === null) {
-                vErrors = [err39];
-              } else {
-                vErrors.push(err39);
-              }
-              errors++;
-            }
-          } else {
-            const err40 = { instancePath: instancePath + "/dropped/reason", schemaPath: "#/properties/dropped/properties/reason/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err40];
-            } else {
-              vErrors.push(err40);
-            }
-            errors++;
-          }
-        }
-        if (data13.quote !== void 0) {
-          if (!validate562(data13.quote, { instancePath: instancePath + "/dropped/quote", parentData: data13, parentDataProperty: "quote", rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate562.errors : vErrors.concat(validate562.errors);
-            errors = vErrors.length;
-          }
-        }
-        if (data13.at !== void 0) {
-          let data16 = data13.at;
-          if (typeof data16 === "string") {
-            if (!formats0.validate(data16)) {
-              const err41 = { instancePath: instancePath + "/dropped/at", schemaPath: "#/properties/dropped/properties/at/format", keyword: "format", params: { format: "date-time" }, message: 'must match format "date-time"' };
-              if (vErrors === null) {
-                vErrors = [err41];
-              } else {
-                vErrors.push(err41);
-              }
-              errors++;
-            }
-          } else {
-            const err42 = { instancePath: instancePath + "/dropped/at", schemaPath: "#/properties/dropped/properties/at/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err42];
-            } else {
-              vErrors.push(err42);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err43 = { instancePath: instancePath + "/dropped", schemaPath: "#/properties/dropped/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        if (vErrors === null) {
-          vErrors = [err43];
-        } else {
-          vErrors.push(err43);
-        }
-        errors++;
-      }
-    }
-    if (data.type_history !== void 0) {
-      let data17 = data.type_history;
-      if (Array.isArray(data17)) {
-        if (data17.length < 1) {
-          const err44 = { instancePath: instancePath + "/type_history", schemaPath: "#/properties/type_history/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
-          if (vErrors === null) {
-            vErrors = [err44];
-          } else {
-            vErrors.push(err44);
-          }
-          errors++;
-        }
-        const len2 = data17.length;
-        for (let i3 = 0; i3 < len2; i3++) {
-          let data18 = data17[i3];
-          if (data18 && typeof data18 == "object" && !Array.isArray(data18)) {
-            if (data18.from === void 0) {
-              const err45 = { instancePath: instancePath + "/type_history/" + i3, schemaPath: "#/properties/type_history/items/required", keyword: "required", params: { missingProperty: "from" }, message: "must have required property 'from'" };
-              if (vErrors === null) {
-                vErrors = [err45];
-              } else {
-                vErrors.push(err45);
-              }
-              errors++;
-            }
-            if (data18.to === void 0) {
-              const err46 = { instancePath: instancePath + "/type_history/" + i3, schemaPath: "#/properties/type_history/items/required", keyword: "required", params: { missingProperty: "to" }, message: "must have required property 'to'" };
-              if (vErrors === null) {
-                vErrors = [err46];
-              } else {
-                vErrors.push(err46);
-              }
-              errors++;
-            }
-            if (data18.reason === void 0) {
-              const err47 = { instancePath: instancePath + "/type_history/" + i3, schemaPath: "#/properties/type_history/items/required", keyword: "required", params: { missingProperty: "reason" }, message: "must have required property 'reason'" };
-              if (vErrors === null) {
-                vErrors = [err47];
-              } else {
-                vErrors.push(err47);
-              }
-              errors++;
-            }
-            if (data18.quote === void 0) {
-              const err48 = { instancePath: instancePath + "/type_history/" + i3, schemaPath: "#/properties/type_history/items/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
-              if (vErrors === null) {
-                vErrors = [err48];
-              } else {
-                vErrors.push(err48);
-              }
-              errors++;
-            }
-            if (data18.at === void 0) {
-              const err49 = { instancePath: instancePath + "/type_history/" + i3, schemaPath: "#/properties/type_history/items/required", keyword: "required", params: { missingProperty: "at" }, message: "must have required property 'at'" };
-              if (vErrors === null) {
-                vErrors = [err49];
-              } else {
-                vErrors.push(err49);
-              }
-              errors++;
-            }
-            for (const key2 in data18) {
-              if (!(key2 === "from" || key2 === "to" || key2 === "reason" || key2 === "quote" || key2 === "at")) {
-                const err50 = { instancePath: instancePath + "/type_history/" + i3, schemaPath: "#/properties/type_history/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key2 }, message: "must NOT have additional properties" };
-                if (vErrors === null) {
-                  vErrors = [err50];
-                } else {
-                  vErrors.push(err50);
-                }
-                errors++;
-              }
-            }
-            if (data18.from !== void 0) {
-              let data19 = data18.from;
-              const _errs46 = errors;
-              let valid16 = false;
-              let passing2 = null;
-              const _errs47 = errors;
-              if (data19 !== null) {
-                const err51 = { instancePath: instancePath + "/type_history/" + i3 + "/from", schemaPath: "#/properties/type_history/items/properties/from/oneOf/0/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-                if (vErrors === null) {
-                  vErrors = [err51];
-                } else {
-                  vErrors.push(err51);
-                }
-                errors++;
-              }
-              var _valid3 = _errs47 === errors;
-              if (_valid3) {
-                valid16 = true;
-                passing2 = 0;
-              }
-              const _errs49 = errors;
-              if (!validate67(data19, { instancePath: instancePath + "/type_history/" + i3 + "/from", parentData: data18, parentDataProperty: "from", rootData, dynamicAnchors })) {
-                vErrors = vErrors === null ? validate67.errors : vErrors.concat(validate67.errors);
-                errors = vErrors.length;
-              }
-              var _valid3 = _errs49 === errors;
-              if (_valid3 && valid16) {
-                valid16 = false;
-                passing2 = [passing2, 1];
-              } else {
-                if (_valid3) {
-                  valid16 = true;
-                  passing2 = 1;
-                }
-              }
-              if (!valid16) {
-                const err52 = { instancePath: instancePath + "/type_history/" + i3 + "/from", schemaPath: "#/properties/type_history/items/properties/from/oneOf", keyword: "oneOf", params: { passingSchemas: passing2 }, message: "must match exactly one schema in oneOf" };
-                if (vErrors === null) {
-                  vErrors = [err52];
-                } else {
-                  vErrors.push(err52);
-                }
-                errors++;
-              } else {
-                errors = _errs46;
-                if (vErrors !== null) {
-                  if (_errs46) {
-                    vErrors.length = _errs46;
-                  } else {
-                    vErrors = null;
-                  }
-                }
-              }
-            }
-            if (data18.to !== void 0) {
-              if (!validate67(data18.to, { instancePath: instancePath + "/type_history/" + i3 + "/to", parentData: data18, parentDataProperty: "to", rootData, dynamicAnchors })) {
-                vErrors = vErrors === null ? validate67.errors : vErrors.concat(validate67.errors);
-                errors = vErrors.length;
-              }
-            }
-            if (data18.reason !== void 0) {
-              let data21 = data18.reason;
-              if (typeof data21 === "string") {
-                if (func2(data21) < 1) {
-                  const err53 = { instancePath: instancePath + "/type_history/" + i3 + "/reason", schemaPath: "#/properties/type_history/items/properties/reason/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-                  if (vErrors === null) {
-                    vErrors = [err53];
-                  } else {
-                    vErrors.push(err53);
-                  }
-                  errors++;
-                }
-              } else {
-                const err54 = { instancePath: instancePath + "/type_history/" + i3 + "/reason", schemaPath: "#/properties/type_history/items/properties/reason/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err54];
-                } else {
-                  vErrors.push(err54);
-                }
-                errors++;
-              }
-            }
-            if (data18.quote !== void 0) {
-              if (!validate562(data18.quote, { instancePath: instancePath + "/type_history/" + i3 + "/quote", parentData: data18, parentDataProperty: "quote", rootData, dynamicAnchors })) {
-                vErrors = vErrors === null ? validate562.errors : vErrors.concat(validate562.errors);
-                errors = vErrors.length;
-              }
-            }
-            if (data18.at !== void 0) {
-              let data23 = data18.at;
-              if (typeof data23 === "string") {
-                if (!formats0.validate(data23)) {
-                  const err55 = { instancePath: instancePath + "/type_history/" + i3 + "/at", schemaPath: "#/properties/type_history/items/properties/at/format", keyword: "format", params: { format: "date-time" }, message: 'must match format "date-time"' };
-                  if (vErrors === null) {
-                    vErrors = [err55];
-                  } else {
-                    vErrors.push(err55);
-                  }
-                  errors++;
-                }
-              } else {
-                const err56 = { instancePath: instancePath + "/type_history/" + i3 + "/at", schemaPath: "#/properties/type_history/items/properties/at/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err56];
-                } else {
-                  vErrors.push(err56);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err57 = { instancePath: instancePath + "/type_history/" + i3, schemaPath: "#/properties/type_history/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            if (vErrors === null) {
-              vErrors = [err57];
-            } else {
-              vErrors.push(err57);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err58 = { instancePath: instancePath + "/type_history", schemaPath: "#/properties/type_history/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err58];
-        } else {
-          vErrors.push(err58);
-        }
-        errors++;
-      }
-    }
-    if (data.core_overrides !== void 0) {
-      let data24 = data.core_overrides;
-      if (data24 && typeof data24 == "object" && !Array.isArray(data24)) {
-        for (const key3 in data24) {
-          const _errs58 = errors;
-          if (!validate76(key3, { instancePath: instancePath + "/core_overrides", parentData: data24, parentDataProperty: "core_overrides", rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate76.errors : vErrors.concat(validate76.errors);
-            errors = vErrors.length;
-          }
-          var valid17 = _errs58 === errors;
-          if (!valid17) {
-            const err59 = { instancePath: instancePath + "/core_overrides", schemaPath: "#/properties/core_overrides/propertyNames", keyword: "propertyNames", params: { propertyName: key3 }, message: "property name must be valid" };
-            if (vErrors === null) {
-              vErrors = [err59];
-            } else {
-              vErrors.push(err59);
-            }
-            errors++;
-          }
-        }
-        for (const key4 in data24) {
-          if (!validate55(data24[key4], { instancePath: instancePath + "/core_overrides/" + key4.replace(/~/g, "~0").replace(/\//g, "~1"), parentData: data24, parentDataProperty: key4, rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err60 = { instancePath: instancePath + "/core_overrides", schemaPath: "#/properties/core_overrides/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        if (vErrors === null) {
-          vErrors = [err60];
-        } else {
-          vErrors.push(err60);
-        }
-        errors++;
-      }
-    }
-    if (data.coverage !== void 0) {
-      let data26 = data.coverage;
-      if (data26 && typeof data26 == "object" && !Array.isArray(data26)) {
-        for (const key5 in data26) {
-          const _errs63 = errors;
-          if (!validate792(key5, { instancePath: instancePath + "/coverage", parentData: data26, parentDataProperty: "coverage", rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate792.errors : vErrors.concat(validate792.errors);
-            errors = vErrors.length;
-          }
-          const _errs64 = errors;
-          const _errs65 = errors;
-          if (typeof key5 === "string") {
-            if (!pattern82.test(key5)) {
-              const err61 = {};
-              if (vErrors === null) {
-                vErrors = [err61];
-              } else {
-                vErrors.push(err61);
-              }
-              errors++;
-            }
-          }
-          var valid20 = _errs65 === errors;
-          if (valid20) {
-            const err62 = { instancePath: instancePath + "/coverage", schemaPath: "#/properties/coverage/propertyNames/not", keyword: "not", params: {}, message: "must NOT be valid", propertyName: key5 };
-            if (vErrors === null) {
-              vErrors = [err62];
-            } else {
-              vErrors.push(err62);
-            }
-            errors++;
-          } else {
-            errors = _errs64;
-            if (vErrors !== null) {
-              if (_errs64) {
-                vErrors.length = _errs64;
-              } else {
-                vErrors = null;
-              }
-            }
-          }
-          var valid19 = _errs63 === errors;
-          if (!valid19) {
-            const err63 = { instancePath: instancePath + "/coverage", schemaPath: "#/properties/coverage/propertyNames", keyword: "propertyNames", params: { propertyName: key5 }, message: "property name must be valid" };
-            if (vErrors === null) {
-              vErrors = [err63];
-            } else {
-              vErrors.push(err63);
-            }
-            errors++;
-          }
-        }
-        for (const key6 in data26) {
-          if (!validate55(data26[key6], { instancePath: instancePath + "/coverage/" + key6.replace(/~/g, "~0").replace(/\//g, "~1"), parentData: data26, parentDataProperty: key6, rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err64 = { instancePath: instancePath + "/coverage", schemaPath: "#/properties/coverage/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        if (vErrors === null) {
-          vErrors = [err64];
-        } else {
-          vErrors.push(err64);
-        }
-        errors++;
-      }
-    }
-    if (data.facts !== void 0) {
-      let data28 = data.facts;
-      if (data28 && typeof data28 == "object" && !Array.isArray(data28)) {
-        for (const key7 in data28) {
-          const _errs70 = errors;
-          if (!(key7 === "rule_clarity" || key7 === "input_digital" || key7 === "input_structured" || key7 === "ways_done" || key7 === "stability" || key7 === "documentation" || key7 === "steps_apps" || key7 === "access" || key7 === "value" || key7 === "ai_applies" || key7 === "eval_ability" || key7 === "error_cost" || key7 === "human_review" || key7 === "simpler_option" || key7 === "fallback" || key7 === "sensitive_data" || key7 === "push" || key7 === "pull" || key7 === "anxiety" || key7 === "habit" || key7 === "existing_asset" || key7 === "decision_depends" || key7 === "broken_cause" || key7 === "workaround_permanent" || key7 === "success_metric")) {
-            const err65 = { instancePath: instancePath + "/facts", schemaPath: "#/properties/facts/propertyNames/enum", keyword: "enum", params: { allowedValues: schema23.properties.facts.propertyNames.enum }, message: "must be equal to one of the allowed values", propertyName: key7 };
-            if (vErrors === null) {
-              vErrors = [err65];
-            } else {
-              vErrors.push(err65);
-            }
-            errors++;
-          }
-          var valid22 = _errs70 === errors;
-          if (!valid22) {
-            const err66 = { instancePath: instancePath + "/facts", schemaPath: "#/properties/facts/propertyNames", keyword: "propertyNames", params: { propertyName: key7 }, message: "property name must be valid" };
-            if (vErrors === null) {
-              vErrors = [err66];
-            } else {
-              vErrors.push(err66);
-            }
-            errors++;
-          }
-        }
-        for (const key8 in data28) {
-          if (!validate82(data28[key8], { instancePath: instancePath + "/facts/" + key8.replace(/~/g, "~0").replace(/\//g, "~1"), parentData: data28, parentDataProperty: key8, rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate82.errors : vErrors.concat(validate82.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err67 = { instancePath: instancePath + "/facts", schemaPath: "#/properties/facts/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        if (vErrors === null) {
-          vErrors = [err67];
-        } else {
-          vErrors.push(err67);
-        }
-        errors++;
-      }
-    }
-    if (data.prose !== void 0) {
-      let data30 = data.prose;
-      if (data30 && typeof data30 == "object" && !Array.isArray(data30)) {
-        for (const key9 in data30) {
-          if (!(key9 === "problem_statement" || key9 === "current_state" || key9 === "mvp" || key9 === "out_of_scope" || key9 === "mitigation")) {
-            const err68 = { instancePath: instancePath + "/prose", schemaPath: "#/properties/prose/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key9 }, message: "must NOT have additional properties" };
-            if (vErrors === null) {
-              vErrors = [err68];
-            } else {
-              vErrors.push(err68);
-            }
-            errors++;
-          }
-        }
-        if (data30.problem_statement !== void 0) {
-          let data31 = data30.problem_statement;
-          if (typeof data31 === "string") {
-            if (func2(data31) < 1) {
-              const err69 = { instancePath: instancePath + "/prose/problem_statement", schemaPath: "#/properties/prose/properties/problem_statement/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-              if (vErrors === null) {
-                vErrors = [err69];
-              } else {
-                vErrors.push(err69);
-              }
-              errors++;
-            }
-          } else {
-            const err70 = { instancePath: instancePath + "/prose/problem_statement", schemaPath: "#/properties/prose/properties/problem_statement/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err70];
-            } else {
-              vErrors.push(err70);
-            }
-            errors++;
-          }
-        }
-        if (data30.current_state !== void 0) {
-          let data32 = data30.current_state;
-          if (typeof data32 === "string") {
-            if (func2(data32) < 1) {
-              const err71 = { instancePath: instancePath + "/prose/current_state", schemaPath: "#/properties/prose/properties/current_state/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-              if (vErrors === null) {
-                vErrors = [err71];
-              } else {
-                vErrors.push(err71);
-              }
-              errors++;
-            }
-          } else {
-            const err72 = { instancePath: instancePath + "/prose/current_state", schemaPath: "#/properties/prose/properties/current_state/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err72];
-            } else {
-              vErrors.push(err72);
-            }
-            errors++;
-          }
-        }
-        if (data30.mvp !== void 0) {
-          let data33 = data30.mvp;
-          if (typeof data33 === "string") {
-            if (func2(data33) < 1) {
-              const err73 = { instancePath: instancePath + "/prose/mvp", schemaPath: "#/properties/prose/properties/mvp/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-              if (vErrors === null) {
-                vErrors = [err73];
-              } else {
-                vErrors.push(err73);
-              }
-              errors++;
-            }
-          } else {
-            const err74 = { instancePath: instancePath + "/prose/mvp", schemaPath: "#/properties/prose/properties/mvp/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err74];
-            } else {
-              vErrors.push(err74);
-            }
-            errors++;
-          }
-        }
-        if (data30.out_of_scope !== void 0) {
-          let data34 = data30.out_of_scope;
-          if (typeof data34 === "string") {
-            if (func2(data34) < 1) {
-              const err75 = { instancePath: instancePath + "/prose/out_of_scope", schemaPath: "#/properties/prose/properties/out_of_scope/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-              if (vErrors === null) {
-                vErrors = [err75];
-              } else {
-                vErrors.push(err75);
-              }
-              errors++;
-            }
-          } else {
-            const err76 = { instancePath: instancePath + "/prose/out_of_scope", schemaPath: "#/properties/prose/properties/out_of_scope/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err76];
-            } else {
-              vErrors.push(err76);
-            }
-            errors++;
-          }
-        }
-        if (data30.mitigation !== void 0) {
-          let data35 = data30.mitigation;
-          if (typeof data35 === "string") {
-            if (func2(data35) < 1) {
-              const err77 = { instancePath: instancePath + "/prose/mitigation", schemaPath: "#/properties/prose/properties/mitigation/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-              if (vErrors === null) {
-                vErrors = [err77];
-              } else {
-                vErrors.push(err77);
-              }
-              errors++;
-            }
-          } else {
-            const err78 = { instancePath: instancePath + "/prose/mitigation", schemaPath: "#/properties/prose/properties/mitigation/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err78];
-            } else {
-              vErrors.push(err78);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err79 = { instancePath: instancePath + "/prose", schemaPath: "#/properties/prose/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        if (vErrors === null) {
-          vErrors = [err79];
-        } else {
-          vErrors.push(err79);
-        }
-        errors++;
-      }
-    }
-    if (data.acceptance !== void 0) {
-      let data36 = data.acceptance;
-      if (Array.isArray(data36)) {
-        const len3 = data36.length;
-        for (let i4 = 0; i4 < len3; i4++) {
-          let data37 = data36[i4];
-          if (data37 && typeof data37 == "object" && !Array.isArray(data37)) {
-            if (data37.kind === void 0) {
-              const err80 = { instancePath: instancePath + "/acceptance/" + i4, schemaPath: "#/properties/acceptance/items/required", keyword: "required", params: { missingProperty: "kind" }, message: "must have required property 'kind'" };
-              if (vErrors === null) {
-                vErrors = [err80];
-              } else {
-                vErrors.push(err80);
-              }
-              errors++;
-            }
-            if (data37.given === void 0) {
-              const err81 = { instancePath: instancePath + "/acceptance/" + i4, schemaPath: "#/properties/acceptance/items/required", keyword: "required", params: { missingProperty: "given" }, message: "must have required property 'given'" };
-              if (vErrors === null) {
-                vErrors = [err81];
-              } else {
-                vErrors.push(err81);
-              }
-              errors++;
-            }
-            if (data37.when === void 0) {
-              const err82 = { instancePath: instancePath + "/acceptance/" + i4, schemaPath: "#/properties/acceptance/items/required", keyword: "required", params: { missingProperty: "when" }, message: "must have required property 'when'" };
-              if (vErrors === null) {
-                vErrors = [err82];
-              } else {
-                vErrors.push(err82);
-              }
-              errors++;
-            }
-            if (data37.then === void 0) {
-              const err83 = { instancePath: instancePath + "/acceptance/" + i4, schemaPath: "#/properties/acceptance/items/required", keyword: "required", params: { missingProperty: "then" }, message: "must have required property 'then'" };
-              if (vErrors === null) {
-                vErrors = [err83];
-              } else {
-                vErrors.push(err83);
-              }
-              errors++;
-            }
-            if (data37.evidence === void 0) {
-              const err84 = { instancePath: instancePath + "/acceptance/" + i4, schemaPath: "#/properties/acceptance/items/required", keyword: "required", params: { missingProperty: "evidence" }, message: "must have required property 'evidence'" };
-              if (vErrors === null) {
-                vErrors = [err84];
-              } else {
-                vErrors.push(err84);
-              }
-              errors++;
-            }
-            for (const key10 in data37) {
-              if (!(key10 === "kind" || key10 === "given" || key10 === "when" || key10 === "then" || key10 === "evidence")) {
-                const err85 = { instancePath: instancePath + "/acceptance/" + i4, schemaPath: "#/properties/acceptance/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key10 }, message: "must NOT have additional properties" };
-                if (vErrors === null) {
-                  vErrors = [err85];
-                } else {
-                  vErrors.push(err85);
-                }
-                errors++;
-              }
-            }
-            if (data37.kind !== void 0) {
-              let data38 = data37.kind;
-              if (!(data38 === "criterion" || data38 === "error_case")) {
-                const err86 = { instancePath: instancePath + "/acceptance/" + i4 + "/kind", schemaPath: "#/properties/acceptance/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema23.properties.acceptance.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
-                if (vErrors === null) {
-                  vErrors = [err86];
-                } else {
-                  vErrors.push(err86);
-                }
-                errors++;
-              }
-            }
-            if (data37.given !== void 0) {
-              let data39 = data37.given;
-              if (typeof data39 === "string") {
-                if (func2(data39) < 1) {
-                  const err87 = { instancePath: instancePath + "/acceptance/" + i4 + "/given", schemaPath: "#/properties/acceptance/items/properties/given/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-                  if (vErrors === null) {
-                    vErrors = [err87];
-                  } else {
-                    vErrors.push(err87);
-                  }
-                  errors++;
-                }
-              } else {
-                const err88 = { instancePath: instancePath + "/acceptance/" + i4 + "/given", schemaPath: "#/properties/acceptance/items/properties/given/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err88];
-                } else {
-                  vErrors.push(err88);
-                }
-                errors++;
-              }
-            }
-            if (data37.when !== void 0) {
-              let data40 = data37.when;
-              if (typeof data40 === "string") {
-                if (func2(data40) < 1) {
-                  const err89 = { instancePath: instancePath + "/acceptance/" + i4 + "/when", schemaPath: "#/properties/acceptance/items/properties/when/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-                  if (vErrors === null) {
-                    vErrors = [err89];
-                  } else {
-                    vErrors.push(err89);
-                  }
-                  errors++;
-                }
-              } else {
-                const err90 = { instancePath: instancePath + "/acceptance/" + i4 + "/when", schemaPath: "#/properties/acceptance/items/properties/when/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err90];
-                } else {
-                  vErrors.push(err90);
-                }
-                errors++;
-              }
-            }
-            if (data37.then !== void 0) {
-              let data41 = data37.then;
-              if (typeof data41 === "string") {
-                if (func2(data41) < 1) {
-                  const err91 = { instancePath: instancePath + "/acceptance/" + i4 + "/then", schemaPath: "#/properties/acceptance/items/properties/then/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-                  if (vErrors === null) {
-                    vErrors = [err91];
-                  } else {
-                    vErrors.push(err91);
-                  }
-                  errors++;
-                }
-              } else {
-                const err92 = { instancePath: instancePath + "/acceptance/" + i4 + "/then", schemaPath: "#/properties/acceptance/items/properties/then/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err92];
-                } else {
-                  vErrors.push(err92);
-                }
-                errors++;
-              }
-            }
-            if (data37.evidence !== void 0) {
-              let data42 = data37.evidence;
-              if (Array.isArray(data42)) {
-                if (data42.length < 1) {
-                  const err93 = { instancePath: instancePath + "/acceptance/" + i4 + "/evidence", schemaPath: "#/properties/acceptance/items/properties/evidence/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
-                  if (vErrors === null) {
-                    vErrors = [err93];
-                  } else {
-                    vErrors.push(err93);
-                  }
-                  errors++;
-                }
-                const len4 = data42.length;
-                for (let i5 = 0; i5 < len4; i5++) {
-                  if (!validate792(data42[i5], { instancePath: instancePath + "/acceptance/" + i4 + "/evidence/" + i5, parentData: data42, parentDataProperty: i5, rootData, dynamicAnchors })) {
-                    vErrors = vErrors === null ? validate792.errors : vErrors.concat(validate792.errors);
-                    errors = vErrors.length;
-                  }
-                }
-              } else {
-                const err94 = { instancePath: instancePath + "/acceptance/" + i4 + "/evidence", schemaPath: "#/properties/acceptance/items/properties/evidence/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-                if (vErrors === null) {
-                  vErrors = [err94];
-                } else {
-                  vErrors.push(err94);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err95 = { instancePath: instancePath + "/acceptance/" + i4, schemaPath: "#/properties/acceptance/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            if (vErrors === null) {
-              vErrors = [err95];
-            } else {
-              vErrors.push(err95);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err96 = { instancePath: instancePath + "/acceptance", schemaPath: "#/properties/acceptance/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err96];
-        } else {
-          vErrors.push(err96);
-        }
-        errors++;
-      }
-    }
-    if (data.guardrails !== void 0) {
-      let data44 = data.guardrails;
-      if (Array.isArray(data44)) {
-        const len5 = data44.length;
-        for (let i6 = 0; i6 < len5; i6++) {
-          let data45 = data44[i6];
-          if (data45 && typeof data45 == "object" && !Array.isArray(data45)) {
-            if (data45.kind === void 0) {
-              const err97 = { instancePath: instancePath + "/guardrails/" + i6, schemaPath: "#/properties/guardrails/items/required", keyword: "required", params: { missingProperty: "kind" }, message: "must have required property 'kind'" };
-              if (vErrors === null) {
-                vErrors = [err97];
-              } else {
-                vErrors.push(err97);
-              }
-              errors++;
-            }
-            if (data45.text === void 0) {
-              const err98 = { instancePath: instancePath + "/guardrails/" + i6, schemaPath: "#/properties/guardrails/items/required", keyword: "required", params: { missingProperty: "text" }, message: "must have required property 'text'" };
-              if (vErrors === null) {
-                vErrors = [err98];
-              } else {
-                vErrors.push(err98);
-              }
-              errors++;
-            }
-            if (data45.evidence === void 0) {
-              const err99 = { instancePath: instancePath + "/guardrails/" + i6, schemaPath: "#/properties/guardrails/items/required", keyword: "required", params: { missingProperty: "evidence" }, message: "must have required property 'evidence'" };
-              if (vErrors === null) {
-                vErrors = [err99];
-              } else {
-                vErrors.push(err99);
-              }
-              errors++;
-            }
-            for (const key11 in data45) {
-              if (!(key11 === "kind" || key11 === "text" || key11 === "evidence")) {
-                const err100 = { instancePath: instancePath + "/guardrails/" + i6, schemaPath: "#/properties/guardrails/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key11 }, message: "must NOT have additional properties" };
-                if (vErrors === null) {
-                  vErrors = [err100];
-                } else {
-                  vErrors.push(err100);
-                }
-                errors++;
-              }
-            }
-            if (data45.kind !== void 0) {
-              let data46 = data45.kind;
-              if (!(data46 === "kill_criterion" || data46 === "fallback" || data46 === "review_point" || data46 === "data_rule")) {
-                const err101 = { instancePath: instancePath + "/guardrails/" + i6 + "/kind", schemaPath: "#/properties/guardrails/items/properties/kind/enum", keyword: "enum", params: { allowedValues: schema23.properties.guardrails.items.properties.kind.enum }, message: "must be equal to one of the allowed values" };
-                if (vErrors === null) {
-                  vErrors = [err101];
-                } else {
-                  vErrors.push(err101);
-                }
-                errors++;
-              }
-            }
-            if (data45.text !== void 0) {
-              let data47 = data45.text;
-              if (typeof data47 === "string") {
-                if (func2(data47) < 1) {
-                  const err102 = { instancePath: instancePath + "/guardrails/" + i6 + "/text", schemaPath: "#/properties/guardrails/items/properties/text/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-                  if (vErrors === null) {
-                    vErrors = [err102];
-                  } else {
-                    vErrors.push(err102);
-                  }
-                  errors++;
-                }
-              } else {
-                const err103 = { instancePath: instancePath + "/guardrails/" + i6 + "/text", schemaPath: "#/properties/guardrails/items/properties/text/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err103];
-                } else {
-                  vErrors.push(err103);
-                }
-                errors++;
-              }
-            }
-            if (data45.evidence !== void 0) {
-              let data48 = data45.evidence;
-              if (Array.isArray(data48)) {
-                if (data48.length < 1) {
-                  const err104 = { instancePath: instancePath + "/guardrails/" + i6 + "/evidence", schemaPath: "#/properties/guardrails/items/properties/evidence/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
-                  if (vErrors === null) {
-                    vErrors = [err104];
-                  } else {
-                    vErrors.push(err104);
-                  }
-                  errors++;
-                }
-                const len6 = data48.length;
-                for (let i7 = 0; i7 < len6; i7++) {
-                  if (!validate792(data48[i7], { instancePath: instancePath + "/guardrails/" + i6 + "/evidence/" + i7, parentData: data48, parentDataProperty: i7, rootData, dynamicAnchors })) {
-                    vErrors = vErrors === null ? validate792.errors : vErrors.concat(validate792.errors);
-                    errors = vErrors.length;
-                  }
-                }
-              } else {
-                const err105 = { instancePath: instancePath + "/guardrails/" + i6 + "/evidence", schemaPath: "#/properties/guardrails/items/properties/evidence/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-                if (vErrors === null) {
-                  vErrors = [err105];
-                } else {
-                  vErrors.push(err105);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err106 = { instancePath: instancePath + "/guardrails/" + i6, schemaPath: "#/properties/guardrails/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            if (vErrors === null) {
-              vErrors = [err106];
-            } else {
-              vErrors.push(err106);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err107 = { instancePath: instancePath + "/guardrails", schemaPath: "#/properties/guardrails/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err107];
-        } else {
-          vErrors.push(err107);
-        }
-        errors++;
-      }
-    }
-    if (data.scoring !== void 0) {
-      let data50 = data.scoring;
-      const _errs113 = errors;
-      let valid35 = false;
-      let passing3 = null;
-      const _errs114 = errors;
-      if (data50 !== null) {
-        const err108 = { instancePath: instancePath + "/scoring", schemaPath: "#/properties/scoring/oneOf/0/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-        if (vErrors === null) {
-          vErrors = [err108];
-        } else {
-          vErrors.push(err108);
-        }
-        errors++;
-      }
-      var _valid4 = _errs114 === errors;
-      if (_valid4) {
-        valid35 = true;
-        passing3 = 0;
-      }
-      const _errs116 = errors;
-      if (!validate88(data50, { instancePath: instancePath + "/scoring", parentData: data, parentDataProperty: "scoring", rootData, dynamicAnchors })) {
-        vErrors = vErrors === null ? validate88.errors : vErrors.concat(validate88.errors);
-        errors = vErrors.length;
-      }
-      var _valid4 = _errs116 === errors;
-      if (_valid4 && valid35) {
-        valid35 = false;
-        passing3 = [passing3, 1];
-      } else {
-        if (_valid4) {
-          valid35 = true;
-          passing3 = 1;
-        }
-      }
-      if (!valid35) {
-        const err109 = { instancePath: instancePath + "/scoring", schemaPath: "#/properties/scoring/oneOf", keyword: "oneOf", params: { passingSchemas: passing3 }, message: "must match exactly one schema in oneOf" };
-        if (vErrors === null) {
-          vErrors = [err109];
-        } else {
-          vErrors.push(err109);
-        }
-        errors++;
-      } else {
-        errors = _errs113;
-        if (vErrors !== null) {
-          if (_errs113) {
-            vErrors.length = _errs113;
-          } else {
-            vErrors = null;
-          }
-        }
-      }
-    }
-    if (data.gate !== void 0) {
-      let data51 = data.gate;
-      const _errs118 = errors;
-      let valid36 = false;
-      let passing4 = null;
-      const _errs119 = errors;
-      if (data51 !== null) {
-        const err110 = { instancePath: instancePath + "/gate", schemaPath: "#/properties/gate/oneOf/0/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-        if (vErrors === null) {
-          vErrors = [err110];
-        } else {
-          vErrors.push(err110);
-        }
-        errors++;
-      }
-      var _valid5 = _errs119 === errors;
-      if (_valid5) {
-        valid36 = true;
-        passing4 = 0;
-      }
-      const _errs121 = errors;
-      if (!validate92(data51, { instancePath: instancePath + "/gate", parentData: data, parentDataProperty: "gate", rootData, dynamicAnchors })) {
-        vErrors = vErrors === null ? validate92.errors : vErrors.concat(validate92.errors);
-        errors = vErrors.length;
-      }
-      var _valid5 = _errs121 === errors;
-      if (_valid5 && valid36) {
-        valid36 = false;
-        passing4 = [passing4, 1];
-      } else {
-        if (_valid5) {
-          valid36 = true;
-          passing4 = 1;
-        }
-      }
-      if (!valid36) {
-        const err111 = { instancePath: instancePath + "/gate", schemaPath: "#/properties/gate/oneOf", keyword: "oneOf", params: { passingSchemas: passing4 }, message: "must match exactly one schema in oneOf" };
-        if (vErrors === null) {
-          vErrors = [err111];
-        } else {
-          vErrors.push(err111);
-        }
-        errors++;
-      } else {
-        errors = _errs118;
-        if (vErrors !== null) {
-          if (_errs118) {
-            vErrors.length = _errs118;
-          } else {
-            vErrors = null;
-          }
-        }
-      }
-    }
-    if (data.open_questions !== void 0) {
-      let data52 = data.open_questions;
-      if (Array.isArray(data52)) {
-        const len7 = data52.length;
-        for (let i8 = 0; i8 < len7; i8++) {
-          let data53 = data52[i8];
-          if (data53 && typeof data53 == "object" && !Array.isArray(data53)) {
-            if (data53.area === void 0) {
-              const err112 = { instancePath: instancePath + "/open_questions/" + i8, schemaPath: "#/properties/open_questions/items/required", keyword: "required", params: { missingProperty: "area" }, message: "must have required property 'area'" };
-              if (vErrors === null) {
-                vErrors = [err112];
-              } else {
-                vErrors.push(err112);
-              }
-              errors++;
-            }
-            if (data53.question === void 0) {
-              const err113 = { instancePath: instancePath + "/open_questions/" + i8, schemaPath: "#/properties/open_questions/items/required", keyword: "required", params: { missingProperty: "question" }, message: "must have required property 'question'" };
-              if (vErrors === null) {
-                vErrors = [err113];
-              } else {
-                vErrors.push(err113);
-              }
-              errors++;
-            }
-            if (data53.who_can_answer === void 0) {
-              const err114 = { instancePath: instancePath + "/open_questions/" + i8, schemaPath: "#/properties/open_questions/items/required", keyword: "required", params: { missingProperty: "who_can_answer" }, message: "must have required property 'who_can_answer'" };
-              if (vErrors === null) {
-                vErrors = [err114];
-              } else {
-                vErrors.push(err114);
-              }
-              errors++;
-            }
-            if (data53.artifact_needed === void 0) {
-              const err115 = { instancePath: instancePath + "/open_questions/" + i8, schemaPath: "#/properties/open_questions/items/required", keyword: "required", params: { missingProperty: "artifact_needed" }, message: "must have required property 'artifact_needed'" };
-              if (vErrors === null) {
-                vErrors = [err115];
-              } else {
-                vErrors.push(err115);
-              }
-              errors++;
-            }
-            for (const key12 in data53) {
-              if (!(key12 === "area" || key12 === "question" || key12 === "who_can_answer" || key12 === "artifact_needed")) {
-                const err116 = { instancePath: instancePath + "/open_questions/" + i8, schemaPath: "#/properties/open_questions/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key12 }, message: "must NOT have additional properties" };
-                if (vErrors === null) {
-                  vErrors = [err116];
-                } else {
-                  vErrors.push(err116);
-                }
-                errors++;
-              }
-            }
-            if (data53.area !== void 0) {
-              if (!validate792(data53.area, { instancePath: instancePath + "/open_questions/" + i8 + "/area", parentData: data53, parentDataProperty: "area", rootData, dynamicAnchors })) {
-                vErrors = vErrors === null ? validate792.errors : vErrors.concat(validate792.errors);
-                errors = vErrors.length;
-              }
-            }
-            if (data53.question !== void 0) {
-              let data55 = data53.question;
-              if (typeof data55 === "string") {
-                if (func2(data55) < 1) {
-                  const err117 = { instancePath: instancePath + "/open_questions/" + i8 + "/question", schemaPath: "#/properties/open_questions/items/properties/question/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-                  if (vErrors === null) {
-                    vErrors = [err117];
-                  } else {
-                    vErrors.push(err117);
-                  }
-                  errors++;
-                }
-              } else {
-                const err118 = { instancePath: instancePath + "/open_questions/" + i8 + "/question", schemaPath: "#/properties/open_questions/items/properties/question/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err118];
-                } else {
-                  vErrors.push(err118);
-                }
-                errors++;
-              }
-            }
-            if (data53.who_can_answer !== void 0) {
-              let data56 = data53.who_can_answer;
-              if (typeof data56 !== "string" && data56 !== null) {
-                const err119 = { instancePath: instancePath + "/open_questions/" + i8 + "/who_can_answer", schemaPath: "#/properties/open_questions/items/properties/who_can_answer/type", keyword: "type", params: { type: schema23.properties.open_questions.items.properties.who_can_answer.type }, message: "must be string,null" };
-                if (vErrors === null) {
-                  vErrors = [err119];
-                } else {
-                  vErrors.push(err119);
-                }
-                errors++;
-              }
-            }
-            if (data53.artifact_needed !== void 0) {
-              let data57 = data53.artifact_needed;
-              if (typeof data57 !== "string" && data57 !== null) {
-                const err120 = { instancePath: instancePath + "/open_questions/" + i8 + "/artifact_needed", schemaPath: "#/properties/open_questions/items/properties/artifact_needed/type", keyword: "type", params: { type: schema23.properties.open_questions.items.properties.artifact_needed.type }, message: "must be string,null" };
-                if (vErrors === null) {
-                  vErrors = [err120];
-                } else {
-                  vErrors.push(err120);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err121 = { instancePath: instancePath + "/open_questions/" + i8, schemaPath: "#/properties/open_questions/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            if (vErrors === null) {
-              vErrors = [err121];
-            } else {
-              vErrors.push(err121);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err122 = { instancePath: instancePath + "/open_questions", schemaPath: "#/properties/open_questions/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err122];
-        } else {
-          vErrors.push(err122);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err123 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err123];
-    } else {
-      vErrors.push(err123);
-    }
-    errors++;
-  }
-  validate64.errors = vErrors;
-  return errors === 0;
-}
-validate64.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var pattern42 = new RegExp("^\\d{4}-\\d{2}-\\d{2}-[0-9a-f]{4,}$", "u");
-var pattern52 = new RegExp("^(core\\.[a-z_]+|item-\\d+:[a-z_.]+)$", "u");
-function validate52(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
-  ;
-  let vErrors = null;
-  let errors = 0;
-  const evaluated0 = validate52.evaluated;
-  if (evaluated0.dynamicProps) {
-    evaluated0.props = void 0;
-  }
-  if (evaluated0.dynamicItems) {
-    evaluated0.items = void 0;
-  }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.schema_version === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "schema_version" }, message: "must have required property 'schema_version'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.framework_version === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "framework_version" }, message: "must have required property 'framework_version'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.session === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "session" }, message: "must have required property 'session'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    if (data.core === void 0) {
-      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "core" }, message: "must have required property 'core'" };
-      if (vErrors === null) {
-        vErrors = [err3];
-      } else {
-        vErrors.push(err3);
-      }
-      errors++;
-    }
-    if (data.items === void 0) {
-      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "items" }, message: "must have required property 'items'" };
-      if (vErrors === null) {
-        vErrors = [err4];
-      } else {
-        vErrors.push(err4);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "schema_version" || key0 === "framework_version" || key0 === "session" || key0 === "core" || key0 === "items")) {
-        const err5 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-    }
-    if (data.schema_version !== void 0) {
-      if (1 !== data.schema_version) {
-        const err6 = { instancePath: instancePath + "/schema_version", schemaPath: "#/properties/schema_version/const", keyword: "const", params: { allowedValue: 1 }, message: "must be equal to constant" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-    if (data.framework_version !== void 0) {
-      if (!validate532(data.framework_version, { instancePath: instancePath + "/framework_version", parentData: data, parentDataProperty: "framework_version", rootData, dynamicAnchors })) {
-        vErrors = vErrors === null ? validate532.errors : vErrors.concat(validate532.errors);
-        errors = vErrors.length;
-      }
-    }
-    if (data.session !== void 0) {
-      let data2 = data.session;
-      if (data2 && typeof data2 == "object" && !Array.isArray(data2)) {
-        if (data2.id === void 0) {
-          const err7 = { instancePath: instancePath + "/session", schemaPath: "#/properties/session/required", keyword: "required", params: { missingProperty: "id" }, message: "must have required property 'id'" };
-          if (vErrors === null) {
-            vErrors = [err7];
-          } else {
-            vErrors.push(err7);
-          }
-          errors++;
-        }
-        if (data2.started_at === void 0) {
-          const err8 = { instancePath: instancePath + "/session", schemaPath: "#/properties/session/required", keyword: "required", params: { missingProperty: "started_at" }, message: "must have required property 'started_at'" };
-          if (vErrors === null) {
-            vErrors = [err8];
-          } else {
-            vErrors.push(err8);
-          }
-          errors++;
-        }
-        if (data2.mode === void 0) {
-          const err9 = { instancePath: instancePath + "/session", schemaPath: "#/properties/session/required", keyword: "required", params: { missingProperty: "mode" }, message: "must have required property 'mode'" };
-          if (vErrors === null) {
-            vErrors = [err9];
-          } else {
-            vErrors.push(err9);
-          }
-          errors++;
-        }
-        if (data2.provider === void 0) {
-          const err10 = { instancePath: instancePath + "/session", schemaPath: "#/properties/session/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
-          if (vErrors === null) {
-            vErrors = [err10];
-          } else {
-            vErrors.push(err10);
-          }
-          errors++;
-        }
-        if (data2.grounding === void 0) {
-          const err11 = { instancePath: instancePath + "/session", schemaPath: "#/properties/session/required", keyword: "required", params: { missingProperty: "grounding" }, message: "must have required property 'grounding'" };
-          if (vErrors === null) {
-            vErrors = [err11];
-          } else {
-            vErrors.push(err11);
-          }
-          errors++;
-        }
-        if (data2.reflect_back === void 0) {
-          const err12 = { instancePath: instancePath + "/session", schemaPath: "#/properties/session/required", keyword: "required", params: { missingProperty: "reflect_back" }, message: "must have required property 'reflect_back'" };
-          if (vErrors === null) {
-            vErrors = [err12];
-          } else {
-            vErrors.push(err12);
-          }
-          errors++;
-        }
-        for (const key1 in data2) {
-          if (!func12.call(schema19.properties.session.properties, key1)) {
-            const err13 = { instancePath: instancePath + "/session", schemaPath: "#/properties/session/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
-            if (vErrors === null) {
-              vErrors = [err13];
-            } else {
-              vErrors.push(err13);
-            }
-            errors++;
-          }
-        }
-        if (data2.id !== void 0) {
-          let data3 = data2.id;
-          if (typeof data3 === "string") {
-            if (!pattern42.test(data3)) {
-              const err14 = { instancePath: instancePath + "/session/id", schemaPath: "#/properties/session/properties/id/pattern", keyword: "pattern", params: { pattern: "^\\d{4}-\\d{2}-\\d{2}-[0-9a-f]{4,}$" }, message: 'must match pattern "^\\d{4}-\\d{2}-\\d{2}-[0-9a-f]{4,}$"' };
-              if (vErrors === null) {
-                vErrors = [err14];
-              } else {
-                vErrors.push(err14);
-              }
-              errors++;
-            }
-          } else {
-            const err15 = { instancePath: instancePath + "/session/id", schemaPath: "#/properties/session/properties/id/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err15];
-            } else {
-              vErrors.push(err15);
-            }
-            errors++;
-          }
-        }
-        if (data2.started_at !== void 0) {
-          let data4 = data2.started_at;
-          if (typeof data4 === "string") {
-            if (!formats0.validate(data4)) {
-              const err16 = { instancePath: instancePath + "/session/started_at", schemaPath: "#/properties/session/properties/started_at/format", keyword: "format", params: { format: "date-time" }, message: 'must match format "date-time"' };
-              if (vErrors === null) {
-                vErrors = [err16];
-              } else {
-                vErrors.push(err16);
-              }
-              errors++;
-            }
-          } else {
-            const err17 = { instancePath: instancePath + "/session/started_at", schemaPath: "#/properties/session/properties/started_at/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err17];
-            } else {
-              vErrors.push(err17);
-            }
-            errors++;
-          }
-        }
-        if (data2.mode !== void 0) {
-          let data5 = data2.mode;
-          if (!(data5 === "stakeholder" || data5 === "builder")) {
-            const err18 = { instancePath: instancePath + "/session/mode", schemaPath: "#/properties/session/properties/mode/enum", keyword: "enum", params: { allowedValues: schema19.properties.session.properties.mode.enum }, message: "must be equal to one of the allowed values" };
-            if (vErrors === null) {
-              vErrors = [err18];
-            } else {
-              vErrors.push(err18);
-            }
-            errors++;
-          }
-        }
-        if (data2.provider !== void 0) {
-          let data6 = data2.provider;
-          if (!(data6 === "claude" || data6 === "azure-openai" || data6 === "openai" || data6 === "codex")) {
-            const err19 = { instancePath: instancePath + "/session/provider", schemaPath: "#/properties/session/properties/provider/enum", keyword: "enum", params: { allowedValues: schema19.properties.session.properties.provider.enum }, message: "must be equal to one of the allowed values" };
-            if (vErrors === null) {
-              vErrors = [err19];
-            } else {
-              vErrors.push(err19);
-            }
-            errors++;
-          }
-        }
-        if (data2.grounding !== void 0) {
-          let data7 = data2.grounding;
-          if (!(data7 === "transcript" || data7 === "unverified")) {
-            const err20 = { instancePath: instancePath + "/session/grounding", schemaPath: "#/properties/session/properties/grounding/enum", keyword: "enum", params: { allowedValues: schema19.properties.session.properties.grounding.enum }, message: "must be equal to one of the allowed values" };
-            if (vErrors === null) {
-              vErrors = [err20];
-            } else {
-              vErrors.push(err20);
-            }
-            errors++;
-          }
-        }
-        if (data2.reflect_back !== void 0) {
-          let data8 = data2.reflect_back;
-          const _errs15 = errors;
-          let valid2 = false;
-          let passing0 = null;
-          const _errs16 = errors;
-          if (data8 !== null) {
-            const err21 = { instancePath: instancePath + "/session/reflect_back", schemaPath: "#/properties/session/properties/reflect_back/oneOf/0/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-            if (vErrors === null) {
-              vErrors = [err21];
-            } else {
-              vErrors.push(err21);
-            }
-            errors++;
-          }
-          var _valid0 = _errs16 === errors;
-          if (_valid0) {
-            valid2 = true;
-            passing0 = 0;
-          }
-          const _errs18 = errors;
-          if (data8 && typeof data8 == "object" && !Array.isArray(data8)) {
-            if (data8.text === void 0) {
-              const err22 = { instancePath: instancePath + "/session/reflect_back", schemaPath: "#/properties/session/properties/reflect_back/oneOf/1/required", keyword: "required", params: { missingProperty: "text" }, message: "must have required property 'text'" };
-              if (vErrors === null) {
-                vErrors = [err22];
-              } else {
-                vErrors.push(err22);
-              }
-              errors++;
-            }
-            if (data8.confirmed === void 0) {
-              const err23 = { instancePath: instancePath + "/session/reflect_back", schemaPath: "#/properties/session/properties/reflect_back/oneOf/1/required", keyword: "required", params: { missingProperty: "confirmed" }, message: "must have required property 'confirmed'" };
-              if (vErrors === null) {
-                vErrors = [err23];
-              } else {
-                vErrors.push(err23);
-              }
-              errors++;
-            }
-            if (data8.corrections === void 0) {
-              const err24 = { instancePath: instancePath + "/session/reflect_back", schemaPath: "#/properties/session/properties/reflect_back/oneOf/1/required", keyword: "required", params: { missingProperty: "corrections" }, message: "must have required property 'corrections'" };
-              if (vErrors === null) {
-                vErrors = [err24];
-              } else {
-                vErrors.push(err24);
-              }
-              errors++;
-            }
-            for (const key2 in data8) {
-              if (!(key2 === "text" || key2 === "confirmed" || key2 === "corrections" || key2 === "proposed_at")) {
-                const err25 = { instancePath: instancePath + "/session/reflect_back", schemaPath: "#/properties/session/properties/reflect_back/oneOf/1/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key2 }, message: "must NOT have additional properties" };
-                if (vErrors === null) {
-                  vErrors = [err25];
-                } else {
-                  vErrors.push(err25);
-                }
-                errors++;
-              }
-            }
-            if (data8.text !== void 0) {
-              let data9 = data8.text;
-              if (typeof data9 === "string") {
-                if (func2(data9) < 1) {
-                  const err26 = { instancePath: instancePath + "/session/reflect_back/text", schemaPath: "#/properties/session/properties/reflect_back/oneOf/1/properties/text/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-                  if (vErrors === null) {
-                    vErrors = [err26];
-                  } else {
-                    vErrors.push(err26);
-                  }
-                  errors++;
-                }
-              } else {
-                const err27 = { instancePath: instancePath + "/session/reflect_back/text", schemaPath: "#/properties/session/properties/reflect_back/oneOf/1/properties/text/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err27];
-                } else {
-                  vErrors.push(err27);
-                }
-                errors++;
-              }
-            }
-            if (data8.confirmed !== void 0) {
-              if (typeof data8.confirmed !== "boolean") {
-                const err28 = { instancePath: instancePath + "/session/reflect_back/confirmed", schemaPath: "#/properties/session/properties/reflect_back/oneOf/1/properties/confirmed/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
-                if (vErrors === null) {
-                  vErrors = [err28];
-                } else {
-                  vErrors.push(err28);
-                }
-                errors++;
-              }
-            }
-            if (data8.corrections !== void 0) {
-              let data11 = data8.corrections;
-              if (Array.isArray(data11)) {
-                const len0 = data11.length;
-                for (let i0 = 0; i0 < len0; i0++) {
-                  let data12 = data11[i0];
-                  if (typeof data12 === "string") {
-                    if (func2(data12) < 1) {
-                      const err29 = { instancePath: instancePath + "/session/reflect_back/corrections/" + i0, schemaPath: "#/properties/session/properties/reflect_back/oneOf/1/properties/corrections/items/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-                      if (vErrors === null) {
-                        vErrors = [err29];
-                      } else {
-                        vErrors.push(err29);
-                      }
-                      errors++;
-                    }
-                  } else {
-                    const err30 = { instancePath: instancePath + "/session/reflect_back/corrections/" + i0, schemaPath: "#/properties/session/properties/reflect_back/oneOf/1/properties/corrections/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                    if (vErrors === null) {
-                      vErrors = [err30];
-                    } else {
-                      vErrors.push(err30);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err31 = { instancePath: instancePath + "/session/reflect_back/corrections", schemaPath: "#/properties/session/properties/reflect_back/oneOf/1/properties/corrections/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-                if (vErrors === null) {
-                  vErrors = [err31];
-                } else {
-                  vErrors.push(err31);
-                }
-                errors++;
-              }
-            }
-            if (data8.proposed_at !== void 0) {
-              let data13 = data8.proposed_at;
-              if (typeof data13 === "string") {
-                if (!formats0.validate(data13)) {
-                  const err32 = { instancePath: instancePath + "/session/reflect_back/proposed_at", schemaPath: "#/properties/session/properties/reflect_back/oneOf/1/properties/proposed_at/format", keyword: "format", params: { format: "date-time" }, message: 'must match format "date-time"' };
-                  if (vErrors === null) {
-                    vErrors = [err32];
-                  } else {
-                    vErrors.push(err32);
-                  }
-                  errors++;
-                }
-              } else {
-                const err33 = { instancePath: instancePath + "/session/reflect_back/proposed_at", schemaPath: "#/properties/session/properties/reflect_back/oneOf/1/properties/proposed_at/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err33];
-                } else {
-                  vErrors.push(err33);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err34 = { instancePath: instancePath + "/session/reflect_back", schemaPath: "#/properties/session/properties/reflect_back/oneOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            if (vErrors === null) {
-              vErrors = [err34];
-            } else {
-              vErrors.push(err34);
-            }
-            errors++;
-          }
-          var _valid0 = _errs18 === errors;
-          if (_valid0 && valid2) {
-            valid2 = false;
-            passing0 = [passing0, 1];
-          } else {
-            if (_valid0) {
-              valid2 = true;
-              passing0 = 1;
-            }
-          }
-          if (!valid2) {
-            const err35 = { instancePath: instancePath + "/session/reflect_back", schemaPath: "#/properties/session/properties/reflect_back/oneOf", keyword: "oneOf", params: { passingSchemas: passing0 }, message: "must match exactly one schema in oneOf" };
-            if (vErrors === null) {
-              vErrors = [err35];
-            } else {
-              vErrors.push(err35);
-            }
-            errors++;
-          } else {
-            errors = _errs15;
-            if (vErrors !== null) {
-              if (_errs15) {
-                vErrors.length = _errs15;
-              } else {
-                vErrors = null;
-              }
-            }
-          }
-        }
-        if (data2.last_target !== void 0) {
-          let data14 = data2.last_target;
-          const _errs32 = errors;
-          let valid6 = false;
-          let passing1 = null;
-          const _errs33 = errors;
-          if (data14 !== null) {
-            const err36 = { instancePath: instancePath + "/session/last_target", schemaPath: "#/properties/session/properties/last_target/oneOf/0/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-            if (vErrors === null) {
-              vErrors = [err36];
-            } else {
-              vErrors.push(err36);
-            }
-            errors++;
-          }
-          var _valid1 = _errs33 === errors;
-          if (_valid1) {
-            valid6 = true;
-            passing1 = 0;
-          }
-          const _errs35 = errors;
-          if (data14 && typeof data14 == "object" && !Array.isArray(data14)) {
-            if (data14.item === void 0) {
-              const err37 = { instancePath: instancePath + "/session/last_target", schemaPath: "#/properties/session/properties/last_target/oneOf/1/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
-              if (vErrors === null) {
-                vErrors = [err37];
-              } else {
-                vErrors.push(err37);
-              }
-              errors++;
-            }
-            if (data14.area === void 0) {
-              const err38 = { instancePath: instancePath + "/session/last_target", schemaPath: "#/properties/session/properties/last_target/oneOf/1/required", keyword: "required", params: { missingProperty: "area" }, message: "must have required property 'area'" };
-              if (vErrors === null) {
-                vErrors = [err38];
-              } else {
-                vErrors.push(err38);
-              }
-              errors++;
-            }
-            for (const key3 in data14) {
-              if (!(key3 === "item" || key3 === "area" || key3 === "reply")) {
-                const err39 = { instancePath: instancePath + "/session/last_target", schemaPath: "#/properties/session/properties/last_target/oneOf/1/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key3 }, message: "must NOT have additional properties" };
-                if (vErrors === null) {
-                  vErrors = [err39];
-                } else {
-                  vErrors.push(err39);
-                }
-                errors++;
-              }
-            }
-            if (data14.item !== void 0) {
-              let data15 = data14.item;
-              if (typeof data15 !== "string" && data15 !== null) {
-                const err40 = { instancePath: instancePath + "/session/last_target/item", schemaPath: "#/properties/session/properties/last_target/oneOf/1/properties/item/type", keyword: "type", params: { type: schema19.properties.session.properties.last_target.oneOf[1].properties.item.type }, message: "must be string,null" };
-                if (vErrors === null) {
-                  vErrors = [err40];
-                } else {
-                  vErrors.push(err40);
-                }
-                errors++;
-              }
-            }
-            if (data14.area !== void 0) {
-              if (typeof data14.area !== "string") {
-                const err41 = { instancePath: instancePath + "/session/last_target/area", schemaPath: "#/properties/session/properties/last_target/oneOf/1/properties/area/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err41];
-                } else {
-                  vErrors.push(err41);
-                }
-                errors++;
-              }
-            }
-            if (data14.reply !== void 0) {
-              if (typeof data14.reply !== "string") {
-                const err42 = { instancePath: instancePath + "/session/last_target/reply", schemaPath: "#/properties/session/properties/last_target/oneOf/1/properties/reply/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err42];
-                } else {
-                  vErrors.push(err42);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err43 = { instancePath: instancePath + "/session/last_target", schemaPath: "#/properties/session/properties/last_target/oneOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            if (vErrors === null) {
-              vErrors = [err43];
-            } else {
-              vErrors.push(err43);
-            }
-            errors++;
-          }
-          var _valid1 = _errs35 === errors;
-          if (_valid1 && valid6) {
-            valid6 = false;
-            passing1 = [passing1, 1];
-          } else {
-            if (_valid1) {
-              valid6 = true;
-              passing1 = 1;
-            }
-          }
-          if (!valid6) {
-            const err44 = { instancePath: instancePath + "/session/last_target", schemaPath: "#/properties/session/properties/last_target/oneOf", keyword: "oneOf", params: { passingSchemas: passing1 }, message: "must match exactly one schema in oneOf" };
-            if (vErrors === null) {
-              vErrors = [err44];
-            } else {
-              vErrors.push(err44);
-            }
-            errors++;
-          } else {
-            errors = _errs32;
-            if (vErrors !== null) {
-              if (_errs32) {
-                vErrors.length = _errs32;
-              } else {
-                vErrors = null;
-              }
-            }
-          }
-        }
-        if (data2.asked !== void 0) {
-          let data18 = data2.asked;
-          if (data18 && typeof data18 == "object" && !Array.isArray(data18)) {
-            for (const key4 in data18) {
-              const _errs46 = errors;
-              if (typeof key4 === "string") {
-                if (!pattern52.test(key4)) {
-                  const err45 = { instancePath: instancePath + "/session/asked", schemaPath: "#/properties/session/properties/asked/propertyNames/pattern", keyword: "pattern", params: { pattern: "^(core\\.[a-z_]+|item-\\d+:[a-z_.]+)$" }, message: 'must match pattern "^(core\\.[a-z_]+|item-\\d+:[a-z_.]+)$"', propertyName: key4 };
-                  if (vErrors === null) {
-                    vErrors = [err45];
-                  } else {
-                    vErrors.push(err45);
-                  }
-                  errors++;
-                }
-              }
-              var valid8 = _errs46 === errors;
-              if (!valid8) {
-                const err46 = { instancePath: instancePath + "/session/asked", schemaPath: "#/properties/session/properties/asked/propertyNames", keyword: "propertyNames", params: { propertyName: key4 }, message: "property name must be valid" };
-                if (vErrors === null) {
-                  vErrors = [err46];
-                } else {
-                  vErrors.push(err46);
-                }
-                errors++;
-              }
-            }
-            for (const key5 in data18) {
-              let data19 = data18[key5];
-              if (typeof data19 === "string") {
-                if (!formats0.validate(data19)) {
-                  const err47 = { instancePath: instancePath + "/session/asked/" + key5.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/session/properties/asked/additionalProperties/format", keyword: "format", params: { format: "date-time" }, message: 'must match format "date-time"' };
-                  if (vErrors === null) {
-                    vErrors = [err47];
-                  } else {
-                    vErrors.push(err47);
-                  }
-                  errors++;
-                }
-              } else {
-                const err48 = { instancePath: instancePath + "/session/asked/" + key5.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/session/properties/asked/additionalProperties/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err48];
-                } else {
-                  vErrors.push(err48);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err49 = { instancePath: instancePath + "/session/asked", schemaPath: "#/properties/session/properties/asked/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            if (vErrors === null) {
-              vErrors = [err49];
-            } else {
-              vErrors.push(err49);
-            }
-            errors++;
-          }
-        }
-        if (data2.engine !== void 0) {
-          let data20 = data2.engine;
-          if (data20 && typeof data20 == "object" && !Array.isArray(data20)) {
-            if (data20.version === void 0) {
-              const err50 = { instancePath: instancePath + "/session/engine", schemaPath: "#/properties/session/properties/engine/required", keyword: "required", params: { missingProperty: "version" }, message: "must have required property 'version'" };
-              if (vErrors === null) {
-                vErrors = [err50];
-              } else {
-                vErrors.push(err50);
-              }
-              errors++;
-            }
-            if (data20.phase === void 0) {
-              const err51 = { instancePath: instancePath + "/session/engine", schemaPath: "#/properties/session/properties/engine/required", keyword: "required", params: { missingProperty: "phase" }, message: "must have required property 'phase'" };
-              if (vErrors === null) {
-                vErrors = [err51];
-              } else {
-                vErrors.push(err51);
-              }
-              errors++;
-            }
-            if (data20.turns === void 0) {
-              const err52 = { instancePath: instancePath + "/session/engine", schemaPath: "#/properties/session/properties/engine/required", keyword: "required", params: { missingProperty: "turns" }, message: "must have required property 'turns'" };
-              if (vErrors === null) {
-                vErrors = [err52];
-              } else {
-                vErrors.push(err52);
-              }
-              errors++;
-            }
-            if (data20.pending === void 0) {
-              const err53 = { instancePath: instancePath + "/session/engine", schemaPath: "#/properties/session/properties/engine/required", keyword: "required", params: { missingProperty: "pending" }, message: "must have required property 'pending'" };
-              if (vErrors === null) {
-                vErrors = [err53];
-              } else {
-                vErrors.push(err53);
-              }
-              errors++;
-            }
-            if (data20.areas === void 0) {
-              const err54 = { instancePath: instancePath + "/session/engine", schemaPath: "#/properties/session/properties/engine/required", keyword: "required", params: { missingProperty: "areas" }, message: "must have required property 'areas'" };
-              if (vErrors === null) {
-                vErrors = [err54];
-              } else {
-                vErrors.push(err54);
-              }
-              errors++;
-            }
-            if (data20.checks === void 0) {
-              const err55 = { instancePath: instancePath + "/session/engine", schemaPath: "#/properties/session/properties/engine/required", keyword: "required", params: { missingProperty: "checks" }, message: "must have required property 'checks'" };
-              if (vErrors === null) {
-                vErrors = [err55];
-              } else {
-                vErrors.push(err55);
-              }
-              errors++;
-            }
-            if (data20.disambiguated === void 0) {
-              const err56 = { instancePath: instancePath + "/session/engine", schemaPath: "#/properties/session/properties/engine/required", keyword: "required", params: { missingProperty: "disambiguated" }, message: "must have required property 'disambiguated'" };
-              if (vErrors === null) {
-                vErrors = [err56];
-              } else {
-                vErrors.push(err56);
-              }
-              errors++;
-            }
-            for (const key6 in data20) {
-              if (!(key6 === "version" || key6 === "phase" || key6 === "turns" || key6 === "disambiguated" || key6 === "pending" || key6 === "areas" || key6 === "checks")) {
-                const err57 = { instancePath: instancePath + "/session/engine", schemaPath: "#/properties/session/properties/engine/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key6 }, message: "must NOT have additional properties" };
-                if (vErrors === null) {
-                  vErrors = [err57];
-                } else {
-                  vErrors.push(err57);
-                }
-                errors++;
-              }
-            }
-            if (data20.version !== void 0) {
-              if (2 !== data20.version) {
-                const err58 = { instancePath: instancePath + "/session/engine/version", schemaPath: "#/properties/session/properties/engine/properties/version/const", keyword: "const", params: { allowedValue: 2 }, message: "must be equal to constant" };
-                if (vErrors === null) {
-                  vErrors = [err58];
-                } else {
-                  vErrors.push(err58);
-                }
-                errors++;
-              }
-            }
-            if (data20.phase !== void 0) {
-              let data22 = data20.phase;
-              if (!(data22 === "opening" || data22 === "interview" || data22 === "summary" || data22 === "confirmed")) {
-                const err59 = { instancePath: instancePath + "/session/engine/phase", schemaPath: "#/properties/session/properties/engine/properties/phase/enum", keyword: "enum", params: { allowedValues: schema19.properties.session.properties.engine.properties.phase.enum }, message: "must be equal to one of the allowed values" };
-                if (vErrors === null) {
-                  vErrors = [err59];
-                } else {
-                  vErrors.push(err59);
-                }
-                errors++;
-              }
-            }
-            if (data20.turns !== void 0) {
-              let data23 = data20.turns;
-              if (!(typeof data23 == "number" && (!(data23 % 1) && !isNaN(data23)) && isFinite(data23))) {
-                const err60 = { instancePath: instancePath + "/session/engine/turns", schemaPath: "#/properties/session/properties/engine/properties/turns/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
-                if (vErrors === null) {
-                  vErrors = [err60];
-                } else {
-                  vErrors.push(err60);
-                }
-                errors++;
-              }
-              if (typeof data23 == "number" && isFinite(data23)) {
-                if (data23 < 0 || isNaN(data23)) {
-                  const err61 = { instancePath: instancePath + "/session/engine/turns", schemaPath: "#/properties/session/properties/engine/properties/turns/minimum", keyword: "minimum", params: { comparison: ">=", limit: 0 }, message: "must be >= 0" };
-                  if (vErrors === null) {
-                    vErrors = [err61];
-                  } else {
-                    vErrors.push(err61);
-                  }
-                  errors++;
-                }
-              }
-            }
-            if (data20.disambiguated !== void 0) {
-              if (typeof data20.disambiguated !== "boolean") {
-                const err62 = { instancePath: instancePath + "/session/engine/disambiguated", schemaPath: "#/properties/session/properties/engine/properties/disambiguated/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
-                if (vErrors === null) {
-                  vErrors = [err62];
-                } else {
-                  vErrors.push(err62);
-                }
-                errors++;
-              }
-            }
-            if (data20.pending !== void 0) {
-              let data25 = data20.pending;
-              const _errs60 = errors;
-              let valid11 = false;
-              let passing2 = null;
-              const _errs61 = errors;
-              if (data25 !== null) {
-                const err63 = { instancePath: instancePath + "/session/engine/pending", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf/0/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-                if (vErrors === null) {
-                  vErrors = [err63];
-                } else {
-                  vErrors.push(err63);
-                }
-                errors++;
-              }
-              var _valid2 = _errs61 === errors;
-              if (_valid2) {
-                valid11 = true;
-                passing2 = 0;
-              }
-              const _errs63 = errors;
-              if (data25 && typeof data25 == "object" && !Array.isArray(data25)) {
-                if (data25.item === void 0) {
-                  const err64 = { instancePath: instancePath + "/session/engine/pending", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf/1/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
-                  if (vErrors === null) {
-                    vErrors = [err64];
-                  } else {
-                    vErrors.push(err64);
-                  }
-                  errors++;
-                }
-                if (data25.area === void 0) {
-                  const err65 = { instancePath: instancePath + "/session/engine/pending", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf/1/required", keyword: "required", params: { missingProperty: "area" }, message: "must have required property 'area'" };
-                  if (vErrors === null) {
-                    vErrors = [err65];
-                  } else {
-                    vErrors.push(err65);
-                  }
-                  errors++;
-                }
-                if (data25.kind === void 0) {
-                  const err66 = { instancePath: instancePath + "/session/engine/pending", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf/1/required", keyword: "required", params: { missingProperty: "kind" }, message: "must have required property 'kind'" };
-                  if (vErrors === null) {
-                    vErrors = [err66];
-                  } else {
-                    vErrors.push(err66);
-                  }
-                  errors++;
-                }
-                if (data25.check === void 0) {
-                  const err67 = { instancePath: instancePath + "/session/engine/pending", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf/1/required", keyword: "required", params: { missingProperty: "check" }, message: "must have required property 'check'" };
-                  if (vErrors === null) {
-                    vErrors = [err67];
-                  } else {
-                    vErrors.push(err67);
-                  }
-                  errors++;
-                }
-                if (data25.question === void 0) {
-                  const err68 = { instancePath: instancePath + "/session/engine/pending", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf/1/required", keyword: "required", params: { missingProperty: "question" }, message: "must have required property 'question'" };
-                  if (vErrors === null) {
-                    vErrors = [err68];
-                  } else {
-                    vErrors.push(err68);
-                  }
-                  errors++;
-                }
-                for (const key7 in data25) {
-                  if (!(key7 === "item" || key7 === "area" || key7 === "kind" || key7 === "check" || key7 === "question")) {
-                    const err69 = { instancePath: instancePath + "/session/engine/pending", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf/1/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key7 }, message: "must NOT have additional properties" };
-                    if (vErrors === null) {
-                      vErrors = [err69];
-                    } else {
-                      vErrors.push(err69);
-                    }
-                    errors++;
-                  }
-                }
-                if (data25.item !== void 0) {
-                  let data26 = data25.item;
-                  if (typeof data26 !== "string" && data26 !== null) {
-                    const err70 = { instancePath: instancePath + "/session/engine/pending/item", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf/1/properties/item/type", keyword: "type", params: { type: schema19.properties.session.properties.engine.properties.pending.oneOf[1].properties.item.type }, message: "must be string,null" };
-                    if (vErrors === null) {
-                      vErrors = [err70];
-                    } else {
-                      vErrors.push(err70);
-                    }
-                    errors++;
-                  }
-                }
-                if (data25.area !== void 0) {
-                  let data27 = data25.area;
-                  if (typeof data27 === "string") {
-                    if (func2(data27) < 1) {
-                      const err71 = { instancePath: instancePath + "/session/engine/pending/area", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf/1/properties/area/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-                      if (vErrors === null) {
-                        vErrors = [err71];
-                      } else {
-                        vErrors.push(err71);
-                      }
-                      errors++;
-                    }
-                  } else {
-                    const err72 = { instancePath: instancePath + "/session/engine/pending/area", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf/1/properties/area/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                    if (vErrors === null) {
-                      vErrors = [err72];
-                    } else {
-                      vErrors.push(err72);
-                    }
-                    errors++;
-                  }
-                }
-                if (data25.kind !== void 0) {
-                  let data28 = data25.kind;
-                  if (!(data28 === "ask" || data28 === "probe" || data28 === "confirm" || data28 === "check" || data28 === "disambiguate" || data28 === "summary")) {
-                    const err73 = { instancePath: instancePath + "/session/engine/pending/kind", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf/1/properties/kind/enum", keyword: "enum", params: { allowedValues: schema19.properties.session.properties.engine.properties.pending.oneOf[1].properties.kind.enum }, message: "must be equal to one of the allowed values" };
-                    if (vErrors === null) {
-                      vErrors = [err73];
-                    } else {
-                      vErrors.push(err73);
-                    }
-                    errors++;
-                  }
-                }
-                if (data25.check !== void 0) {
-                  let data29 = data25.check;
-                  if (!(data29 === "manual_work" || data29 === "existing_asset" || data29 === null)) {
-                    const err74 = { instancePath: instancePath + "/session/engine/pending/check", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf/1/properties/check/enum", keyword: "enum", params: { allowedValues: schema19.properties.session.properties.engine.properties.pending.oneOf[1].properties.check.enum }, message: "must be equal to one of the allowed values" };
-                    if (vErrors === null) {
-                      vErrors = [err74];
-                    } else {
-                      vErrors.push(err74);
-                    }
-                    errors++;
-                  }
-                }
-                if (data25.question !== void 0) {
-                  if (typeof data25.question !== "string") {
-                    const err75 = { instancePath: instancePath + "/session/engine/pending/question", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf/1/properties/question/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                    if (vErrors === null) {
-                      vErrors = [err75];
-                    } else {
-                      vErrors.push(err75);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err76 = { instancePath: instancePath + "/session/engine/pending", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-                if (vErrors === null) {
-                  vErrors = [err76];
-                } else {
-                  vErrors.push(err76);
-                }
-                errors++;
-              }
-              var _valid2 = _errs63 === errors;
-              if (_valid2 && valid11) {
-                valid11 = false;
-                passing2 = [passing2, 1];
-              } else {
-                if (_valid2) {
-                  valid11 = true;
-                  passing2 = 1;
-                }
-              }
-              if (!valid11) {
-                const err77 = { instancePath: instancePath + "/session/engine/pending", schemaPath: "#/properties/session/properties/engine/properties/pending/oneOf", keyword: "oneOf", params: { passingSchemas: passing2 }, message: "must match exactly one schema in oneOf" };
-                if (vErrors === null) {
-                  vErrors = [err77];
-                } else {
-                  vErrors.push(err77);
-                }
-                errors++;
-              } else {
-                errors = _errs60;
-                if (vErrors !== null) {
-                  if (_errs60) {
-                    vErrors.length = _errs60;
-                  } else {
-                    vErrors = null;
-                  }
-                }
-              }
-            }
-            if (data20.areas !== void 0) {
-              let data31 = data20.areas;
-              if (data31 && typeof data31 == "object" && !Array.isArray(data31)) {
-                for (const key8 in data31) {
-                  let data32 = data31[key8];
-                  if (data32 && typeof data32 == "object" && !Array.isArray(data32)) {
-                    if (data32.probed === void 0) {
-                      const err78 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/required", keyword: "required", params: { missingProperty: "probed" }, message: "must have required property 'probed'" };
-                      if (vErrors === null) {
-                        vErrors = [err78];
-                      } else {
-                        vErrors.push(err78);
-                      }
-                      errors++;
-                    }
-                    if (data32.confirm === void 0) {
-                      const err79 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/required", keyword: "required", params: { missingProperty: "confirm" }, message: "must have required property 'confirm'" };
-                      if (vErrors === null) {
-                        vErrors = [err79];
-                      } else {
-                        vErrors.push(err79);
-                      }
-                      errors++;
-                    }
-                    if (data32.partial === void 0) {
-                      const err80 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/required", keyword: "required", params: { missingProperty: "partial" }, message: "must have required property 'partial'" };
-                      if (vErrors === null) {
-                        vErrors = [err80];
-                      } else {
-                        vErrors.push(err80);
-                      }
-                      errors++;
-                    }
-                    for (const key9 in data32) {
-                      if (!(key9 === "probed" || key9 === "confirm" || key9 === "partial")) {
-                        const err81 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key9 }, message: "must NOT have additional properties" };
-                        if (vErrors === null) {
-                          vErrors = [err81];
-                        } else {
-                          vErrors.push(err81);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data32.probed !== void 0) {
-                      if (typeof data32.probed !== "boolean") {
-                        const err82 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1") + "/probed", schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/properties/probed/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
-                        if (vErrors === null) {
-                          vErrors = [err82];
-                        } else {
-                          vErrors.push(err82);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data32.confirm !== void 0) {
-                      let data34 = data32.confirm;
-                      if (!(data34 === "none" || data34 === "asked" || data34 === "done")) {
-                        const err83 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1") + "/confirm", schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/properties/confirm/enum", keyword: "enum", params: { allowedValues: schema19.properties.session.properties.engine.properties.areas.additionalProperties.properties.confirm.enum }, message: "must be equal to one of the allowed values" };
-                        if (vErrors === null) {
-                          vErrors = [err83];
-                        } else {
-                          vErrors.push(err83);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data32.partial !== void 0) {
-                      let data35 = data32.partial;
-                      const _errs84 = errors;
-                      let valid15 = false;
-                      let passing3 = null;
-                      const _errs85 = errors;
-                      if (data35 !== null) {
-                        const err84 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1") + "/partial", schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/properties/partial/oneOf/0/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-                        if (vErrors === null) {
-                          vErrors = [err84];
-                        } else {
-                          vErrors.push(err84);
-                        }
-                        errors++;
-                      }
-                      var _valid3 = _errs85 === errors;
-                      if (_valid3) {
-                        valid15 = true;
-                        passing3 = 0;
-                      }
-                      const _errs87 = errors;
-                      if (data35 && typeof data35 == "object" && !Array.isArray(data35)) {
-                        if (data35.value === void 0) {
-                          const err85 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1") + "/partial", schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/properties/partial/oneOf/1/required", keyword: "required", params: { missingProperty: "value" }, message: "must have required property 'value'" };
-                          if (vErrors === null) {
-                            vErrors = [err85];
-                          } else {
-                            vErrors.push(err85);
-                          }
-                          errors++;
-                        }
-                        if (data35.quote === void 0) {
-                          const err86 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1") + "/partial", schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/properties/partial/oneOf/1/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
-                          if (vErrors === null) {
-                            vErrors = [err86];
-                          } else {
-                            vErrors.push(err86);
-                          }
-                          errors++;
-                        }
-                        for (const key10 in data35) {
-                          if (!(key10 === "value" || key10 === "quote")) {
-                            const err87 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1") + "/partial", schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/properties/partial/oneOf/1/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key10 }, message: "must NOT have additional properties" };
-                            if (vErrors === null) {
-                              vErrors = [err87];
-                            } else {
-                              vErrors.push(err87);
-                            }
-                            errors++;
-                          }
-                        }
-                        if (data35.value !== void 0) {
-                          let data36 = data35.value;
-                          if (typeof data36 !== "string" && data36 !== null) {
-                            const err88 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1") + "/partial/value", schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/properties/partial/oneOf/1/properties/value/type", keyword: "type", params: { type: schema19.properties.session.properties.engine.properties.areas.additionalProperties.properties.partial.oneOf[1].properties.value.type }, message: "must be string,null" };
-                            if (vErrors === null) {
-                              vErrors = [err88];
-                            } else {
-                              vErrors.push(err88);
-                            }
-                            errors++;
-                          }
-                        }
-                        if (data35.quote !== void 0) {
-                          let data37 = data35.quote;
-                          if (typeof data37 !== "string" && data37 !== null) {
-                            const err89 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1") + "/partial/quote", schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/properties/partial/oneOf/1/properties/quote/type", keyword: "type", params: { type: schema19.properties.session.properties.engine.properties.areas.additionalProperties.properties.partial.oneOf[1].properties.quote.type }, message: "must be string,null" };
-                            if (vErrors === null) {
-                              vErrors = [err89];
-                            } else {
-                              vErrors.push(err89);
-                            }
-                            errors++;
-                          }
-                        }
-                      } else {
-                        const err90 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1") + "/partial", schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/properties/partial/oneOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-                        if (vErrors === null) {
-                          vErrors = [err90];
-                        } else {
-                          vErrors.push(err90);
-                        }
-                        errors++;
-                      }
-                      var _valid3 = _errs87 === errors;
-                      if (_valid3 && valid15) {
-                        valid15 = false;
-                        passing3 = [passing3, 1];
-                      } else {
-                        if (_valid3) {
-                          valid15 = true;
-                          passing3 = 1;
-                        }
-                      }
-                      if (!valid15) {
-                        const err91 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1") + "/partial", schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/properties/partial/oneOf", keyword: "oneOf", params: { passingSchemas: passing3 }, message: "must match exactly one schema in oneOf" };
-                        if (vErrors === null) {
-                          vErrors = [err91];
-                        } else {
-                          vErrors.push(err91);
-                        }
-                        errors++;
-                      } else {
-                        errors = _errs84;
-                        if (vErrors !== null) {
-                          if (_errs84) {
-                            vErrors.length = _errs84;
-                          } else {
-                            vErrors = null;
-                          }
-                        }
-                      }
-                    }
-                  } else {
-                    const err92 = { instancePath: instancePath + "/session/engine/areas/" + key8.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/session/properties/engine/properties/areas/additionalProperties/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-                    if (vErrors === null) {
-                      vErrors = [err92];
-                    } else {
-                      vErrors.push(err92);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err93 = { instancePath: instancePath + "/session/engine/areas", schemaPath: "#/properties/session/properties/engine/properties/areas/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-                if (vErrors === null) {
-                  vErrors = [err93];
-                } else {
-                  vErrors.push(err93);
-                }
-                errors++;
-              }
-            }
-            if (data20.checks !== void 0) {
-              let data38 = data20.checks;
-              if (data38 && typeof data38 == "object" && !Array.isArray(data38)) {
-                for (const key11 in data38) {
-                  let data39 = data38[key11];
-                  if (data39 && typeof data39 == "object" && !Array.isArray(data39)) {
-                    if (data39.asks === void 0) {
-                      const err94 = { instancePath: instancePath + "/session/engine/checks/" + key11.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/session/properties/engine/properties/checks/additionalProperties/required", keyword: "required", params: { missingProperty: "asks" }, message: "must have required property 'asks'" };
-                      if (vErrors === null) {
-                        vErrors = [err94];
-                      } else {
-                        vErrors.push(err94);
-                      }
-                      errors++;
-                    }
-                    if (data39.result === void 0) {
-                      const err95 = { instancePath: instancePath + "/session/engine/checks/" + key11.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/session/properties/engine/properties/checks/additionalProperties/required", keyword: "required", params: { missingProperty: "result" }, message: "must have required property 'result'" };
-                      if (vErrors === null) {
-                        vErrors = [err95];
-                      } else {
-                        vErrors.push(err95);
-                      }
-                      errors++;
-                    }
-                    for (const key12 in data39) {
-                      if (!(key12 === "asks" || key12 === "result")) {
-                        const err96 = { instancePath: instancePath + "/session/engine/checks/" + key11.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/session/properties/engine/properties/checks/additionalProperties/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key12 }, message: "must NOT have additional properties" };
-                        if (vErrors === null) {
-                          vErrors = [err96];
-                        } else {
-                          vErrors.push(err96);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data39.asks !== void 0) {
-                      let data40 = data39.asks;
-                      if (!(typeof data40 == "number" && (!(data40 % 1) && !isNaN(data40)) && isFinite(data40))) {
-                        const err97 = { instancePath: instancePath + "/session/engine/checks/" + key11.replace(/~/g, "~0").replace(/\//g, "~1") + "/asks", schemaPath: "#/properties/session/properties/engine/properties/checks/additionalProperties/properties/asks/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
-                        if (vErrors === null) {
-                          vErrors = [err97];
-                        } else {
-                          vErrors.push(err97);
-                        }
-                        errors++;
-                      }
-                      if (typeof data40 == "number" && isFinite(data40)) {
-                        if (data40 > 2 || isNaN(data40)) {
-                          const err98 = { instancePath: instancePath + "/session/engine/checks/" + key11.replace(/~/g, "~0").replace(/\//g, "~1") + "/asks", schemaPath: "#/properties/session/properties/engine/properties/checks/additionalProperties/properties/asks/maximum", keyword: "maximum", params: { comparison: "<=", limit: 2 }, message: "must be <= 2" };
-                          if (vErrors === null) {
-                            vErrors = [err98];
-                          } else {
-                            vErrors.push(err98);
-                          }
-                          errors++;
-                        }
-                        if (data40 < 0 || isNaN(data40)) {
-                          const err99 = { instancePath: instancePath + "/session/engine/checks/" + key11.replace(/~/g, "~0").replace(/\//g, "~1") + "/asks", schemaPath: "#/properties/session/properties/engine/properties/checks/additionalProperties/properties/asks/minimum", keyword: "minimum", params: { comparison: ">=", limit: 0 }, message: "must be >= 0" };
-                          if (vErrors === null) {
-                            vErrors = [err99];
-                          } else {
-                            vErrors.push(err99);
-                          }
-                          errors++;
-                        }
-                      }
-                    }
-                    if (data39.result !== void 0) {
-                      let data41 = data39.result;
-                      if (!(data41 === "yes" || data41 === "no" || data41 === "unclear" || data41 === null)) {
-                        const err100 = { instancePath: instancePath + "/session/engine/checks/" + key11.replace(/~/g, "~0").replace(/\//g, "~1") + "/result", schemaPath: "#/properties/session/properties/engine/properties/checks/additionalProperties/properties/result/enum", keyword: "enum", params: { allowedValues: schema19.properties.session.properties.engine.properties.checks.additionalProperties.properties.result.enum }, message: "must be equal to one of the allowed values" };
-                        if (vErrors === null) {
-                          vErrors = [err100];
-                        } else {
-                          vErrors.push(err100);
-                        }
-                        errors++;
-                      }
-                    }
-                  } else {
-                    const err101 = { instancePath: instancePath + "/session/engine/checks/" + key11.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/session/properties/engine/properties/checks/additionalProperties/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-                    if (vErrors === null) {
-                      vErrors = [err101];
-                    } else {
-                      vErrors.push(err101);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err102 = { instancePath: instancePath + "/session/engine/checks", schemaPath: "#/properties/session/properties/engine/properties/checks/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-                if (vErrors === null) {
-                  vErrors = [err102];
-                } else {
-                  vErrors.push(err102);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err103 = { instancePath: instancePath + "/session/engine", schemaPath: "#/properties/session/properties/engine/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            if (vErrors === null) {
-              vErrors = [err103];
-            } else {
-              vErrors.push(err103);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err104 = { instancePath: instancePath + "/session", schemaPath: "#/properties/session/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        if (vErrors === null) {
-          vErrors = [err104];
-        } else {
-          vErrors.push(err104);
-        }
-        errors++;
-      }
-    }
-    if (data.core !== void 0) {
-      let data42 = data.core;
-      if (data42 && typeof data42 == "object" && !Array.isArray(data42)) {
-        if (data42.users === void 0) {
-          const err105 = { instancePath: instancePath + "/core", schemaPath: "#/properties/core/required", keyword: "required", params: { missingProperty: "users" }, message: "must have required property 'users'" };
-          if (vErrors === null) {
-            vErrors = [err105];
-          } else {
-            vErrors.push(err105);
-          }
-          errors++;
-        }
-        if (data42.outcome === void 0) {
-          const err106 = { instancePath: instancePath + "/core", schemaPath: "#/properties/core/required", keyword: "required", params: { missingProperty: "outcome" }, message: "must have required property 'outcome'" };
-          if (vErrors === null) {
-            vErrors = [err106];
-          } else {
-            vErrors.push(err106);
-          }
-          errors++;
-        }
-        if (data42.data === void 0) {
-          const err107 = { instancePath: instancePath + "/core", schemaPath: "#/properties/core/required", keyword: "required", params: { missingProperty: "data" }, message: "must have required property 'data'" };
-          if (vErrors === null) {
-            vErrors = [err107];
-          } else {
-            vErrors.push(err107);
-          }
-          errors++;
-        }
-        if (data42.systems === void 0) {
-          const err108 = { instancePath: instancePath + "/core", schemaPath: "#/properties/core/required", keyword: "required", params: { missingProperty: "systems" }, message: "must have required property 'systems'" };
-          if (vErrors === null) {
-            vErrors = [err108];
-          } else {
-            vErrors.push(err108);
-          }
-          errors++;
-        }
-        if (data42.constraints === void 0) {
-          const err109 = { instancePath: instancePath + "/core", schemaPath: "#/properties/core/required", keyword: "required", params: { missingProperty: "constraints" }, message: "must have required property 'constraints'" };
-          if (vErrors === null) {
-            vErrors = [err109];
-          } else {
-            vErrors.push(err109);
-          }
-          errors++;
-        }
-        if (data42.trust === void 0) {
-          const err110 = { instancePath: instancePath + "/core", schemaPath: "#/properties/core/required", keyword: "required", params: { missingProperty: "trust" }, message: "must have required property 'trust'" };
-          if (vErrors === null) {
-            vErrors = [err110];
-          } else {
-            vErrors.push(err110);
-          }
-          errors++;
-        }
-        for (const key13 in data42) {
-          if (!(key13 === "users" || key13 === "outcome" || key13 === "data" || key13 === "systems" || key13 === "constraints" || key13 === "trust")) {
-            const err111 = { instancePath: instancePath + "/core", schemaPath: "#/properties/core/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key13 }, message: "must NOT have additional properties" };
-            if (vErrors === null) {
-              vErrors = [err111];
-            } else {
-              vErrors.push(err111);
-            }
-            errors++;
-          }
-        }
-        if (data42.users !== void 0) {
-          if (!validate55(data42.users, { instancePath: instancePath + "/core/users", parentData: data42, parentDataProperty: "users", rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
-            errors = vErrors.length;
-          }
-        }
-        if (data42.outcome !== void 0) {
-          if (!validate55(data42.outcome, { instancePath: instancePath + "/core/outcome", parentData: data42, parentDataProperty: "outcome", rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
-            errors = vErrors.length;
-          }
-        }
-        if (data42.data !== void 0) {
-          if (!validate55(data42.data, { instancePath: instancePath + "/core/data", parentData: data42, parentDataProperty: "data", rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
-            errors = vErrors.length;
-          }
-        }
-        if (data42.systems !== void 0) {
-          if (!validate55(data42.systems, { instancePath: instancePath + "/core/systems", parentData: data42, parentDataProperty: "systems", rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
-            errors = vErrors.length;
-          }
-        }
-        if (data42.constraints !== void 0) {
-          if (!validate55(data42.constraints, { instancePath: instancePath + "/core/constraints", parentData: data42, parentDataProperty: "constraints", rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
-            errors = vErrors.length;
-          }
-        }
-        if (data42.trust !== void 0) {
-          if (!validate55(data42.trust, { instancePath: instancePath + "/core/trust", parentData: data42, parentDataProperty: "trust", rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate55.errors : vErrors.concat(validate55.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err112 = { instancePath: instancePath + "/core", schemaPath: "#/properties/core/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        if (vErrors === null) {
-          vErrors = [err112];
-        } else {
-          vErrors.push(err112);
-        }
-        errors++;
-      }
-    }
-    if (data.items !== void 0) {
-      let data49 = data.items;
-      if (Array.isArray(data49)) {
-        const len1 = data49.length;
-        for (let i1 = 0; i1 < len1; i1++) {
-          if (!validate64(data49[i1], { instancePath: instancePath + "/items/" + i1, parentData: data49, parentDataProperty: i1, rootData, dynamicAnchors })) {
-            vErrors = vErrors === null ? validate64.errors : vErrors.concat(validate64.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err113 = { instancePath: instancePath + "/items", schemaPath: "#/properties/items/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err113];
-        } else {
-          vErrors.push(err113);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err114 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err114];
-    } else {
-      vErrors.push(err114);
-    }
-    errors++;
-  }
-  validate52.errors = vErrors;
-  return errors === 0;
-}
-validate52.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-
-// src/lib/generated/turn-validator.js
-var validateTurn = validate21;
-var schema6 = { "$schema": "http://json-schema.org/draft-07/schema#", "$id": "https://github.com/tjpinder/intake-kit/schema/turn.schema.json", "title": "Intake turn (schema_version 1)", "description": "What the model returns every turn. Written to the strict structured-output subset shared by Azure OpenAI and the Claude API: every property required, additionalProperties false, nullable fields as type unions, no dynamic keys, no pattern/length/count keywords. Rules this subset can't express (ID formats, band names, quote grounding, one probe per area) are enforced by apply-turn against scoring.yaml and the transcript. There is deliberately no field for scores, composites, quadrants or gates.", "type": "object", "additionalProperties": false, "required": ["reply", "updates", "facts", "router", "prose", "acceptance", "guardrails", "open_questions", "reflect_back"], "properties": { "reply": { "type": "string", "description": "The next thing said to the user: one question, or the reflect-back." }, "updates": { "type": "array", "description": "Coverage changes heard this turn.", "items": { "$ref": "#/$defs/update" } }, "facts": { "type": "array", "description": "Band picks for scoring criteria, AI overlay checks, adoption and gate facts. The model picks a band name; code maps it to a score via scoring.yaml.", "items": { "$ref": "#/$defs/fact" } }, "router": { "$ref": "#/$defs/router" }, "prose": { "type": "array", "description": "Prose the spec pack needs that isn't a single coverage answer. Captured into the session file before rendering.", "items": { "$ref": "#/$defs/prose" } }, "acceptance": { "type": "array", "description": "Acceptance criteria and error cases in Given/When/Then form. Each cites the coverage IDs it rests on; code attaches the user's quote when rendering.", "items": { "$ref": "#/$defs/acceptance" } }, "guardrails": { "type": "array", "description": "Guardrail statements drawn from what the user said about trust, data and risk. Each cites the coverage IDs it rests on.", "items": { "$ref": "#/$defs/guardrail" } }, "open_questions": { "type": "array", "items": { "$ref": "#/$defs/open_question" } }, "reflect_back": { "description": "Null until the model is ready to reflect back. 'proposed' when presenting it; 'confirmed' or 'corrected' once the user has answered.", "anyOf": [{ "$ref": "#/$defs/reflect_back" }, { "type": "null" }] } }, "$defs": { "update": { "type": "object", "additionalProperties": false, "required": ["item", "area", "status", "value", "quote"], "properties": { "item": { "type": ["string", "null"], "description": "Item ID, or null for a shared-core area." }, "area": { "type": "string", "description": "Namespaced coverage ID, e.g. core.users, data_report.grain, mod.integration.payload." }, "status": { "type": "string", "enum": ["covered", "assumed", "unknown", "not_applicable"] }, "value": { "type": ["string", "null"], "description": "Summary in plain words. Null when status is unknown." }, "quote": { "type": ["string", "null"], "description": "The user's exact words supporting this update. Required for covered and assumed." } } }, "fact": { "type": "object", "additionalProperties": false, "required": ["item", "fact", "band", "evidence", "quote"], "properties": { "item": { "type": "string" }, "fact": { "type": "string", "enum": ["rule_clarity", "input_digital", "input_structured", "ways_done", "stability", "documentation", "steps_apps", "access", "value", "ai_applies", "eval_ability", "error_cost", "human_review", "simpler_option", "fallback", "sensitive_data", "push", "pull", "anxiety", "habit", "existing_asset", "decision_depends", "broken_cause", "workaround_permanent", "success_metric"] }, "band": { "type": "string", "description": "One of the band names scoring.yaml defines for this fact." }, "evidence": { "type": "array", "items": { "type": "string" }, "description": "Coverage IDs the band was derived from." }, "quote": { "type": ["string", "null"], "description": "The user's words behind the band, when there is one." } } }, "router": { "type": "object", "additionalProperties": false, "required": ["new_items", "reclassify", "add_modifiers", "remove_modifiers", "supersede", "drop"], "properties": { "new_items": { "type": "array", "items": { "$ref": "#/$defs/new_item" } }, "reclassify": { "anyOf": [{ "$ref": "#/$defs/reclassify" }, { "type": "null" }] }, "add_modifiers": { "type": "array", "items": { "$ref": "#/$defs/add_modifier" } }, "remove_modifiers": { "type": "array", "items": { "$ref": "#/$defs/remove_modifier" } }, "supersede": { "anyOf": [{ "$ref": "#/$defs/supersede" }, { "type": "null" }] }, "drop": { "anyOf": [{ "$ref": "#/$defs/drop" }, { "type": "null" }] } } }, "new_item": { "type": "object", "additionalProperties": false, "required": ["id", "type", "confidence", "title", "trigger_quote", "spawned_from"], "properties": { "id": { "type": "string" }, "type": { "$ref": "#/$defs/item_type" }, "confidence": { "type": "string", "enum": ["high", "med", "low"] }, "title": { "type": "string" }, "trigger_quote": { "type": "string" }, "spawned_from": { "type": ["string", "null"] } } }, "reclassify": { "type": "object", "additionalProperties": false, "required": ["item", "to", "reason", "quote"], "properties": { "item": { "type": "string" }, "to": { "$ref": "#/$defs/item_type" }, "reason": { "type": "string" }, "quote": { "type": "string" } } }, "add_modifier": { "type": "object", "additionalProperties": false, "required": ["item", "modifier", "quote"], "properties": { "item": { "type": "string" }, "modifier": { "type": "string", "enum": ["integration", "compliance", "migration"] }, "quote": { "type": "string" } } }, "remove_modifier": { "type": "object", "additionalProperties": false, "required": ["item", "modifier", "reason"], "properties": { "item": { "type": "string" }, "modifier": { "type": "string", "enum": ["integration", "compliance", "migration"] }, "reason": { "type": "string", "description": "Why it doesn't apply, e.g. the user said there's no API." } } }, "drop": { "type": "object", "additionalProperties": false, "required": ["item", "reason", "quote"], "properties": { "item": { "type": "string", "description": "An item that turned out not to apply. Not for an item the new one replaces: that's supersede." }, "reason": { "type": "string" }, "quote": { "type": "string", "description": "The user's words saying it doesn't apply." } } }, "supersede": { "type": "object", "additionalProperties": false, "required": ["item", "by", "quote"], "properties": { "item": { "type": "string", "description": "The item that would be replaced." }, "by": { "type": "string", "description": "The item that replaces it if it reaches Go." }, "quote": { "type": "string" } } }, "prose": { "type": "object", "additionalProperties": false, "required": ["item", "field", "text"], "properties": { "item": { "type": ["string", "null"] }, "field": { "type": "string", "enum": ["problem_statement", "current_state", "mvp", "out_of_scope", "mitigation"] }, "text": { "type": "string" } } }, "acceptance": { "type": "object", "additionalProperties": false, "required": ["item", "kind", "given", "when", "then", "evidence"], "properties": { "item": { "type": "string" }, "kind": { "type": "string", "enum": ["criterion", "error_case"] }, "given": { "type": "string" }, "when": { "type": "string" }, "then": { "type": "string" }, "evidence": { "type": "array", "items": { "type": "string" }, "description": "Coverage IDs with a recorded answer and quote." } } }, "guardrail": { "type": "object", "additionalProperties": false, "required": ["item", "kind", "text", "evidence"], "properties": { "item": { "type": "string" }, "kind": { "type": "string", "enum": ["kill_criterion", "fallback", "review_point", "data_rule"] }, "text": { "type": "string" }, "evidence": { "type": "array", "items": { "type": "string" } } } }, "open_question": { "type": "object", "additionalProperties": false, "required": ["item", "area", "question", "who_can_answer", "artifact_needed"], "properties": { "item": { "type": ["string", "null"] }, "area": { "type": "string" }, "question": { "type": "string" }, "who_can_answer": { "type": ["string", "null"] }, "artifact_needed": { "type": ["string", "null"] } } }, "reflect_back": { "type": "object", "additionalProperties": false, "required": ["text", "status", "corrections"], "properties": { "text": { "type": "string" }, "status": { "type": "string", "enum": ["proposed", "confirmed", "corrected"] }, "corrections": { "type": "array", "items": { "type": "string" } } } }, "item_type": { "type": "string", "enum": ["broken", "manual_process", "known_idea", "exploratory", "data_report"] } } };
-var func22 = Object.prototype.hasOwnProperty;
-var schema7 = { "type": "object", "additionalProperties": false, "required": ["item", "area", "status", "value", "quote"], "properties": { "item": { "type": ["string", "null"], "description": "Item ID, or null for a shared-core area." }, "area": { "type": "string", "description": "Namespaced coverage ID, e.g. core.users, data_report.grain, mod.integration.payload." }, "status": { "type": "string", "enum": ["covered", "assumed", "unknown", "not_applicable"] }, "value": { "type": ["string", "null"], "description": "Summary in plain words. Null when status is unknown." }, "quote": { "type": ["string", "null"], "description": "The user's exact words supporting this update. Required for covered and assumed." } } };
-function validate22(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.item === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.area === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "area" }, message: "must have required property 'area'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.status === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "status" }, message: "must have required property 'status'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    if (data.value === void 0) {
-      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "value" }, message: "must have required property 'value'" };
-      if (vErrors === null) {
-        vErrors = [err3];
-      } else {
-        vErrors.push(err3);
-      }
-      errors++;
-    }
-    if (data.quote === void 0) {
-      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
-      if (vErrors === null) {
-        vErrors = [err4];
-      } else {
-        vErrors.push(err4);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "item" || key0 === "area" || key0 === "status" || key0 === "value" || key0 === "quote")) {
-        const err5 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-    }
-    if (data.item !== void 0) {
-      let data0 = data.item;
-      if (typeof data0 !== "string" && data0 !== null) {
-        const err6 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: schema7.properties.item.type }, message: "must be string,null" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-    if (data.area !== void 0) {
-      if (typeof data.area !== "string") {
-        const err7 = { instancePath: instancePath + "/area", schemaPath: "#/properties/area/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-    }
-    if (data.status !== void 0) {
-      let data2 = data.status;
-      if (typeof data2 !== "string") {
-        const err8 = { instancePath: instancePath + "/status", schemaPath: "#/properties/status/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err8];
-        } else {
-          vErrors.push(err8);
-        }
-        errors++;
-      }
-      if (!(data2 === "covered" || data2 === "assumed" || data2 === "unknown" || data2 === "not_applicable")) {
-        const err9 = { instancePath: instancePath + "/status", schemaPath: "#/properties/status/enum", keyword: "enum", params: { allowedValues: schema7.properties.status.enum }, message: "must be equal to one of the allowed values" };
-        if (vErrors === null) {
-          vErrors = [err9];
-        } else {
-          vErrors.push(err9);
-        }
-        errors++;
-      }
-    }
-    if (data.value !== void 0) {
-      let data3 = data.value;
-      if (typeof data3 !== "string" && data3 !== null) {
-        const err10 = { instancePath: instancePath + "/value", schemaPath: "#/properties/value/type", keyword: "type", params: { type: schema7.properties.value.type }, message: "must be string,null" };
-        if (vErrors === null) {
-          vErrors = [err10];
-        } else {
-          vErrors.push(err10);
-        }
-        errors++;
-      }
-    }
-    if (data.quote !== void 0) {
-      let data4 = data.quote;
-      if (typeof data4 !== "string" && data4 !== null) {
-        const err11 = { instancePath: instancePath + "/quote", schemaPath: "#/properties/quote/type", keyword: "type", params: { type: schema7.properties.quote.type }, message: "must be string,null" };
-        if (vErrors === null) {
-          vErrors = [err11];
-        } else {
-          vErrors.push(err11);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err12 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err12];
-    } else {
-      vErrors.push(err12);
-    }
-    errors++;
-  }
-  validate22.errors = vErrors;
-  return errors === 0;
-}
-var schema8 = { "type": "object", "additionalProperties": false, "required": ["item", "fact", "band", "evidence", "quote"], "properties": { "item": { "type": "string" }, "fact": { "type": "string", "enum": ["rule_clarity", "input_digital", "input_structured", "ways_done", "stability", "documentation", "steps_apps", "access", "value", "ai_applies", "eval_ability", "error_cost", "human_review", "simpler_option", "fallback", "sensitive_data", "push", "pull", "anxiety", "habit", "existing_asset", "decision_depends", "broken_cause", "workaround_permanent", "success_metric"] }, "band": { "type": "string", "description": "One of the band names scoring.yaml defines for this fact." }, "evidence": { "type": "array", "items": { "type": "string" }, "description": "Coverage IDs the band was derived from." }, "quote": { "type": ["string", "null"], "description": "The user's words behind the band, when there is one." } } };
-function validate24(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.item === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.fact === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "fact" }, message: "must have required property 'fact'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.band === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "band" }, message: "must have required property 'band'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    if (data.evidence === void 0) {
-      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "evidence" }, message: "must have required property 'evidence'" };
-      if (vErrors === null) {
-        vErrors = [err3];
-      } else {
-        vErrors.push(err3);
-      }
-      errors++;
-    }
-    if (data.quote === void 0) {
-      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
-      if (vErrors === null) {
-        vErrors = [err4];
-      } else {
-        vErrors.push(err4);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "item" || key0 === "fact" || key0 === "band" || key0 === "evidence" || key0 === "quote")) {
-        const err5 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-    }
-    if (data.item !== void 0) {
-      if (typeof data.item !== "string") {
-        const err6 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-    if (data.fact !== void 0) {
-      let data1 = data.fact;
-      if (typeof data1 !== "string") {
-        const err7 = { instancePath: instancePath + "/fact", schemaPath: "#/properties/fact/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-      if (!(data1 === "rule_clarity" || data1 === "input_digital" || data1 === "input_structured" || data1 === "ways_done" || data1 === "stability" || data1 === "documentation" || data1 === "steps_apps" || data1 === "access" || data1 === "value" || data1 === "ai_applies" || data1 === "eval_ability" || data1 === "error_cost" || data1 === "human_review" || data1 === "simpler_option" || data1 === "fallback" || data1 === "sensitive_data" || data1 === "push" || data1 === "pull" || data1 === "anxiety" || data1 === "habit" || data1 === "existing_asset" || data1 === "decision_depends" || data1 === "broken_cause" || data1 === "workaround_permanent" || data1 === "success_metric")) {
-        const err8 = { instancePath: instancePath + "/fact", schemaPath: "#/properties/fact/enum", keyword: "enum", params: { allowedValues: schema8.properties.fact.enum }, message: "must be equal to one of the allowed values" };
-        if (vErrors === null) {
-          vErrors = [err8];
-        } else {
-          vErrors.push(err8);
-        }
-        errors++;
-      }
-    }
-    if (data.band !== void 0) {
-      if (typeof data.band !== "string") {
-        const err9 = { instancePath: instancePath + "/band", schemaPath: "#/properties/band/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err9];
-        } else {
-          vErrors.push(err9);
-        }
-        errors++;
-      }
-    }
-    if (data.evidence !== void 0) {
-      let data3 = data.evidence;
-      if (Array.isArray(data3)) {
-        const len0 = data3.length;
-        for (let i0 = 0; i0 < len0; i0++) {
-          if (typeof data3[i0] !== "string") {
-            const err10 = { instancePath: instancePath + "/evidence/" + i0, schemaPath: "#/properties/evidence/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err10];
-            } else {
-              vErrors.push(err10);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err11 = { instancePath: instancePath + "/evidence", schemaPath: "#/properties/evidence/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err11];
-        } else {
-          vErrors.push(err11);
-        }
-        errors++;
-      }
-    }
-    if (data.quote !== void 0) {
-      let data5 = data.quote;
-      if (typeof data5 !== "string" && data5 !== null) {
-        const err12 = { instancePath: instancePath + "/quote", schemaPath: "#/properties/quote/type", keyword: "type", params: { type: schema8.properties.quote.type }, message: "must be string,null" };
-        if (vErrors === null) {
-          vErrors = [err12];
-        } else {
-          vErrors.push(err12);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err13 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err13];
-    } else {
-      vErrors.push(err13);
-    }
-    errors++;
-  }
-  validate24.errors = vErrors;
-  return errors === 0;
-}
-var schema10 = { "type": "object", "additionalProperties": false, "required": ["id", "type", "confidence", "title", "trigger_quote", "spawned_from"], "properties": { "id": { "type": "string" }, "type": { "$ref": "#/$defs/item_type" }, "confidence": { "type": "string", "enum": ["high", "med", "low"] }, "title": { "type": "string" }, "trigger_quote": { "type": "string" }, "spawned_from": { "type": ["string", "null"] } } };
-var schema11 = { "type": "string", "enum": ["broken", "manual_process", "known_idea", "exploratory", "data_report"] };
-function validate28(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (typeof data !== "string") {
-    const err0 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-    if (vErrors === null) {
-      vErrors = [err0];
-    } else {
-      vErrors.push(err0);
-    }
-    errors++;
-  }
-  if (!(data === "broken" || data === "manual_process" || data === "known_idea" || data === "exploratory" || data === "data_report")) {
-    const err1 = { instancePath, schemaPath: "#/enum", keyword: "enum", params: { allowedValues: schema11.enum }, message: "must be equal to one of the allowed values" };
-    if (vErrors === null) {
-      vErrors = [err1];
-    } else {
-      vErrors.push(err1);
-    }
-    errors++;
-  }
-  validate28.errors = vErrors;
-  return errors === 0;
-}
-function validate27(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.id === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "id" }, message: "must have required property 'id'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.type === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "type" }, message: "must have required property 'type'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.confidence === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "confidence" }, message: "must have required property 'confidence'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    if (data.title === void 0) {
-      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "title" }, message: "must have required property 'title'" };
-      if (vErrors === null) {
-        vErrors = [err3];
-      } else {
-        vErrors.push(err3);
-      }
-      errors++;
-    }
-    if (data.trigger_quote === void 0) {
-      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "trigger_quote" }, message: "must have required property 'trigger_quote'" };
-      if (vErrors === null) {
-        vErrors = [err4];
-      } else {
-        vErrors.push(err4);
-      }
-      errors++;
-    }
-    if (data.spawned_from === void 0) {
-      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "spawned_from" }, message: "must have required property 'spawned_from'" };
-      if (vErrors === null) {
-        vErrors = [err5];
-      } else {
-        vErrors.push(err5);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "id" || key0 === "type" || key0 === "confidence" || key0 === "title" || key0 === "trigger_quote" || key0 === "spawned_from")) {
-        const err6 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-    if (data.id !== void 0) {
-      if (typeof data.id !== "string") {
-        const err7 = { instancePath: instancePath + "/id", schemaPath: "#/properties/id/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-    }
-    if (data.type !== void 0) {
-      if (!validate28(data.type, { instancePath: instancePath + "/type", parentData: data, parentDataProperty: "type", rootData })) {
-        vErrors = vErrors === null ? validate28.errors : vErrors.concat(validate28.errors);
-        errors = vErrors.length;
-      }
-    }
-    if (data.confidence !== void 0) {
-      let data2 = data.confidence;
-      if (typeof data2 !== "string") {
-        const err8 = { instancePath: instancePath + "/confidence", schemaPath: "#/properties/confidence/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err8];
-        } else {
-          vErrors.push(err8);
-        }
-        errors++;
-      }
-      if (!(data2 === "high" || data2 === "med" || data2 === "low")) {
-        const err9 = { instancePath: instancePath + "/confidence", schemaPath: "#/properties/confidence/enum", keyword: "enum", params: { allowedValues: schema10.properties.confidence.enum }, message: "must be equal to one of the allowed values" };
-        if (vErrors === null) {
-          vErrors = [err9];
-        } else {
-          vErrors.push(err9);
-        }
-        errors++;
-      }
-    }
-    if (data.title !== void 0) {
-      if (typeof data.title !== "string") {
-        const err10 = { instancePath: instancePath + "/title", schemaPath: "#/properties/title/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err10];
-        } else {
-          vErrors.push(err10);
-        }
-        errors++;
-      }
-    }
-    if (data.trigger_quote !== void 0) {
-      if (typeof data.trigger_quote !== "string") {
-        const err11 = { instancePath: instancePath + "/trigger_quote", schemaPath: "#/properties/trigger_quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err11];
-        } else {
-          vErrors.push(err11);
-        }
-        errors++;
-      }
-    }
-    if (data.spawned_from !== void 0) {
-      let data5 = data.spawned_from;
-      if (typeof data5 !== "string" && data5 !== null) {
-        const err12 = { instancePath: instancePath + "/spawned_from", schemaPath: "#/properties/spawned_from/type", keyword: "type", params: { type: schema10.properties.spawned_from.type }, message: "must be string,null" };
-        if (vErrors === null) {
-          vErrors = [err12];
-        } else {
-          vErrors.push(err12);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err13 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err13];
-    } else {
-      vErrors.push(err13);
-    }
-    errors++;
-  }
-  validate27.errors = vErrors;
-  return errors === 0;
-}
-function validate31(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.item === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.to === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "to" }, message: "must have required property 'to'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.reason === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "reason" }, message: "must have required property 'reason'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    if (data.quote === void 0) {
-      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
-      if (vErrors === null) {
-        vErrors = [err3];
-      } else {
-        vErrors.push(err3);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "item" || key0 === "to" || key0 === "reason" || key0 === "quote")) {
-        const err4 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err4];
-        } else {
-          vErrors.push(err4);
-        }
-        errors++;
-      }
-    }
-    if (data.item !== void 0) {
-      if (typeof data.item !== "string") {
-        const err5 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-    }
-    if (data.to !== void 0) {
-      if (!validate28(data.to, { instancePath: instancePath + "/to", parentData: data, parentDataProperty: "to", rootData })) {
-        vErrors = vErrors === null ? validate28.errors : vErrors.concat(validate28.errors);
-        errors = vErrors.length;
-      }
-    }
-    if (data.reason !== void 0) {
-      if (typeof data.reason !== "string") {
-        const err6 = { instancePath: instancePath + "/reason", schemaPath: "#/properties/reason/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-    if (data.quote !== void 0) {
-      if (typeof data.quote !== "string") {
-        const err7 = { instancePath: instancePath + "/quote", schemaPath: "#/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err8 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err8];
-    } else {
-      vErrors.push(err8);
-    }
-    errors++;
-  }
-  validate31.errors = vErrors;
-  return errors === 0;
-}
-var schema13 = { "type": "object", "additionalProperties": false, "required": ["item", "modifier", "quote"], "properties": { "item": { "type": "string" }, "modifier": { "type": "string", "enum": ["integration", "compliance", "migration"] }, "quote": { "type": "string" } } };
-function validate34(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.item === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.modifier === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "modifier" }, message: "must have required property 'modifier'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.quote === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "item" || key0 === "modifier" || key0 === "quote")) {
-        const err3 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err3];
-        } else {
-          vErrors.push(err3);
-        }
-        errors++;
-      }
-    }
-    if (data.item !== void 0) {
-      if (typeof data.item !== "string") {
-        const err4 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err4];
-        } else {
-          vErrors.push(err4);
-        }
-        errors++;
-      }
-    }
-    if (data.modifier !== void 0) {
-      let data1 = data.modifier;
-      if (typeof data1 !== "string") {
-        const err5 = { instancePath: instancePath + "/modifier", schemaPath: "#/properties/modifier/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-      if (!(data1 === "integration" || data1 === "compliance" || data1 === "migration")) {
-        const err6 = { instancePath: instancePath + "/modifier", schemaPath: "#/properties/modifier/enum", keyword: "enum", params: { allowedValues: schema13.properties.modifier.enum }, message: "must be equal to one of the allowed values" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-    if (data.quote !== void 0) {
-      if (typeof data.quote !== "string") {
-        const err7 = { instancePath: instancePath + "/quote", schemaPath: "#/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err8 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err8];
-    } else {
-      vErrors.push(err8);
-    }
-    errors++;
-  }
-  validate34.errors = vErrors;
-  return errors === 0;
-}
-var schema14 = { "type": "object", "additionalProperties": false, "required": ["item", "modifier", "reason"], "properties": { "item": { "type": "string" }, "modifier": { "type": "string", "enum": ["integration", "compliance", "migration"] }, "reason": { "type": "string", "description": "Why it doesn't apply, e.g. the user said there's no API." } } };
-function validate36(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.item === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.modifier === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "modifier" }, message: "must have required property 'modifier'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.reason === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "reason" }, message: "must have required property 'reason'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "item" || key0 === "modifier" || key0 === "reason")) {
-        const err3 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err3];
-        } else {
-          vErrors.push(err3);
-        }
-        errors++;
-      }
-    }
-    if (data.item !== void 0) {
-      if (typeof data.item !== "string") {
-        const err4 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err4];
-        } else {
-          vErrors.push(err4);
-        }
-        errors++;
-      }
-    }
-    if (data.modifier !== void 0) {
-      let data1 = data.modifier;
-      if (typeof data1 !== "string") {
-        const err5 = { instancePath: instancePath + "/modifier", schemaPath: "#/properties/modifier/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-      if (!(data1 === "integration" || data1 === "compliance" || data1 === "migration")) {
-        const err6 = { instancePath: instancePath + "/modifier", schemaPath: "#/properties/modifier/enum", keyword: "enum", params: { allowedValues: schema14.properties.modifier.enum }, message: "must be equal to one of the allowed values" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-    if (data.reason !== void 0) {
-      if (typeof data.reason !== "string") {
-        const err7 = { instancePath: instancePath + "/reason", schemaPath: "#/properties/reason/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err8 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err8];
-    } else {
-      vErrors.push(err8);
-    }
-    errors++;
-  }
-  validate36.errors = vErrors;
-  return errors === 0;
-}
-function validate38(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.item === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.by === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "by" }, message: "must have required property 'by'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.quote === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "item" || key0 === "by" || key0 === "quote")) {
-        const err3 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err3];
-        } else {
-          vErrors.push(err3);
-        }
-        errors++;
-      }
-    }
-    if (data.item !== void 0) {
-      if (typeof data.item !== "string") {
-        const err4 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err4];
-        } else {
-          vErrors.push(err4);
-        }
-        errors++;
-      }
-    }
-    if (data.by !== void 0) {
-      if (typeof data.by !== "string") {
-        const err5 = { instancePath: instancePath + "/by", schemaPath: "#/properties/by/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-    }
-    if (data.quote !== void 0) {
-      if (typeof data.quote !== "string") {
-        const err6 = { instancePath: instancePath + "/quote", schemaPath: "#/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err7 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err7];
-    } else {
-      vErrors.push(err7);
-    }
-    errors++;
-  }
-  validate38.errors = vErrors;
-  return errors === 0;
-}
-function validate40(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.item === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.reason === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "reason" }, message: "must have required property 'reason'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.quote === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "quote" }, message: "must have required property 'quote'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "item" || key0 === "reason" || key0 === "quote")) {
-        const err3 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err3];
-        } else {
-          vErrors.push(err3);
-        }
-        errors++;
-      }
-    }
-    if (data.item !== void 0) {
-      if (typeof data.item !== "string") {
-        const err4 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err4];
-        } else {
-          vErrors.push(err4);
-        }
-        errors++;
-      }
-    }
-    if (data.reason !== void 0) {
-      if (typeof data.reason !== "string") {
-        const err5 = { instancePath: instancePath + "/reason", schemaPath: "#/properties/reason/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-    }
-    if (data.quote !== void 0) {
-      if (typeof data.quote !== "string") {
-        const err6 = { instancePath: instancePath + "/quote", schemaPath: "#/properties/quote/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err7 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err7];
-    } else {
-      vErrors.push(err7);
-    }
-    errors++;
-  }
-  validate40.errors = vErrors;
-  return errors === 0;
-}
-function validate26(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.new_items === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "new_items" }, message: "must have required property 'new_items'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.reclassify === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "reclassify" }, message: "must have required property 'reclassify'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.add_modifiers === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "add_modifiers" }, message: "must have required property 'add_modifiers'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    if (data.remove_modifiers === void 0) {
-      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "remove_modifiers" }, message: "must have required property 'remove_modifiers'" };
-      if (vErrors === null) {
-        vErrors = [err3];
-      } else {
-        vErrors.push(err3);
-      }
-      errors++;
-    }
-    if (data.supersede === void 0) {
-      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "supersede" }, message: "must have required property 'supersede'" };
-      if (vErrors === null) {
-        vErrors = [err4];
-      } else {
-        vErrors.push(err4);
-      }
-      errors++;
-    }
-    if (data.drop === void 0) {
-      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "drop" }, message: "must have required property 'drop'" };
-      if (vErrors === null) {
-        vErrors = [err5];
-      } else {
-        vErrors.push(err5);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "new_items" || key0 === "reclassify" || key0 === "add_modifiers" || key0 === "remove_modifiers" || key0 === "supersede" || key0 === "drop")) {
-        const err6 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-    if (data.new_items !== void 0) {
-      let data0 = data.new_items;
-      if (Array.isArray(data0)) {
-        const len0 = data0.length;
-        for (let i0 = 0; i0 < len0; i0++) {
-          if (!validate27(data0[i0], { instancePath: instancePath + "/new_items/" + i0, parentData: data0, parentDataProperty: i0, rootData })) {
-            vErrors = vErrors === null ? validate27.errors : vErrors.concat(validate27.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err7 = { instancePath: instancePath + "/new_items", schemaPath: "#/properties/new_items/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-    }
-    if (data.reclassify !== void 0) {
-      let data2 = data.reclassify;
-      const _errs6 = errors;
-      let valid3 = false;
-      const _errs7 = errors;
-      if (!validate31(data2, { instancePath: instancePath + "/reclassify", parentData: data, parentDataProperty: "reclassify", rootData })) {
-        vErrors = vErrors === null ? validate31.errors : vErrors.concat(validate31.errors);
-        errors = vErrors.length;
-      }
-      var _valid0 = _errs7 === errors;
-      valid3 = valid3 || _valid0;
-      if (!valid3) {
-        const _errs8 = errors;
-        if (data2 !== null) {
-          const err8 = { instancePath: instancePath + "/reclassify", schemaPath: "#/properties/reclassify/anyOf/1/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-          if (vErrors === null) {
-            vErrors = [err8];
-          } else {
-            vErrors.push(err8);
-          }
-          errors++;
-        }
-        var _valid0 = _errs8 === errors;
-        valid3 = valid3 || _valid0;
-      }
-      if (!valid3) {
-        const err9 = { instancePath: instancePath + "/reclassify", schemaPath: "#/properties/reclassify/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
-        if (vErrors === null) {
-          vErrors = [err9];
-        } else {
-          vErrors.push(err9);
-        }
-        errors++;
-      } else {
-        errors = _errs6;
-        if (vErrors !== null) {
-          if (_errs6) {
-            vErrors.length = _errs6;
-          } else {
-            vErrors = null;
-          }
-        }
-      }
-    }
-    if (data.add_modifiers !== void 0) {
-      let data3 = data.add_modifiers;
-      if (Array.isArray(data3)) {
-        const len1 = data3.length;
-        for (let i1 = 0; i1 < len1; i1++) {
-          if (!validate34(data3[i1], { instancePath: instancePath + "/add_modifiers/" + i1, parentData: data3, parentDataProperty: i1, rootData })) {
-            vErrors = vErrors === null ? validate34.errors : vErrors.concat(validate34.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err10 = { instancePath: instancePath + "/add_modifiers", schemaPath: "#/properties/add_modifiers/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err10];
-        } else {
-          vErrors.push(err10);
-        }
-        errors++;
-      }
-    }
-    if (data.remove_modifiers !== void 0) {
-      let data5 = data.remove_modifiers;
-      if (Array.isArray(data5)) {
-        const len2 = data5.length;
-        for (let i2 = 0; i2 < len2; i2++) {
-          if (!validate36(data5[i2], { instancePath: instancePath + "/remove_modifiers/" + i2, parentData: data5, parentDataProperty: i2, rootData })) {
-            vErrors = vErrors === null ? validate36.errors : vErrors.concat(validate36.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err11 = { instancePath: instancePath + "/remove_modifiers", schemaPath: "#/properties/remove_modifiers/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err11];
-        } else {
-          vErrors.push(err11);
-        }
-        errors++;
-      }
-    }
-    if (data.supersede !== void 0) {
-      let data7 = data.supersede;
-      const _errs17 = errors;
-      let valid8 = false;
-      const _errs18 = errors;
-      if (!validate38(data7, { instancePath: instancePath + "/supersede", parentData: data, parentDataProperty: "supersede", rootData })) {
-        vErrors = vErrors === null ? validate38.errors : vErrors.concat(validate38.errors);
-        errors = vErrors.length;
-      }
-      var _valid1 = _errs18 === errors;
-      valid8 = valid8 || _valid1;
-      if (!valid8) {
-        const _errs19 = errors;
-        if (data7 !== null) {
-          const err12 = { instancePath: instancePath + "/supersede", schemaPath: "#/properties/supersede/anyOf/1/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-          if (vErrors === null) {
-            vErrors = [err12];
-          } else {
-            vErrors.push(err12);
-          }
-          errors++;
-        }
-        var _valid1 = _errs19 === errors;
-        valid8 = valid8 || _valid1;
-      }
-      if (!valid8) {
-        const err13 = { instancePath: instancePath + "/supersede", schemaPath: "#/properties/supersede/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
-        if (vErrors === null) {
-          vErrors = [err13];
-        } else {
-          vErrors.push(err13);
-        }
-        errors++;
-      } else {
-        errors = _errs17;
-        if (vErrors !== null) {
-          if (_errs17) {
-            vErrors.length = _errs17;
-          } else {
-            vErrors = null;
-          }
-        }
-      }
-    }
-    if (data.drop !== void 0) {
-      let data8 = data.drop;
-      const _errs22 = errors;
-      let valid9 = false;
-      const _errs23 = errors;
-      if (!validate40(data8, { instancePath: instancePath + "/drop", parentData: data, parentDataProperty: "drop", rootData })) {
-        vErrors = vErrors === null ? validate40.errors : vErrors.concat(validate40.errors);
-        errors = vErrors.length;
-      }
-      var _valid2 = _errs23 === errors;
-      valid9 = valid9 || _valid2;
-      if (!valid9) {
-        const _errs24 = errors;
-        if (data8 !== null) {
-          const err14 = { instancePath: instancePath + "/drop", schemaPath: "#/properties/drop/anyOf/1/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-          if (vErrors === null) {
-            vErrors = [err14];
-          } else {
-            vErrors.push(err14);
-          }
-          errors++;
-        }
-        var _valid2 = _errs24 === errors;
-        valid9 = valid9 || _valid2;
-      }
-      if (!valid9) {
-        const err15 = { instancePath: instancePath + "/drop", schemaPath: "#/properties/drop/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
-        if (vErrors === null) {
-          vErrors = [err15];
-        } else {
-          vErrors.push(err15);
-        }
-        errors++;
-      } else {
-        errors = _errs22;
-        if (vErrors !== null) {
-          if (_errs22) {
-            vErrors.length = _errs22;
-          } else {
-            vErrors = null;
-          }
-        }
-      }
-    }
-  } else {
-    const err16 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err16];
-    } else {
-      vErrors.push(err16);
-    }
-    errors++;
-  }
-  validate26.errors = vErrors;
-  return errors === 0;
-}
-var schema17 = { "type": "object", "additionalProperties": false, "required": ["item", "field", "text"], "properties": { "item": { "type": ["string", "null"] }, "field": { "type": "string", "enum": ["problem_statement", "current_state", "mvp", "out_of_scope", "mitigation"] }, "text": { "type": "string" } } };
-function validate43(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.item === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.field === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "field" }, message: "must have required property 'field'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.text === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "text" }, message: "must have required property 'text'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "item" || key0 === "field" || key0 === "text")) {
-        const err3 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err3];
-        } else {
-          vErrors.push(err3);
-        }
-        errors++;
-      }
-    }
-    if (data.item !== void 0) {
-      let data0 = data.item;
-      if (typeof data0 !== "string" && data0 !== null) {
-        const err4 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: schema17.properties.item.type }, message: "must be string,null" };
-        if (vErrors === null) {
-          vErrors = [err4];
-        } else {
-          vErrors.push(err4);
-        }
-        errors++;
-      }
-    }
-    if (data.field !== void 0) {
-      let data1 = data.field;
-      if (typeof data1 !== "string") {
-        const err5 = { instancePath: instancePath + "/field", schemaPath: "#/properties/field/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-      if (!(data1 === "problem_statement" || data1 === "current_state" || data1 === "mvp" || data1 === "out_of_scope" || data1 === "mitigation")) {
-        const err6 = { instancePath: instancePath + "/field", schemaPath: "#/properties/field/enum", keyword: "enum", params: { allowedValues: schema17.properties.field.enum }, message: "must be equal to one of the allowed values" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-    if (data.text !== void 0) {
-      if (typeof data.text !== "string") {
-        const err7 = { instancePath: instancePath + "/text", schemaPath: "#/properties/text/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err8 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err8];
-    } else {
-      vErrors.push(err8);
-    }
-    errors++;
-  }
-  validate43.errors = vErrors;
-  return errors === 0;
-}
-var schema18 = { "type": "object", "additionalProperties": false, "required": ["item", "kind", "given", "when", "then", "evidence"], "properties": { "item": { "type": "string" }, "kind": { "type": "string", "enum": ["criterion", "error_case"] }, "given": { "type": "string" }, "when": { "type": "string" }, "then": { "type": "string" }, "evidence": { "type": "array", "items": { "type": "string" }, "description": "Coverage IDs with a recorded answer and quote." } } };
-function validate45(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.item === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.kind === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "kind" }, message: "must have required property 'kind'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.given === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "given" }, message: "must have required property 'given'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    if (data.when === void 0) {
-      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "when" }, message: "must have required property 'when'" };
-      if (vErrors === null) {
-        vErrors = [err3];
-      } else {
-        vErrors.push(err3);
-      }
-      errors++;
-    }
-    if (data.then === void 0) {
-      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "then" }, message: "must have required property 'then'" };
-      if (vErrors === null) {
-        vErrors = [err4];
-      } else {
-        vErrors.push(err4);
-      }
-      errors++;
-    }
-    if (data.evidence === void 0) {
-      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "evidence" }, message: "must have required property 'evidence'" };
-      if (vErrors === null) {
-        vErrors = [err5];
-      } else {
-        vErrors.push(err5);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "item" || key0 === "kind" || key0 === "given" || key0 === "when" || key0 === "then" || key0 === "evidence")) {
-        const err6 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-    if (data.item !== void 0) {
-      if (typeof data.item !== "string") {
-        const err7 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-    }
-    if (data.kind !== void 0) {
-      let data1 = data.kind;
-      if (typeof data1 !== "string") {
-        const err8 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err8];
-        } else {
-          vErrors.push(err8);
-        }
-        errors++;
-      }
-      if (!(data1 === "criterion" || data1 === "error_case")) {
-        const err9 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema18.properties.kind.enum }, message: "must be equal to one of the allowed values" };
-        if (vErrors === null) {
-          vErrors = [err9];
-        } else {
-          vErrors.push(err9);
-        }
-        errors++;
-      }
-    }
-    if (data.given !== void 0) {
-      if (typeof data.given !== "string") {
-        const err10 = { instancePath: instancePath + "/given", schemaPath: "#/properties/given/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err10];
-        } else {
-          vErrors.push(err10);
-        }
-        errors++;
-      }
-    }
-    if (data.when !== void 0) {
-      if (typeof data.when !== "string") {
-        const err11 = { instancePath: instancePath + "/when", schemaPath: "#/properties/when/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err11];
-        } else {
-          vErrors.push(err11);
-        }
-        errors++;
-      }
-    }
-    if (data.then !== void 0) {
-      if (typeof data.then !== "string") {
-        const err12 = { instancePath: instancePath + "/then", schemaPath: "#/properties/then/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err12];
-        } else {
-          vErrors.push(err12);
-        }
-        errors++;
-      }
-    }
-    if (data.evidence !== void 0) {
-      let data5 = data.evidence;
-      if (Array.isArray(data5)) {
-        const len0 = data5.length;
-        for (let i0 = 0; i0 < len0; i0++) {
-          if (typeof data5[i0] !== "string") {
-            const err13 = { instancePath: instancePath + "/evidence/" + i0, schemaPath: "#/properties/evidence/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err13];
-            } else {
-              vErrors.push(err13);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err14 = { instancePath: instancePath + "/evidence", schemaPath: "#/properties/evidence/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err14];
-        } else {
-          vErrors.push(err14);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err15 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err15];
-    } else {
-      vErrors.push(err15);
-    }
-    errors++;
-  }
-  validate45.errors = vErrors;
-  return errors === 0;
-}
-var schema192 = { "type": "object", "additionalProperties": false, "required": ["item", "kind", "text", "evidence"], "properties": { "item": { "type": "string" }, "kind": { "type": "string", "enum": ["kill_criterion", "fallback", "review_point", "data_rule"] }, "text": { "type": "string" }, "evidence": { "type": "array", "items": { "type": "string" } } } };
-function validate47(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.item === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.kind === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "kind" }, message: "must have required property 'kind'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.text === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "text" }, message: "must have required property 'text'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    if (data.evidence === void 0) {
-      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "evidence" }, message: "must have required property 'evidence'" };
-      if (vErrors === null) {
-        vErrors = [err3];
-      } else {
-        vErrors.push(err3);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "item" || key0 === "kind" || key0 === "text" || key0 === "evidence")) {
-        const err4 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err4];
-        } else {
-          vErrors.push(err4);
-        }
-        errors++;
-      }
-    }
-    if (data.item !== void 0) {
-      if (typeof data.item !== "string") {
-        const err5 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-    }
-    if (data.kind !== void 0) {
-      let data1 = data.kind;
-      if (typeof data1 !== "string") {
-        const err6 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-      if (!(data1 === "kill_criterion" || data1 === "fallback" || data1 === "review_point" || data1 === "data_rule")) {
-        const err7 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema192.properties.kind.enum }, message: "must be equal to one of the allowed values" };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-    }
-    if (data.text !== void 0) {
-      if (typeof data.text !== "string") {
-        const err8 = { instancePath: instancePath + "/text", schemaPath: "#/properties/text/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err8];
-        } else {
-          vErrors.push(err8);
-        }
-        errors++;
-      }
-    }
-    if (data.evidence !== void 0) {
-      let data3 = data.evidence;
-      if (Array.isArray(data3)) {
-        const len0 = data3.length;
-        for (let i0 = 0; i0 < len0; i0++) {
-          if (typeof data3[i0] !== "string") {
-            const err9 = { instancePath: instancePath + "/evidence/" + i0, schemaPath: "#/properties/evidence/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err9];
-            } else {
-              vErrors.push(err9);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err10 = { instancePath: instancePath + "/evidence", schemaPath: "#/properties/evidence/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err10];
-        } else {
-          vErrors.push(err10);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err11 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err11];
-    } else {
-      vErrors.push(err11);
-    }
-    errors++;
-  }
-  validate47.errors = vErrors;
-  return errors === 0;
-}
-var schema202 = { "type": "object", "additionalProperties": false, "required": ["item", "area", "question", "who_can_answer", "artifact_needed"], "properties": { "item": { "type": ["string", "null"] }, "area": { "type": "string" }, "question": { "type": "string" }, "who_can_answer": { "type": ["string", "null"] }, "artifact_needed": { "type": ["string", "null"] } } };
-function validate49(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.item === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "item" }, message: "must have required property 'item'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.area === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "area" }, message: "must have required property 'area'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.question === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "question" }, message: "must have required property 'question'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    if (data.who_can_answer === void 0) {
-      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "who_can_answer" }, message: "must have required property 'who_can_answer'" };
-      if (vErrors === null) {
-        vErrors = [err3];
-      } else {
-        vErrors.push(err3);
-      }
-      errors++;
-    }
-    if (data.artifact_needed === void 0) {
-      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "artifact_needed" }, message: "must have required property 'artifact_needed'" };
-      if (vErrors === null) {
-        vErrors = [err4];
-      } else {
-        vErrors.push(err4);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "item" || key0 === "area" || key0 === "question" || key0 === "who_can_answer" || key0 === "artifact_needed")) {
-        const err5 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-    }
-    if (data.item !== void 0) {
-      let data0 = data.item;
-      if (typeof data0 !== "string" && data0 !== null) {
-        const err6 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: schema202.properties.item.type }, message: "must be string,null" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-    if (data.area !== void 0) {
-      if (typeof data.area !== "string") {
-        const err7 = { instancePath: instancePath + "/area", schemaPath: "#/properties/area/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err7];
-        } else {
-          vErrors.push(err7);
-        }
-        errors++;
-      }
-    }
-    if (data.question !== void 0) {
-      if (typeof data.question !== "string") {
-        const err8 = { instancePath: instancePath + "/question", schemaPath: "#/properties/question/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err8];
-        } else {
-          vErrors.push(err8);
-        }
-        errors++;
-      }
-    }
-    if (data.who_can_answer !== void 0) {
-      let data3 = data.who_can_answer;
-      if (typeof data3 !== "string" && data3 !== null) {
-        const err9 = { instancePath: instancePath + "/who_can_answer", schemaPath: "#/properties/who_can_answer/type", keyword: "type", params: { type: schema202.properties.who_can_answer.type }, message: "must be string,null" };
-        if (vErrors === null) {
-          vErrors = [err9];
-        } else {
-          vErrors.push(err9);
-        }
-        errors++;
-      }
-    }
-    if (data.artifact_needed !== void 0) {
-      let data4 = data.artifact_needed;
-      if (typeof data4 !== "string" && data4 !== null) {
-        const err10 = { instancePath: instancePath + "/artifact_needed", schemaPath: "#/properties/artifact_needed/type", keyword: "type", params: { type: schema202.properties.artifact_needed.type }, message: "must be string,null" };
-        if (vErrors === null) {
-          vErrors = [err10];
-        } else {
-          vErrors.push(err10);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err11 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err11];
-    } else {
-      vErrors.push(err11);
-    }
-    errors++;
-  }
-  validate49.errors = vErrors;
-  return errors === 0;
-}
-var schema212 = { "type": "object", "additionalProperties": false, "required": ["text", "status", "corrections"], "properties": { "text": { "type": "string" }, "status": { "type": "string", "enum": ["proposed", "confirmed", "corrected"] }, "corrections": { "type": "array", "items": { "type": "string" } } } };
-function validate51(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.text === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "text" }, message: "must have required property 'text'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.status === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "status" }, message: "must have required property 'status'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.corrections === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "corrections" }, message: "must have required property 'corrections'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!(key0 === "text" || key0 === "status" || key0 === "corrections")) {
-        const err3 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err3];
-        } else {
-          vErrors.push(err3);
-        }
-        errors++;
-      }
-    }
-    if (data.text !== void 0) {
-      if (typeof data.text !== "string") {
-        const err4 = { instancePath: instancePath + "/text", schemaPath: "#/properties/text/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err4];
-        } else {
-          vErrors.push(err4);
-        }
-        errors++;
-      }
-    }
-    if (data.status !== void 0) {
-      let data1 = data.status;
-      if (typeof data1 !== "string") {
-        const err5 = { instancePath: instancePath + "/status", schemaPath: "#/properties/status/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
-      }
-      if (!(data1 === "proposed" || data1 === "confirmed" || data1 === "corrected")) {
-        const err6 = { instancePath: instancePath + "/status", schemaPath: "#/properties/status/enum", keyword: "enum", params: { allowedValues: schema212.properties.status.enum }, message: "must be equal to one of the allowed values" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
-      }
-    }
-    if (data.corrections !== void 0) {
-      let data2 = data.corrections;
-      if (Array.isArray(data2)) {
-        const len0 = data2.length;
-        for (let i0 = 0; i0 < len0; i0++) {
-          if (typeof data2[i0] !== "string") {
-            const err7 = { instancePath: instancePath + "/corrections/" + i0, schemaPath: "#/properties/corrections/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            if (vErrors === null) {
-              vErrors = [err7];
-            } else {
-              vErrors.push(err7);
-            }
-            errors++;
-          }
-        }
-      } else {
-        const err8 = { instancePath: instancePath + "/corrections", schemaPath: "#/properties/corrections/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err8];
-        } else {
-          vErrors.push(err8);
-        }
-        errors++;
-      }
-    }
-  } else {
-    const err9 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err9];
-    } else {
-      vErrors.push(err9);
-    }
-    errors++;
-  }
-  validate51.errors = vErrors;
-  return errors === 0;
-}
-function validate21(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
-  ;
-  let vErrors = null;
-  let errors = 0;
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.reply === void 0) {
-      const err0 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "reply" }, message: "must have required property 'reply'" };
-      if (vErrors === null) {
-        vErrors = [err0];
-      } else {
-        vErrors.push(err0);
-      }
-      errors++;
-    }
-    if (data.updates === void 0) {
-      const err1 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "updates" }, message: "must have required property 'updates'" };
-      if (vErrors === null) {
-        vErrors = [err1];
-      } else {
-        vErrors.push(err1);
-      }
-      errors++;
-    }
-    if (data.facts === void 0) {
-      const err2 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "facts" }, message: "must have required property 'facts'" };
-      if (vErrors === null) {
-        vErrors = [err2];
-      } else {
-        vErrors.push(err2);
-      }
-      errors++;
-    }
-    if (data.router === void 0) {
-      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "router" }, message: "must have required property 'router'" };
-      if (vErrors === null) {
-        vErrors = [err3];
-      } else {
-        vErrors.push(err3);
-      }
-      errors++;
-    }
-    if (data.prose === void 0) {
-      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "prose" }, message: "must have required property 'prose'" };
-      if (vErrors === null) {
-        vErrors = [err4];
-      } else {
-        vErrors.push(err4);
-      }
-      errors++;
-    }
-    if (data.acceptance === void 0) {
-      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "acceptance" }, message: "must have required property 'acceptance'" };
-      if (vErrors === null) {
-        vErrors = [err5];
-      } else {
-        vErrors.push(err5);
-      }
-      errors++;
-    }
-    if (data.guardrails === void 0) {
-      const err6 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "guardrails" }, message: "must have required property 'guardrails'" };
-      if (vErrors === null) {
-        vErrors = [err6];
-      } else {
-        vErrors.push(err6);
-      }
-      errors++;
-    }
-    if (data.open_questions === void 0) {
-      const err7 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "open_questions" }, message: "must have required property 'open_questions'" };
-      if (vErrors === null) {
-        vErrors = [err7];
-      } else {
-        vErrors.push(err7);
-      }
-      errors++;
-    }
-    if (data.reflect_back === void 0) {
-      const err8 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "reflect_back" }, message: "must have required property 'reflect_back'" };
-      if (vErrors === null) {
-        vErrors = [err8];
-      } else {
-        vErrors.push(err8);
-      }
-      errors++;
-    }
-    for (const key0 in data) {
-      if (!func22.call(schema6.properties, key0)) {
-        const err9 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err9];
-        } else {
-          vErrors.push(err9);
-        }
-        errors++;
-      }
-    }
-    if (data.reply !== void 0) {
-      if (typeof data.reply !== "string") {
-        const err10 = { instancePath: instancePath + "/reply", schemaPath: "#/properties/reply/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        if (vErrors === null) {
-          vErrors = [err10];
-        } else {
-          vErrors.push(err10);
-        }
-        errors++;
-      }
-    }
-    if (data.updates !== void 0) {
-      let data1 = data.updates;
-      if (Array.isArray(data1)) {
-        const len0 = data1.length;
-        for (let i0 = 0; i0 < len0; i0++) {
-          if (!validate22(data1[i0], { instancePath: instancePath + "/updates/" + i0, parentData: data1, parentDataProperty: i0, rootData })) {
-            vErrors = vErrors === null ? validate22.errors : vErrors.concat(validate22.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err11 = { instancePath: instancePath + "/updates", schemaPath: "#/properties/updates/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err11];
-        } else {
-          vErrors.push(err11);
-        }
-        errors++;
-      }
-    }
-    if (data.facts !== void 0) {
-      let data3 = data.facts;
-      if (Array.isArray(data3)) {
-        const len1 = data3.length;
-        for (let i1 = 0; i1 < len1; i1++) {
-          if (!validate24(data3[i1], { instancePath: instancePath + "/facts/" + i1, parentData: data3, parentDataProperty: i1, rootData })) {
-            vErrors = vErrors === null ? validate24.errors : vErrors.concat(validate24.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err12 = { instancePath: instancePath + "/facts", schemaPath: "#/properties/facts/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err12];
-        } else {
-          vErrors.push(err12);
-        }
-        errors++;
-      }
-    }
-    if (data.router !== void 0) {
-      if (!validate26(data.router, { instancePath: instancePath + "/router", parentData: data, parentDataProperty: "router", rootData })) {
-        vErrors = vErrors === null ? validate26.errors : vErrors.concat(validate26.errors);
-        errors = vErrors.length;
-      }
-    }
-    if (data.prose !== void 0) {
-      let data6 = data.prose;
-      if (Array.isArray(data6)) {
-        const len2 = data6.length;
-        for (let i2 = 0; i2 < len2; i2++) {
-          if (!validate43(data6[i2], { instancePath: instancePath + "/prose/" + i2, parentData: data6, parentDataProperty: i2, rootData })) {
-            vErrors = vErrors === null ? validate43.errors : vErrors.concat(validate43.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err13 = { instancePath: instancePath + "/prose", schemaPath: "#/properties/prose/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err13];
-        } else {
-          vErrors.push(err13);
-        }
-        errors++;
-      }
-    }
-    if (data.acceptance !== void 0) {
-      let data8 = data.acceptance;
-      if (Array.isArray(data8)) {
-        const len3 = data8.length;
-        for (let i3 = 0; i3 < len3; i3++) {
-          if (!validate45(data8[i3], { instancePath: instancePath + "/acceptance/" + i3, parentData: data8, parentDataProperty: i3, rootData })) {
-            vErrors = vErrors === null ? validate45.errors : vErrors.concat(validate45.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err14 = { instancePath: instancePath + "/acceptance", schemaPath: "#/properties/acceptance/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err14];
-        } else {
-          vErrors.push(err14);
-        }
-        errors++;
-      }
-    }
-    if (data.guardrails !== void 0) {
-      let data10 = data.guardrails;
-      if (Array.isArray(data10)) {
-        const len4 = data10.length;
-        for (let i4 = 0; i4 < len4; i4++) {
-          if (!validate47(data10[i4], { instancePath: instancePath + "/guardrails/" + i4, parentData: data10, parentDataProperty: i4, rootData })) {
-            vErrors = vErrors === null ? validate47.errors : vErrors.concat(validate47.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err15 = { instancePath: instancePath + "/guardrails", schemaPath: "#/properties/guardrails/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err15];
-        } else {
-          vErrors.push(err15);
-        }
-        errors++;
-      }
-    }
-    if (data.open_questions !== void 0) {
-      let data12 = data.open_questions;
-      if (Array.isArray(data12)) {
-        const len5 = data12.length;
-        for (let i5 = 0; i5 < len5; i5++) {
-          if (!validate49(data12[i5], { instancePath: instancePath + "/open_questions/" + i5, parentData: data12, parentDataProperty: i5, rootData })) {
-            vErrors = vErrors === null ? validate49.errors : vErrors.concat(validate49.errors);
-            errors = vErrors.length;
-          }
-        }
-      } else {
-        const err16 = { instancePath: instancePath + "/open_questions", schemaPath: "#/properties/open_questions/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err16];
-        } else {
-          vErrors.push(err16);
-        }
-        errors++;
-      }
-    }
-    if (data.reflect_back !== void 0) {
-      let data14 = data.reflect_back;
-      const _errs24 = errors;
-      let valid13 = false;
-      const _errs25 = errors;
-      if (!validate51(data14, { instancePath: instancePath + "/reflect_back", parentData: data, parentDataProperty: "reflect_back", rootData })) {
-        vErrors = vErrors === null ? validate51.errors : vErrors.concat(validate51.errors);
-        errors = vErrors.length;
-      }
-      var _valid0 = _errs25 === errors;
-      valid13 = valid13 || _valid0;
-      if (!valid13) {
-        const _errs26 = errors;
-        if (data14 !== null) {
-          const err17 = { instancePath: instancePath + "/reflect_back", schemaPath: "#/properties/reflect_back/anyOf/1/type", keyword: "type", params: { type: "null" }, message: "must be null" };
-          if (vErrors === null) {
-            vErrors = [err17];
-          } else {
-            vErrors.push(err17);
-          }
-          errors++;
-        }
-        var _valid0 = _errs26 === errors;
-        valid13 = valid13 || _valid0;
-      }
-      if (!valid13) {
-        const err18 = { instancePath: instancePath + "/reflect_back", schemaPath: "#/properties/reflect_back/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
-        if (vErrors === null) {
-          vErrors = [err18];
-        } else {
-          vErrors.push(err18);
-        }
-        errors++;
-      } else {
-        errors = _errs24;
-        if (vErrors !== null) {
-          if (_errs24) {
-            vErrors.length = _errs24;
-          } else {
-            vErrors = null;
-          }
-        }
-      }
-    }
-  } else {
-    const err19 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    if (vErrors === null) {
-      vErrors = [err19];
-    } else {
-      vErrors.push(err19);
-    }
-    errors++;
-  }
-  validate21.errors = vErrors;
-  return errors === 0;
+function nextTarget(session, fw, transcript) {
+  const engine = session.session.engine;
+  const live = session.items.filter((i) => !i.superseded_by && !i.dropped || i.spawned_from);
+  const primary = session.items.find((i) => !i.spawned_from && !i.dropped);
+  const existing = new Set(fw.router.checks?.existing_asset.areas ?? []);
+  const forItem = (item) => {
+    for (const area of queueFor(item, fw)) {
+      if (area === "core.outcome" && !item.spawned_from && areaDone(session, item, area, fw)) {
+        const st2 = stateOf(engine, areaKey(item, area));
+        const e2 = coverageFor(session, item, area);
+        if (!st2.probed && e2?.status !== "not_applicable" && e2?.status !== "declined" && !sessionQuotes(session).some(hasNumber)) return { item: item.id, area, kind: "probe", check: null, purpose: "baseline" };
+      }
+      if (areaDone(session, item, area, fw)) continue;
+      const st = stateOf(engine, areaKey(item, area));
+      const e = coverageFor(session, item, area);
+      if (st.partial && !st.probed) return { item: item.id, area, kind: "probe", check: null };
+      if (e?.updated_at && e.status === "assumed" && st.confirm === "none") return { item: item.id, area, kind: "confirm", check: null };
+      if (e?.updated_at) continue;
+      return { item: item.id, area, kind: existing.has(area) ? "check" : "ask", check: existing.has(area) ? "existing_asset" : null };
+    }
+    return null;
+  };
+  if (primary) {
+    const t = forItem(primary);
+    if (t) return t;
+    if (manualCheckDue(session, primary, fw, transcript)) return { item: primary.id, area: fw.modules[primary.type]?.anchor, kind: "check", check: "manual_work" };
+  }
+  for (const item of live.filter((i) => i.spawned_from && !i.dropped)) {
+    const t = forItem(item);
+    if (t) return t;
+  }
+  return null;
 }
 
-// src/lib/schemas.ts
-function run(fn, data) {
-  const ok = fn(data);
-  return { ok, errors: ok ? [] : formatErrors(fn.errors ?? []) };
+// src/engine/apply.ts
+function grounded(quote, transcript) {
+  return quote && quote.trim() && findQuote(quote, transcript) ? quote : null;
 }
-function formatErrors(errors) {
-  return errors.map((e) => `${e.instancePath || "/"} ${e.message ?? e.keyword}`);
+function areaFits(item, area, fw) {
+  if (!fw.areas.has(area)) return false;
+  if (area.startsWith("core.")) return true;
+  const module2 = area.startsWith("mod.") ? area.split(".").slice(0, 2).join(".") : area.split(".")[0];
+  return module2 === item.type || item.modifiers.some((m) => `mod.${m}` === module2);
 }
-function validateSession2(data) {
-  return run(validateSession, data);
+function entryOf(session, item, area) {
+  if (!area.startsWith("core.")) return item.coverage[area];
+  const k = area.slice(5);
+  return item.spawned_from ? item.core_overrides[k] ?? session.core[k] : session.core[k];
 }
-function validateTurn2(data) {
-  return run(validateTurn, data);
+function setEntry(session, item, area, entry) {
+  if (!area.startsWith("core.")) item.coverage[area] = entry;
+  else if (item.spawned_from) item.core_overrides[area.slice(5)] = entry;
+  else session.core[area.slice(5)] = entry;
 }
-
-// src/lib/apply-turn.ts
-var ITEM_ID = /^item-\d+$/;
-var sharedAnswer = (e) => !!e?.updated_at && !isCaptured(e) && !(e.status === "unknown" && e.quotes.length === 0);
-function applyTurn(original, turnData, ctx) {
-  const reject = (rejections2) => ({ session: original, rejections: rejections2, applied: false, confirmed: false, warnings: [] });
-  const warnings = [];
-  const shape = validateTurn2(turnData);
-  if (!shape.ok) return reject(shape.errors.map((e) => ({ path: e.split(" ")[0], reason: `doesn't match the turn schema: ${e}` })));
-  const turn = turnData;
-  if (original.session.reflect_back?.confirmed) {
-    return reject([{ path: "/", reason: "This intake is complete: the reflect-back was confirmed and the items are gated. Start a new intake to change anything." }]);
+var setState = (session, item, area, patch) => {
+  const engine = session.session.engine;
+  const key = areaKey(item, area);
+  engine.areas[key] = { ...stateOf(engine, key), ...patch };
+};
+function record(session, item, area, status, value, quote, now2) {
+  const prev = entryOf(session, item, area);
+  const quotes = [...prev?.quotes ?? []];
+  if (quote && !quotes.includes(quote)) quotes.push(quote);
+  const v = status === "unknown" ? null : value ?? quote;
+  setEntry(session, item, area, { status, value: v, quotes, probe_count: stateOf(session.session.engine, areaKey(item, area)).probed ? 1 : 0, updated_at: now2 });
+}
+function applyAlso(session, item, x, ctx, events) {
+  for (const a of x.also_answers) {
+    const quote = grounded(a.quote, ctx.transcript);
+    if (!quote) {
+      events.push(`also ${a.area}: quote isn't the user's words, ignored`);
+      continue;
+    }
+    if (!areaFits(item, a.area, ctx.fw)) {
+      events.push(`also ${a.area}: doesn't apply to ${item.id}, ignored`);
+      continue;
+    }
+    const e = entryOf(session, item, a.area);
+    if (e?.updated_at && e.status !== "unknown") continue;
+    record(session, item, a.area, "covered", a.value, quote, ctx.now);
+    const asked = session.session.asked ?? (session.session.asked = {});
+    asked[areaKey(item, a.area)] ??= ctx.now;
+    events.push(`also ${a.area}: covered`);
   }
-  const { fw, now: now2 } = ctx;
+}
+function applyAnswer(original, pending, x, ctx) {
   const session = structuredClone(original);
-  const rejections = [];
-  const fail = (path, reason) => rejections.push({ path, reason });
-  const items = new Map(session.items.map((i) => [i.id, i]));
-  const grounded = (path, quote) => {
-    if (quote == null || ctx.transcript == null) return;
-    if (ctx.transcript.length === 0) {
-      fail(path, "No transcript is recorded, so no quote can be checked. Is intake-kit's prompt hook installed and enabled?");
-    } else if (!findQuote(quote, ctx.transcript)) {
-      fail(path, `"${quote}" isn't the user's words: it doesn't appear in any single user message. Quote the user exactly, or leave the quote out.`);
-    }
-  };
-  const needItem = (path, id) => {
-    if (id == null) {
-      fail(path, "an item ID is required here");
-      return void 0;
-    }
-    const item = items.get(id);
-    if (!item) fail(path, `unknown item ${id}`);
-    return item;
-  };
-  const areaFits = (path, item, area) => {
-    const module2 = area.startsWith("mod.") ? area.split(".").slice(0, 2).join(".") : area.split(".")[0];
-    const fits = module2 === item.type || item.modifiers.some((m) => `mod.${m}` === module2);
-    if (!fits) fail(path, `${area} doesn't apply to ${item.id}, a ${item.type} item${item.modifiers.length ? ` with ${item.modifiers.join(", ")}` : ""}`);
-    return fits;
-  };
-  const knownArea = (path, area) => {
-    if (fw.areas.has(area)) return true;
-    const asFact = area.replace(/^(core|[a-z_]+)\./, "");
-    if (fw.factBands.has(area) || fw.factBands.has(asFact)) {
-      fail(path, `${area} is a band pick, not a coverage area: record it only in "facts" (as { "fact": "${asFact}", "band": ... }), never in "updates" or as evidence.`);
+  const events = [];
+  const item = session.items.find((i) => i.id === pending.item);
+  if (!item) return { session: original, events: [`unknown item ${pending.item}`], wrapUp: x.wrap_up };
+  const area = pending.area;
+  const quote = grounded(x.quote, ctx.transcript);
+  if (x.quote && !quote) events.push(`${area}: quote isn't the user's words, dropped`);
+  if (pending.kind === "confirm") {
+    const e = entryOf(session, item, area);
+    if (e && x.check === "yes") {
+      setEntry(session, item, area, { ...e, status: "covered", updated_at: ctx.now });
+      events.push(`${area}: confirmed, covered`);
+    } else if (e && x.check === "no") {
+      setEntry(session, item, area, { ...e, status: "unknown", value: null, updated_at: ctx.now });
+      events.push(`${area}: not confirmed, unknown`);
+    } else events.push(`${area}: confirmation unclear, stays assumed`);
+    setState(session, item, area, { confirm: "done" });
+  } else if (pending.kind === "probe" && entryOf(session, item, area)?.status === "covered") {
+    const e = entryOf(session, item, area);
+    if (x.status === "answered" && quote) setEntry(session, item, area, { ...e, quotes: e.quotes.includes(quote) ? e.quotes : [...e.quotes, quote], probe_count: 1, updated_at: ctx.now });
+    else setEntry(session, item, area, { ...e, probe_count: 1 });
+    events.push(`${area}: follow-up ${x.status === "answered" && quote ? "added" : "added nothing"}; stays covered`);
+  } else if (x.status === "not_applicable" || x.status === "declined") {
+    record(session, item, area, x.status, x.value, quote, ctx.now);
+    setState(session, item, area, { partial: null });
+    events.push(`${area}: ${x.status}`);
+  } else if (x.status === "answered" && quote) {
+    record(session, item, area, "covered", x.value, quote, ctx.now);
+    setState(session, item, area, { partial: null });
+    events.push(`${area}: covered`);
+  } else {
+    const st = stateOf(session.session.engine, areaKey(item, area));
+    if (pending.kind === "probe" || st.probed) {
+      const q = quote ?? st.partial?.quote ?? null;
+      const v = x.value ?? st.partial?.value ?? null;
+      if (q) record(session, item, area, "assumed", v, q, ctx.now);
+      else record(session, item, area, "unknown", null, null, ctx.now);
+      setState(session, item, area, { partial: null });
+      events.push(`${area}: unresolved after its probe, ${q ? "assumed" : "unknown"}`);
     } else {
-      fail(path, `unknown coverage ID ${area}`);
+      setState(session, item, area, { partial: { value: x.value, quote } });
+      events.push(`${area}: ${x.status}, one probe queued`);
     }
-    return false;
-  };
-  turn.router.new_items.forEach((n, i) => {
-    const path = `/router/new_items/${i}`;
-    if (!ITEM_ID.test(n.id)) fail(`${path}/id`, `item IDs look like item-1, not ${n.id}`);
-    else if (items.has(n.id)) fail(`${path}/id`, `${n.id} already exists`);
-    if (!n.title.trim()) fail(`${path}/title`, "a new item needs a title");
-    if (n.spawned_from != null && !items.has(n.spawned_from)) fail(`${path}/spawned_from`, `unknown item ${n.spawned_from}`);
-    grounded(`${path}/trigger_quote`, n.trigger_quote);
-    items.set(n.id, {
-      id: n.id,
-      title: n.title,
-      type: n.type,
-      confidence: n.confidence,
-      trigger_quote: n.trigger_quote,
+  }
+  applyAlso(session, item, x, ctx, events);
+  return { session, events, wrapUp: x.wrap_up };
+}
+function applyCheck(original, pending, x, ctx) {
+  const session = structuredClone(original);
+  const events = [];
+  const engine = session.session.engine;
+  const key = `${pending.item}:${pending.check}`;
+  const state = engine.checks[key] ?? { asks: 0, result: null };
+  const quote = grounded(x.quote, ctx.transcript);
+  const check2 = pending.check === "manual_work" ? ctx.fw.router.checks?.manual_work : ctx.fw.router.checks?.existing_asset;
+  let result = x.check === "yes" && quote ? "yes" : x.check === "no" ? "no" : "unclear";
+  if (x.check === "yes" && !quote) events.push(`${pending.check}: yes without the user's words, treated as unclear`);
+  if (result === "unclear" && state.asks >= 2) result = "no";
+  engine.checks[key] = { asks: state.asks, result: result === "unclear" ? null : result };
+  events.push(`${pending.check}: ${result}${result === "unclear" ? ", asked once more" : ""}`);
+  const primary = session.items.find((i) => i.id === pending.item);
+  const spawns = check2?.spawns;
+  if (result === "yes" && spawns && primary) {
+    const id = `item-${session.items.reduce((n, i) => Math.max(n, Number(i.id.slice(5)) || 0), 0) + 1}`;
+    const title = (x.value?.trim() || "Manual work done today").slice(0, 80);
+    session.items.push({
+      id,
+      title,
+      type: spawns,
+      confidence: "med",
+      trigger_quote: quote,
       modifiers: [],
-      spawned_from: n.spawned_from,
-      superseded_by: null,
-      type_history: [{ from: null, to: n.type, reason: n.spawned_from ? `spawned from ${n.spawned_from}` : "opening", quote: n.trigger_quote, at: now2 }],
+      spawned_from: primary.id,
+      // The manual-work check asks about work the primary item would replace.
+      superseded_by: pending.check === "manual_work" ? primary.id : null,
+      type_history: [{ from: null, to: spawns, reason: `spawned from ${primary.id} by the ${pending.check} check`, quote, at: ctx.now }],
       core_overrides: {},
       coverage: {},
       facts: {},
@@ -19160,229 +14567,541 @@ function applyTurn(original, turnData, ctx) {
       gate: null,
       open_questions: []
     });
-  });
-  const rc = turn.router.reclassify;
-  if (rc) {
-    const item = needItem("/router/reclassify/item", rc.item);
-    if (item) {
-      if (item.type === rc.to) fail("/router/reclassify/to", `${item.id} is already ${rc.to}`);
-      if (!rc.reason.trim()) fail("/router/reclassify/reason", "say why the item is being reclassified");
-      grounded("/router/reclassify/quote", rc.quote);
-      item.type_history.push({ from: item.type, to: rc.to, reason: rc.reason, quote: rc.quote, at: now2 });
-      item.type = rc.to;
-    }
+    events.push(`${pending.check}: created ${id} (${spawns})`);
   }
-  turn.router.add_modifiers.forEach((m, i) => {
-    const path = `/router/add_modifiers/${i}`;
-    const item = needItem(`${path}/item`, m.item);
-    if (!item) return;
-    if (item.modifiers.includes(m.modifier)) warnings.push(`${path} skipped: ${item.id} already has the ${m.modifier} modifier`);
-    else item.modifiers.push(m.modifier);
-    grounded(`${path}/quote`, m.quote);
-  });
-  turn.router.remove_modifiers.forEach((m, i) => {
-    const path = `/router/remove_modifiers/${i}`;
-    const item = needItem(`${path}/item`, m.item);
-    if (!item) return;
-    if (!m.reason.trim()) fail(`${path}/reason`, "say why the modifier doesn't apply");
-    if (!item.modifiers.includes(m.modifier)) warnings.push(`${path} skipped: ${item.id} has no ${m.modifier} modifier`);
-    else {
-      item.modifiers = item.modifiers.filter((x) => x !== m.modifier);
-      item.modifiers_removed = [.../* @__PURE__ */ new Set([...item.modifiers_removed ?? [], m.modifier])];
-    }
-  });
-  const drop = turn.router.drop;
-  if (drop) {
-    const item = needItem("/router/drop/item", drop.item);
-    if (!drop.reason.trim()) fail("/router/drop/reason", "say why the item doesn't apply");
-    grounded("/router/drop/quote", drop.quote);
-    if (item) {
-      if (turn.router.supersede?.item === item.id) fail("/router/drop", `${item.id} can't be dropped and superseded in the same turn: drop it if it doesn't apply, supersede it if the other item replaces it`);
-      item.dropped = { reason: drop.reason, quote: drop.quote, at: now2 };
-      item.superseded_by = null;
-    }
+  if (pending.check === "existing_asset" && primary) {
+    const answered = applyAnswer(session, { ...pending, kind: "ask" }, x, ctx);
+    return { session: answered.session, events: [...events, ...answered.events], wrapUp: x.wrap_up };
   }
-  const sup = turn.router.supersede;
-  if (sup) {
-    const item = needItem("/router/supersede/item", sup.item);
-    const by = needItem("/router/supersede/by", sup.by);
-    if (item && by) {
-      if (item.id === by.id) fail("/router/supersede/by", "an item can't supersede itself");
-      else if (by.spawned_from === item.id) {
-        fail("/router/supersede", `${by.id} was spawned from ${item.id} as its follow-on, so it can't replace it. If building or fixing ${item.id} makes ${by.id} go away, send { "item": "${by.id}", "by": "${item.id}" }.`);
-      } else item.superseded_by = by.id;
-    }
-    grounded("/router/supersede/quote", sup.quote);
-  }
-  turn.updates.forEach((u, i) => {
-    const path = `/updates/${i}`;
-    if (!knownArea(`${path}/area`, u.area)) return;
-    if (u.status === "covered" && !u.value?.trim()) fail(`${path}/value`, "covered needs a value");
-    if ((u.status === "covered" || u.status === "assumed") && !u.quote?.trim()) {
-      fail(`${path}/quote`, `${u.status} needs the user's words as a quote`);
-    }
-    if (u.status === "unknown" && u.value != null) fail(`${path}/value`, "unknown has no value; use null");
-    grounded(`${path}/quote`, u.quote);
-    let target;
-    let key;
-    if (u.area.startsWith("core.")) {
-      key = u.area.slice(5);
-      if (u.item == null) target = session.core;
-      else {
-        const item = needItem(`${path}/item`, u.item);
-        if (!item) return;
-        const shared = session.core[key];
-        target = sharedAnswer(shared) || item.core_overrides[key] ? item.core_overrides : session.core;
-      }
-    } else {
-      const item = needItem(`${path}/item`, u.item);
-      if (!item || !areaFits(`${path}/area`, item, u.area)) return;
-      target = item.coverage;
-      key = u.area;
-    }
-    const prev = target[key] ?? (u.area.startsWith("core.") && u.item != null ? session.core[key] : void 0);
-    const quotes = [...prev?.quotes ?? []];
-    if (u.quote && !quotes.includes(u.quote)) quotes.push(u.quote);
-    target[key] = { status: u.status, value: u.status === "unknown" ? null : u.value, quotes, probe_count: prev?.probe_count ?? 0, updated_at: now2 };
-  });
-  turn.facts.forEach((f, i) => {
-    const path = `/facts/${i}`;
-    const item = needItem(`${path}/item`, f.item);
-    const bands = ctx.fw.factBands.get(f.fact);
-    if (!bands) fail(`${path}/fact`, `unknown fact ${f.fact}`);
-    else if (!bands.includes(f.band)) fail(`${path}/band`, `"${f.band}" isn't a band of ${f.fact}; use one of: ${bands.join(", ")}`);
-    f.evidence.forEach((ev, j) => knownArea(`${path}/evidence/${j}`, ev));
-    let quote = f.quote;
-    if (quote != null && ctx.transcript != null && !findQuote(quote, ctx.transcript)) {
-      warnings.push(`${path}/quote dropped: not the user's words`);
-      quote = null;
-    }
-    if (item) item.facts[f.fact] = { band: f.band, evidence: f.evidence, quotes: quote ? [quote] : [] };
-  });
-  turn.prose.forEach((p, i) => {
-    const item = needItem(`/prose/${i}/item`, p.item);
-    if (!p.text.trim()) fail(`/prose/${i}/text`, "prose can't be empty");
-    if (item) item.prose[p.field] = p.text;
-  });
-  const cited = [];
-  const citeEvidence = (path, item, evidence) => {
-    if (evidence.length === 0) fail(`${path}/evidence`, "cite at least one coverage ID");
-    evidence.forEach((ev, j) => {
-      if (!knownArea(`${path}/evidence/${j}`, ev) || !item) return;
-      if (ev.startsWith("core.") || areaFits(`${path}/evidence/${j}`, item, ev)) cited.push([`${path}/evidence/${j}`, item, ev]);
-    });
+  return { session, events, wrapUp: x.wrap_up };
+}
+
+// src/llm/v2.ts
+var STYLE = `You're a plain-spoken interviewer helping someone turn a problem into a build-ready spec. Never mention JSON, schemas, coverage areas, bands, gates or quadrants to the user.`;
+var QUOTES = `A quote is the user's exact words: a short, contiguous span copied character for character from one message they sent. Never paraphrase in a quote, never stitch two messages, never quote yourself. If you can't quote them, use null.`;
+var areaList = (fw, ids) => ids.map((id) => `- ${id}: ${fw.areas.get(id)?.must_capture ?? ""}`).join("\n");
+var userLines = (transcript) => transcript.filter((t) => t.role === "user").map((t, i) => `${i + 1}. ${t.text}`).join("\n");
+function openingRequest(fw, opening, areas) {
+  const types = Object.entries(fw.router.types).map(([k, t]) => `- ${k} (${t.label}). Signals: ${t.signals.join("; ")}`).join("\n");
+  const mods = Object.entries(fw.router.modifiers).map(([k, m]) => `- ${k} (${m.label}). Signals: ${m.signals.join("; ")}`).join("\n");
+  return {
+    system: [
+      STYLE,
+      "Classify the opening statement of an intake interview.",
+      `type: the one entry type that fits best:
+${types}`,
+      'confidence: "high" when one type clearly fits, "med" when it probably does, "low" only when two types fit about equally.',
+      "title: a short plain title for what they want (under eight words).",
+      "trigger_quote: the user's words that show the type.",
+      `modifiers: only when the user describes one, each with their words. Never for something they say isn't there ("no API" isn't an integration):
+${mods}`,
+      `also_answers: areas from this list the opening already answers in full, each with a short value and the user's words. Leave out anything partial or implied:
+${areaList(fw, areas)}`,
+      QUOTES
+    ].join("\n\n"),
+    history: [{ role: "user", content: opening }],
+    context: "Return the classification.",
+    format: { name: "classify_opening", schema: opening_schema_default }
   };
-  turn.acceptance.forEach((a, i) => {
-    const path = `/acceptance/${i}`;
-    const item = needItem(`${path}/item`, a.item);
-    for (const field of ["given", "when", "then"]) if (!a[field].trim()) fail(`${path}/${field}`, `"${field}" can't be empty`);
-    citeEvidence(path, item, a.evidence);
-    if (item && !item.acceptance.some((x) => x.kind === a.kind && x.given === a.given && x.when === a.when && x.then === a.then)) {
-      item.acceptance.push({ kind: a.kind, given: a.given, when: a.when, then: a.then, evidence: a.evidence });
-    }
+}
+function phraseRequest(fw, p) {
+  const area = fw.areas.get(p.target.area);
+  const purpose = p.target.check === "manual_work" ? `Ask whether ${fw.router.checks.manual_work.must_capture.charAt(0).toLowerCase()}${fw.router.checks.manual_work.must_capture.slice(1)}. One question.` : p.target.purpose === "baseline" ? `They've said how they'd judge success but gave no number for today. Ask what it costs now, in hours, errors or money ("What's it costing now, in hours, errors or chargebacks?").` : p.target.kind === "probe" ? `Their answer${p.partial ? ` ("${p.partial}")` : ""} was vague or partial. Ask once about the last time it actually happened: what exactly happened, who was involved.` : `Find out: ${area?.must_capture}. An example phrasing: "${area?.probes[0]}". Adapt it to their situation and skip anything they've already told you.`;
+  const recent = p.transcript.slice(-3).map((t, i, a) => {
+    const reply = p.replies[p.transcript.length - a.length + i];
+    return `User: ${t.text}${reply ? `
+You: ${reply}` : ""}`;
   });
-  turn.guardrails.forEach((g, i) => {
-    const path = `/guardrails/${i}`;
-    const item = needItem(`${path}/item`, g.item);
-    if (!g.text.trim()) fail(`${path}/text`, "a guardrail can't be empty");
-    citeEvidence(path, item, g.evidence);
-    if (item && !item.guardrails.some((x) => x.kind === g.kind && x.text === g.text)) item.guardrails.push({ kind: g.kind, text: g.text, evidence: g.evidence });
-  });
-  for (const [path, item, ev] of cited) {
-    const entry = ev.startsWith("core.") ? item.core_overrides[ev.slice(5)] ?? session.core[ev.slice(5)] : item.coverage[ev];
-    if (!entry?.quotes.length) fail(path, `${ev} has no answer in the user's words yet, so nothing can cite it`);
+  return {
+    system: [
+      STYLE,
+      "Write the next question of the interview. The app has already chosen what to ask about; ask about that and nothing else.",
+      "One question, under 30 words, in plain words. You may open with a few words acknowledging their last answer. Never stack two questions. When something went wrong, ask what about the setup made it easy to go wrong, not who did it."
+    ].join("\n\n"),
+    history: [],
+    context: [`What they want: ${p.item.title}.`, `Ask about (${p.target.area}): ${purpose}`, "The conversation so far (most recent last):", ...recent].join("\n"),
+    format: { name: "phrase", schema: phrase_schema_default }
+  };
+}
+function extractRequest(fw, x) {
+  const area = fw.areas.get(x.area);
+  return {
+    system: [
+      STYLE,
+      "Classify the user's reply to the one question they were asked.",
+      [
+        `status: "answered" when the reply answers what the question asks; "partial" when it answers only some of it or vaguely ("usually", "I think"); "not_applicable" when they say it doesn't apply to them; "declined" when they won't or can't say ("I don't know" is partial if they add anything, otherwise declined); "off_topic" when the reply is about something else.`,
+        "value: what they said, as one short plain sentence. Null if they said nothing usable.",
+        "quote: the user's words that carry the answer, from their reply.",
+        x.check ? `check: ${x.check}` : 'check: "none".',
+        "wrap_up: true only if they ask to stop, finish or wrap up.",
+        `also_answers: other areas from this list their reply clearly answers in full, each with its own value and quote from the reply. Never the area that was asked:
+${areaList(fw, x.others)}`
+      ].join("\n"),
+      QUOTES
+    ].join("\n\n"),
+    history: [],
+    context: [`The question (${x.area}${area ? `: ${area.must_capture}` : ""}): ${x.question}`, `The user's reply: ${x.reply}`].join("\n"),
+    format: { name: "extract", schema: extract_schema_default }
+  };
+}
+var CHECK_TEXT = {
+  manual_work: `"yes" if they describe doing that work today (not only as a fallback if the new thing failed), "no" if they don't, "unclear" if you can't tell. Put their words in quote.`,
+  existing_asset: `"yes" if something they have or could get already does all or part of this, "no" if nothing does, "unclear" if you can't tell.`,
+  confirm: `"yes" if they agree, "no" if they say it's wrong, "unclear" otherwise.`,
+  summary: '"yes" if they say the summary is right, "no" if they want changes, "unclear" otherwise. Put each change they give in also_answers, under the area it corrects.'
+};
+function writeUpRequest(fw, session, item, transcript) {
+  const g = guide(fw);
+  const bands = g.slice(g.indexOf("## Facts: pick a band"));
+  const areas = ["core", item.type, ...item.modifiers.map((m) => `mod.${m}`)].flatMap((m) => fw.modules[m]?.areas ?? []);
+  const answers = areas.map((a) => [a.id, entryOf(session, item, a.id)]).filter(([, e]) => e?.updated_at).map(([id, e]) => `- ${id} (${e.status}): ${e.value ?? "nothing usable"}${e.quotes.length ? ` | their words: ${e.quotes.map((q) => `"${q}"`).join("; ")}` : ""}`);
+  return {
+    system: [
+      STYLE,
+      `Write up one item of an intake interview, from what the user already said and nothing else. Every field's item is "${item.id}".`,
+      `facts: a band for each of these facts: ${factsFor(item, fw).join(", ")}. Pick the band whose description matches what they said; between two, the lower one; "unknown" when they didn't say. evidence: the area IDs the band rests on (only areas listed as answered). A baseline (measurable_with_baseline) needs a number with a unit that they said.`,
+      "prose: one line each for problem_statement, current_state, mvp and out_of_scope, and mitigation if they described how a risk is handled. Plain words, close to theirs.",
+      "acceptance: at least one criterion and one error_case in Given/When/Then form, only from what they said, each citing answered areas as evidence. Don't invent thresholds.",
+      "guardrails: a kill_criterion and a fallback if they said them (what would make them switch it off; what they'd do if it stopped working), plus review_point and data_rule if they said them. Each cites answered areas. If they didn't say, leave it out.",
+      "open_questions: one for each area that matters and is still unknown: what to ask, who could answer it, what would settle it.",
+      "reflect_back_text: two or three plain sentences playing the item back in their words.",
+      QUOTES,
+      bands
+    ].join("\n\n"),
+    history: [],
+    context: [`Item ${item.id}: ${item.title} (${item.type}${item.modifiers.length ? `, ${item.modifiers.join(", ")}` : ""})`, "Recorded answers:", ...answers, "Everything the user said:", userLines(transcript)].join("\n"),
+    format: { name: "write_up", schema: writeup_schema_default }
+  };
+}
+
+// src/llm/types.ts
+var ProviderError = class extends Error {
+  status;
+  retryable;
+  kind;
+  constructor(message, opts) {
+    super(message);
+    this.status = opts.status ?? null;
+    this.retryable = opts.retryable ?? false;
+    this.kind = opts.kind;
   }
-  turn.open_questions.forEach((q, i) => {
-    const path = `/open_questions/${i}`;
-    const item = needItem(`${path}/item`, q.item);
-    if (!knownArea(`${path}/area`, q.area)) return;
-    if (!q.question.trim()) fail(`${path}/question`, "the question can't be empty");
-    if (item && !item.open_questions.some((o) => o.area === q.area && o.question === q.question)) {
-      item.open_questions.push({ area: q.area, question: q.question, who_can_answer: q.who_can_answer, artifact_needed: q.artifact_needed });
-    }
+};
+
+// src/engine/open.ts
+function keepModifier(fw, modifier, quote) {
+  const def = fw.router.modifiers[modifier];
+  if (!def) return false;
+  const text = normalize(quote);
+  const literal = def.signals.filter((s) => !/^an? /.test(s));
+  const mentioned = literal.filter((s) => text.includes(normalize(s)));
+  return mentioned.length === 0 || mentioned.some((s) => said(s, text));
+}
+function applyOpening(original, r, ctx, opts) {
+  const events = [];
+  if (r.confidence === "low" && opts.mayProbe) {
+    return { kind: "probe", question: ctx.fw.router.types[r.type].low_confidence_probe, events: [`opening: low confidence (${r.type}), one probe`] };
+  }
+  const session = structuredClone(original);
+  const users = ctx.transcript.filter((t) => t.role === "user");
+  const trigger = grounded(r.trigger_quote, ctx.transcript) ?? users[0]?.text ?? r.trigger_quote;
+  const modifiers = r.modifiers.filter((m) => {
+    const q = grounded(m.quote, ctx.transcript);
+    const keep = !!q && keepModifier(ctx.fw, m.modifier, q);
+    if (!keep) events.push(`opening: ${m.modifier} modifier dropped (${q ? "negated signal" : "quote isn't the user's words"})`);
+    return keep;
+  }).map((m) => m.modifier);
+  session.items.push({
+    id: "item-1",
+    title: r.title.trim() || "Request",
+    type: r.type,
+    confidence: r.confidence,
+    trigger_quote: trigger,
+    modifiers: [...new Set(modifiers)],
+    spawned_from: null,
+    superseded_by: null,
+    type_history: [{ from: null, to: r.type, reason: "opening", quote: trigger, at: ctx.now }],
+    core_overrides: {},
+    coverage: {},
+    facts: {},
+    prose: {},
+    acceptance: [],
+    guardrails: [],
+    scoring: null,
+    gate: null,
+    open_questions: []
   });
-  const plan = original.session.reflect_back ? { primary: null, alternate: null } : planTargets(original, fw, ctx.transcript ?? []);
-  const coveredNow = (t) => turn.updates.some((u) => u.area === t.area && u.status === "covered" && (t.area.startsWith("core.") || u.item === t.item));
-  let chosen = plan.primary && coveredNow(plan.primary) ? plan.alternate : plan.primary;
-  const rb = turn.reflect_back;
-  let confirmedNow = false;
-  if (rb) {
-    if (!rb.text.trim()) fail("/reflect_back/text", "the reflect-back can't be empty");
-    const prior = original.session.reflect_back;
-    if (rb.status === "proposed") {
-      if (items.size === 0) fail("/reflect_back", "there's nothing to reflect back yet: no items");
-      if (turn.router.new_items.length) fail("/reflect_back", "a reflect-back can't be proposed in the same turn as adding items: add the item and ask about it now, and propose once its questions are done");
-      chosen = null;
-      session.session.reflect_back = { text: rb.text, confirmed: false, corrections: prior?.corrections ?? [], proposed_at: now2 };
-    } else if (!prior?.proposed_at) {
-      fail("/reflect_back/status", `can't mark the reflect-back ${rb.status} before it has been proposed to the user`);
-    } else if (ctx.transcript && !ctx.transcript.some((e) => e.role === "user" && e.at > prior.proposed_at)) {
-      fail("/reflect_back/status", `the user hasn't replied since the reflect-back was proposed, so it can't be ${rb.status} yet`);
-    } else if (rb.status === "corrected") {
-      if (rb.corrections.length === 0) fail("/reflect_back/corrections", "list what the user corrected");
-      session.session.reflect_back = { ...prior, text: rb.text, confirmed: false, corrections: [...prior.corrections, ...rb.corrections] };
+  const item = session.items[0];
+  const asked = session.session.asked ?? (session.session.asked = {});
+  for (const a of r.also_answers) {
+    const quote = grounded(a.quote, ctx.transcript);
+    if (!quote || !areaFits(item, a.area, ctx.fw)) {
+      events.push(`opening also ${a.area}: ${quote ? "doesn't apply" : "quote isn't the user's words"}, ignored`);
+      continue;
+    }
+    setEntry(session, item, a.area, { status: "covered", value: a.value || quote, quotes: [quote], probe_count: 0, updated_at: ctx.now });
+    asked[a.area.startsWith("core.") ? a.area : `item-1:${a.area}`] ??= ctx.now;
+    events.push(`opening also ${a.area}: covered`);
+  }
+  session.session.engine.phase = "interview";
+  events.push(`opening: ${r.type} (${r.confidence})${modifiers.length ? ` with ${modifiers.join(", ")}` : ""}`);
+  return { kind: "created", session, events };
+}
+
+// src/engine/types.ts
+var TURN_BUDGET = 30;
+var SEND_AGAIN = "Sorry, I couldn't take that in. Could you send it again?";
+function newEngine() {
+  return { version: 2, phase: "opening", turns: 0, pending: null, areas: {}, checks: {}, disambiguated: false };
+}
+
+// src/lib/summary.ts
+var CORE_LABEL = {
+  "core.users": "Who's involved",
+  "core.outcome": "What success looks like",
+  "core.data": "The data",
+  "core.systems": "Systems and tools",
+  "core.constraints": "Rules and constraints",
+  "core.trust": "When it goes wrong"
+};
+var humanize = (s) => s.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+var areaLabel = (id) => CORE_LABEL[id] ?? humanize(id.split(".").pop());
+var GATE_FACT_LABEL = {
+  success_metric: "How success is measured",
+  existing_asset: "Something that already does this",
+  decision_depends: "Someone acts on the result",
+  broken_cause: "Cause",
+  workaround_permanent: "The workaround is permanent",
+  ai_applies: "Uses AI",
+  push: "Pain with today's way",
+  pull: "Pull of the new way",
+  anxiety: "Worry about the new way",
+  habit: "Habit of the old way"
+};
+function bandText(fw, fact, band) {
+  if (band === "unknown") return "Not known yet";
+  const described = fw.scoring.criteria[fact]?.describe?.[band];
+  return described ?? humanize(band);
+}
+function factLabel(fw, fact) {
+  return fw.scoring.criteria[fact]?.label ?? fw.scoring.ai_overlay.checks[fact]?.label ?? GATE_FACT_LABEL[fact] ?? humanize(fact);
+}
+function buildSummary(session, fw) {
+  const live = session.items.filter((i) => !i.superseded_by && !i.dropped);
+  return {
+    items: live.map((item) => summarizeItem(session, item, fw)),
+    set_aside: [
+      ...session.items.filter((i) => i.dropped).map((i) => `${i.title}: dropped (${i.dropped.reason})`),
+      ...session.items.filter((i) => i.superseded_by && !i.dropped).map((i) => `${i.title}: replaced by ${session.items.find((x) => x.id === i.superseded_by)?.title ?? i.superseded_by}`)
+    ]
+  };
+}
+function summarizeItem(session, item, fw) {
+  const modules = ["core", item.type, ...item.modifiers.map((m) => `mod.${m}`)];
+  const answers = [];
+  for (const m of modules) {
+    for (const a of fw.modules[m]?.areas ?? []) {
+      const e = coverageFor(session, item, a.id);
+      if (!e?.updated_at) continue;
+      answers.push({ area: a.id, label: areaLabel(a.id), status: e.status, value: e.value, captured: isCaptured(e) });
+    }
+  }
+  const bands = Object.entries(item.facts).map(([fact, f]) => {
+    const { band, reason } = bandCheck(session, item, fact);
+    return {
+      fact,
+      label: factLabel(fw, fact),
+      text: bandText(fw, fact, band),
+      unknown: band === "unknown",
+      note: reason === "captured" ? `Left as not known: it rested only on a reply I didn't record properly (I'd have said "${bandText(fw, fact, f.band)}").` : reason === "no_number" ? "Shown as vague: nothing you said about it has a number to measure against." : null
+    };
+  });
+  return {
+    id: item.id,
+    title: item.title,
+    type: fw.router.types[item.type]?.label ?? item.type,
+    problem: item.prose.problem_statement ?? null,
+    today: item.prose.current_state ?? null,
+    smallest_version: item.prose.mvp ?? null,
+    out_of_scope: item.prose.out_of_scope ?? null,
+    mitigation: item.prose.mitigation ?? null,
+    answers,
+    bands,
+    acceptance: item.acceptance.map((a) => `${a.kind === "error_case" ? "If it goes wrong: " : ""}Given ${a.given}, when ${a.when}, then ${a.then}.`),
+    guardrails: item.guardrails.map((g) => `${humanize(g.kind)}: ${g.text}`),
+    open_questions: item.open_questions.map((q) => q.question)
+  };
+}
+var STATUS_NOTE = {
+  covered: "",
+  assumed: " (my reading; please check)",
+  unknown: " (not known yet)",
+  not_applicable: " (doesn't apply)",
+  declined: " (they preferred not to say)"
+};
+function summaryText(summary) {
+  const out2 = [];
+  for (const it of summary.items) {
+    out2.push(`## ${it.title} (${it.type})`, "");
+    for (const [label, text] of [["The problem", it.problem], ["Today", it.today], ["Smallest useful version", it.smallest_version], ["Out of scope", it.out_of_scope], ["How risk is reduced", it.mitigation]]) {
+      if (text) out2.push(`- ${label}: ${text}`);
+    }
+    if (it.answers.length) {
+      out2.push("", "What you told me:");
+      for (const a of it.answers) {
+        const value = a.value ?? "";
+        out2.push(`- ${a.label}: ${value}${a.captured ? " (your words as typed; not yet confirmed)" : STATUS_NOTE[a.status]}`.trimEnd());
+      }
+    }
+    if (it.bands.length) {
+      out2.push("", "How I'd rate it:");
+      for (const b of it.bands) out2.push(`- ${b.label}: ${b.text}${b.note ? `. ${b.note}` : ""}`);
+    }
+    if (it.acceptance.length) out2.push("", "It works when:", ...it.acceptance.map((a) => `- ${a}`));
+    if (it.guardrails.length) out2.push("", "Guardrails:", ...it.guardrails.map((g) => `- ${g}`));
+    if (it.open_questions.length) out2.push("", "Still open:", ...it.open_questions.map((q) => `- ${q}`));
+    out2.push("");
+  }
+  if (summary.set_aside.length) out2.push("Set aside:", ...summary.set_aside.map((s) => `- ${s}`), "");
+  return out2.join("\n").trim() + "\n";
+}
+
+// src/engine/writeup.ts
+function applyWriteUp(session, itemId, w, fw, transcript) {
+  const dropped = [];
+  const item = session.items.find((i) => i.id === itemId);
+  if (!item) return [`unknown item ${itemId}`];
+  const answered = (id) => areaFits(item, id, fw) && !!entryOf(session, item, id)?.quotes.length;
+  for (const f of w.facts) {
+    const bands = fw.factBands.get(f.fact);
+    if (!bands || !bands.includes(f.band)) {
+      dropped.push(`fact ${f.fact}: band "${f.band}" isn't defined`);
+      continue;
+    }
+    const evidence = f.evidence.filter((id) => fw.areas.has(id));
+    const quote = f.quote && findQuote(f.quote, transcript) ? f.quote : null;
+    item.facts[f.fact] = { band: f.band, evidence, quotes: quote ? [quote] : [] };
+  }
+  for (const p of w.prose) if (p.text.trim()) item.prose[p.field] = p.text.trim();
+  for (const a of w.acceptance) {
+    const evidence = a.evidence.filter(answered);
+    if (!evidence.length || ![a.given, a.when, a.then].every((s) => s.trim())) {
+      dropped.push(`acceptance "${a.then}": no answered evidence`);
+      continue;
+    }
+    if (!item.acceptance.some((x) => x.kind === a.kind && x.given === a.given && x.when === a.when && x.then === a.then)) item.acceptance.push({ kind: a.kind, given: a.given, when: a.when, then: a.then, evidence });
+  }
+  for (const g of w.guardrails) {
+    const evidence = g.evidence.filter(answered);
+    if (!evidence.length || !g.text.trim()) {
+      dropped.push(`guardrail "${g.text}": no answered evidence`);
+      continue;
+    }
+    if (!item.guardrails.some((x) => x.kind === g.kind && x.text === g.text)) item.guardrails.push({ kind: g.kind, text: g.text, evidence });
+  }
+  for (const q of w.open_questions) {
+    if (!fw.areas.has(q.area) || !q.question.trim()) continue;
+    if (!item.open_questions.some((o) => o.area === q.area)) item.open_questions.push({ area: q.area, question: q.question, who_can_answer: q.who_can_answer, artifact_needed: q.artifact_needed });
+  }
+  return dropped;
+}
+function enterSummary(original, fw, now2) {
+  const session = structuredClone(original);
+  for (const item of session.items.filter((i) => !i.dropped)) {
+    for (const area of queueFor(item, fw)) {
+      const e = entryOf(session, item, area);
+      if (e?.updated_at) continue;
+      const def = fw.areas.get(area);
+      const entry = { status: "unknown", value: null, quotes: [], probe_count: 0, updated_at: now2 };
+      if (area.startsWith("core.")) {
+        if (item.spawned_from) item.core_overrides[area.slice(5)] = entry;
+        else session.core[area.slice(5)] = entry;
+      } else item.coverage[area] = entry;
+      if (!item.open_questions.some((o) => o.area === area)) item.open_questions.push({ area, question: `${def.must_capture.charAt(0).toUpperCase()}${def.must_capture.slice(1)}?`, who_can_answer: null, artifact_needed: null });
+    }
+  }
+  const engine = session.session.engine;
+  engine.phase = "summary";
+  engine.pending = { item: null, area: "summary", kind: "summary", check: null, question: "Does this summary look right?" };
+  const prior = session.session.reflect_back;
+  session.session.reflect_back = { text: summaryText(buildSummary(session, fw)), confirmed: false, corrections: prior?.corrections ?? [], proposed_at: now2 };
+  return session;
+}
+function confirmSummary(original, fw) {
+  const session = structuredClone(original);
+  session.session.reflect_back = { ...session.session.reflect_back, confirmed: true };
+  session.session.engine.phase = "confirmed";
+  session.session.engine.pending = null;
+  return scoreAndGate(session, fw).session;
+}
+
+// src/engine/turn.ts
+var SendAgain = class extends Error {
+  last;
+  constructor(last) {
+    super("send again");
+    this.last = last;
+  }
+};
+var SUMMARY_REPLY = "Here's what I heard. Check the summary below, then confirm it or tell me what to change.";
+var DONE_REPLY = "Thanks for confirming. Here's how each item came out.";
+async function runEngineTurn(input) {
+  const { fw, provider, transcript } = input;
+  const calls = [];
+  const events = [];
+  const original = input.session;
+  let s = structuredClone(original);
+  s.session.engine ??= newEngine();
+  s.session.asked ??= {};
+  const engine = () => s.session.engine;
+  const users = transcript.filter((t) => t.role === "user");
+  engine().turns = users.length;
+  const now2 = input.now();
+  const ctx = { fw, transcript, now: now2 };
+  const done = (reply, confirmed = false) => ({ session: s, reply, result: "applied", confirmed, calls, events });
+  let retries = 2;
+  async function call(name, req, validate) {
+    for (; ; ) {
+      let problem;
+      try {
+        const r = await provider.complete(req, input.signal);
+        let data;
+        try {
+          data = JSON.parse(r.text);
+        } catch {
+          data = void 0;
+        }
+        const v = data === void 0 ? { ok: false, errors: ["not JSON"] } : validate(data);
+        calls.push({ name, model: r.model, usage: r.usage, text: r.text, ok: v.ok, problem: v.ok ? null : v.errors.slice(0, 3).join("; ") });
+        if (v.ok) return data;
+        problem = v.errors[0];
+      } catch (err) {
+        if (err instanceof ProviderError && (err.kind === "config" || err.status === 400 || err.status === 401)) throw err;
+        problem = err.message;
+        if (retries <= 0) throw new SendAgain(err);
+      }
+      if (retries-- <= 0) throw new SendAgain(problem);
+    }
+  }
+  try {
+    const phase = engine().phase;
+    if (phase === "confirmed") return { session: original, reply: "This intake is complete. Start a new one to change anything.", result: "applied", confirmed: false, calls, events };
+    if (phase === "summary") {
+      if (input.action === "confirm") {
+        s = confirmSummary(s, fw);
+        events.push("summary confirmed");
+        return done(DONE_REPLY, true);
+      }
+      return await summaryReply();
+    }
+    let wrapUp = false;
+    if (phase === "opening") {
+      const opening = engine().disambiguated ? users.map((u) => u.text).join("\n") : users[0].text;
+      const areas = [...new Set(Object.values(fw.modules).flatMap((m) => m.areas.map((a) => a.id)))];
+      const r = await call("classify_opening", openingRequest(fw, opening, areas), validateOpening2);
+      const out2 = applyOpening(s, r, ctx, { mayProbe: !engine().disambiguated });
+      events.push(...out2.events);
+      if (out2.kind === "probe") {
+        engine().disambiguated = true;
+        engine().pending = { item: null, area: "opening", kind: "disambiguate", check: null, question: out2.question };
+        return done(out2.question);
+      }
+      s = out2.session;
+    } else if (engine().pending) {
+      const pending = engine().pending;
+      const item2 = s.items.find((i) => i.id === pending.item);
+      const others = queueAndAll(item2).filter((id) => id !== pending.area && !areaDone(s, item2, id, fw));
+      const checkText = pending.kind === "confirm" ? CHECK_TEXT.confirm : pending.check ? CHECK_TEXT[pending.check] : null;
+      const x = await call("extract", extractRequest(fw, { question: pending.question, reply: users.at(-1).text, area: pending.area, check: checkText, others }), validateExtract2);
+      const out2 = pending.kind === "check" ? applyCheck(s, pending, x, ctx) : applyAnswer(s, pending, x, ctx);
+      s = out2.session;
+      events.push(...out2.events);
+      wrapUp = out2.wrapUp;
+    }
+    if (wrapUp || engine().turns >= TURN_BUDGET) {
+      events.push(wrapUp ? "user asked to wrap up" : `turn budget (${TURN_BUDGET}) reached`);
+      return await toSummary();
+    }
+    const target = nextTarget(s, fw, transcript);
+    if (!target) return await toSummary();
+    const item = s.items.find((i) => i.id === target.item);
+    const key = areaKey(item, target.area);
+    let question;
+    if (target.kind === "confirm") {
+      const e = entryOf(s, item, target.area);
+      question = `You said "${e.quotes.at(-1) ?? e.value}". Is that right?`;
+      engine().areas[key] = { ...stateOf(engine(), key), confirm: "asked" };
     } else {
-      session.session.reflect_back = { ...prior, text: rb.text, confirmed: true };
-      confirmedNow = true;
+      const partial = stateOf(engine(), key).partial;
+      const p = await call("phrase", phraseRequest(fw, { target, item, transcript, replies: [...input.replies, ""], partial: partial?.quote ?? partial?.value ?? null }), validatePhrase2);
+      question = p.question.trim();
+      if (target.kind === "probe") engine().areas[key] = { ...stateOf(engine(), key), probed: true };
+      if (target.kind === "check" && target.check === "manual_work") {
+        const ck = `${item.id}:manual_work`;
+        const c = engine().checks[ck] ?? { asks: 0, result: null };
+        engine().checks[ck] = { ...c, asks: c.asks + 1 };
+      }
     }
-  }
-  const asked = original.session.last_target;
-  const lastUser = ctx.transcript?.filter((e) => e.role === "user").at(-1);
-  const sawAsked = !!asked && (ctx.lastReply === void 0 || asked.reply === void 0 || asked.reply === ctx.lastReply);
-  const recordedReply = !!lastUser && turn.updates.some((u) => u.quote != null && findQuote(u.quote, [lastUser]));
-  if (asked && sawAsked && lastUser && !original.session.reflect_back && fw.areas.has(asked.area) && !turn.updates.some((u) => u.area === asked.area) && !recordedReply && lastUser.text.trim().split(/\s+/).length >= 4) {
-    let target = null;
-    let key = asked.area;
-    if (asked.area.startsWith("core.")) {
-      key = asked.area.slice(5);
-      const item = asked.item == null ? null : items.get(asked.item);
-      const shared = session.core[key];
-      target = !item || !sharedAnswer(shared) ? session.core : item.core_overrides;
-    } else {
-      const item = asked.item == null ? void 0 : items.get(asked.item);
-      const module2 = asked.area.startsWith("mod.") ? asked.area.split(".").slice(0, 2).join(".") : asked.area.split(".")[0];
-      if (item && (module2 === item.type || item.modifiers.some((m) => `mod.${m}` === module2))) target = item.coverage;
+    if (target.kind !== "check" || target.check !== "manual_work") s.session.asked[key] ??= now2;
+    engine().pending = { item: target.item, area: target.area, kind: target.kind, check: target.check, question };
+    events.push(`next: ${target.kind} ${target.item}:${target.area}${target.check ? ` (${target.check})` : ""}${target.purpose ? ` (${target.purpose})` : ""}`);
+    return done(question);
+  } catch (err) {
+    if (err instanceof SendAgain) {
+      if (err.last instanceof ProviderError) throw err.last;
+      return { session: original, reply: SEND_AGAIN, result: "send_again", confirmed: false, calls, events: [...events, "calls failed twice over; nothing recorded"] };
     }
-    const current = target?.[key];
-    const open = !current?.updated_at || current.status === "unknown" || isCaptured(current);
-    if (target && ctx.capture === false) {
-      const question = asked.reply ? ` ("${asked.reply}")` : "";
-      fail("/updates", `your last question${question} was about ${asked.area}${asked.item ? ` for ${asked.item}` : ""}, and this turn records nothing from the user's answer. Record it under the area it really answers (covered, assumed or unknown, quoting them exactly). If it doesn't answer your question, record what it does answer and ask again.`);
-    } else if (target && open) {
-      const text = lastUser.text.trim();
-      const dontKnow = /\b(don'?t|do not) know\b|\bnot sure\b|\bno idea\b|\bunsure\b/i.test(text);
-      const quotes = current?.quotes.includes(text) ? current.quotes : [...current?.quotes ?? [], text];
-      const probe_count = current?.probe_count ?? 0;
-      target[key] = dontKnow ? { status: "unknown", value: null, quotes, probe_count, updated_at: now2, source: "captured" } : { status: "assumed", value: text, quotes, probe_count, updated_at: now2, source: "captured" };
-      warnings.push(`${asked.area} captured from the user's reply: the turn didn't record the answer to the question it asked`);
+    throw err;
+  }
+  function queueAndAll(item) {
+    const all = ["core", item.type, ...item.modifiers.map((m) => `mod.${m}`)].flatMap((m) => fw.modules[m]?.areas.map((a) => a.id) ?? []);
+    return [.../* @__PURE__ */ new Set([...queueFor(item, fw), ...all])];
+  }
+  async function toSummary() {
+    for (const item of s.items.filter((i) => !i.dropped && !i.spawned_from)) {
+      retries = Math.max(retries, 2);
+      try {
+        const w = await call("write_up", writeUpRequest(fw, s, item, transcript), validateWriteUp2);
+        events.push(...applyWriteUp(s, item.id, w, fw, transcript).map((d) => `write-up dropped ${d}`));
+      } catch (err) {
+        if (!(err instanceof SendAgain)) throw err;
+        events.push(`write-up for ${item.id} failed; the summary renders without it`);
+      }
     }
+    s = enterSummary(s, fw, now2);
+    events.push("summary");
+    return done(SUMMARY_REPLY);
   }
-  if (chosen) {
-    const key = askedKey(chosen.item, chosen.area);
-    if (session.session.asked && key && !session.session.asked[key]) session.session.asked = { ...session.session.asked, [key]: now2 };
-    const k = chosen.area.slice(5);
-    const entry = chosen.area.startsWith("core.") ? (chosen.item ? items.get(chosen.item)?.core_overrides[k] : void 0) ?? session.core[k] : chosen.item ? items.get(chosen.item)?.coverage[chosen.area] : void 0;
-    if (chosen.why === "unanswered" && !entry?.updated_at && fw.areas.has(chosen.area)) {
-      const marked = { status: "unknown", value: null, quotes: [], probe_count: 1, updated_at: now2 };
-      if (chosen.area.startsWith("core.")) session.core[k] = marked;
-      else if (chosen.item && items.get(chosen.item)) items.get(chosen.item).coverage[chosen.area] = marked;
-    } else if (entry && (chosen.probe || entry.updated_at && entry.quotes.length > 0)) entry.probe_count = 1;
-  }
-  session.session.last_target = chosen ? { item: chosen.item, area: chosen.area, reply: turn.reply } : null;
-  if (!turn.reply.trim()) fail("/reply", "the reply to the user can't be empty");
-  if (rejections.length) return reject(rejections);
-  session.items = [...items.values()];
-  let result = session;
-  if (confirmedNow) {
-    try {
-      result = scoreAndGate(session, fw).session;
-    } catch (err) {
-      return reject([{ path: "/reflect_back", reason: `couldn't score the session: ${err.message}` }]);
+  async function summaryReply() {
+    const live = s.items.filter((i) => !i.dropped);
+    const others = [...new Set(live.flatMap((i) => queueAndAll(i)))];
+    const x = await call("extract", extractRequest(fw, { question: "Does this summary look right?", reply: users.at(-1).text, area: "summary", check: CHECK_TEXT.summary, others }), validateExtract2);
+    const corrections = [];
+    for (const a of x.also_answers) {
+      const quote = grounded(a.quote, transcript);
+      const item = live.find((i) => areaFits(i, a.area, fw));
+      if (!quote || !item) {
+        events.push(`correction ${a.area} ignored`);
+        continue;
+      }
+      const prev = entryOf(s, item, a.area);
+      setEntry(s, item, a.area, { status: "covered", value: a.value || quote, quotes: [.../* @__PURE__ */ new Set([...prev?.quotes ?? [], quote])], probe_count: prev?.probe_count ?? 0, updated_at: now2 });
+      corrections.push(`${a.area}: ${a.value}`);
     }
+    if (corrections.length) {
+      s.session.reflect_back = { ...s.session.reflect_back, corrections: [...s.session.reflect_back.corrections, ...corrections] };
+      events.push(`corrected ${corrections.length}`);
+      for (const item of s.items) item.facts = {};
+      const out2 = await toSummary();
+      return { ...out2, reply: "I've updated the summary. Does it look right now?" };
+    }
+    if (x.check === "yes") {
+      s = confirmSummary(s, fw);
+      events.push("summary confirmed");
+      return done(DONE_REPLY, true);
+    }
+    return { session: original, reply: "What should I change? Tell me what's wrong or missing.", result: "applied", confirmed: false, calls, events };
   }
-  const valid = validateSession2(result);
-  if (!valid.ok) return reject(valid.errors.map((e) => ({ path: "/", reason: `the result wouldn't be a valid session: ${e}` })));
-  return { session: result, rejections: [], applied: true, confirmed: confirmedNow, warnings };
 }
 
 // src/lib/check-meta.ts
@@ -19665,117 +15384,6 @@ function renderAll(session, fw, templates, checks = null) {
   return out2;
 }
 
-// src/lib/summary.ts
-var CORE_LABEL = {
-  "core.users": "Who's involved",
-  "core.outcome": "What success looks like",
-  "core.data": "The data",
-  "core.systems": "Systems and tools",
-  "core.constraints": "Rules and constraints",
-  "core.trust": "When it goes wrong"
-};
-var humanize = (s) => s.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
-var areaLabel = (id) => CORE_LABEL[id] ?? humanize(id.split(".").pop());
-var GATE_FACT_LABEL = {
-  success_metric: "How success is measured",
-  existing_asset: "Something that already does this",
-  decision_depends: "Someone acts on the result",
-  broken_cause: "Cause",
-  workaround_permanent: "The workaround is permanent",
-  ai_applies: "Uses AI",
-  push: "Pain with today's way",
-  pull: "Pull of the new way",
-  anxiety: "Worry about the new way",
-  habit: "Habit of the old way"
-};
-function bandText(fw, fact, band) {
-  if (band === "unknown") return "Not known yet";
-  const described = fw.scoring.criteria[fact]?.describe?.[band];
-  return described ?? humanize(band);
-}
-function factLabel(fw, fact) {
-  return fw.scoring.criteria[fact]?.label ?? fw.scoring.ai_overlay.checks[fact]?.label ?? GATE_FACT_LABEL[fact] ?? humanize(fact);
-}
-function buildSummary(session, fw) {
-  const live = session.items.filter((i) => !i.superseded_by && !i.dropped);
-  return {
-    items: live.map((item) => summarizeItem(session, item, fw)),
-    set_aside: [
-      ...session.items.filter((i) => i.dropped).map((i) => `${i.title}: dropped (${i.dropped.reason})`),
-      ...session.items.filter((i) => i.superseded_by && !i.dropped).map((i) => `${i.title}: replaced by ${session.items.find((x) => x.id === i.superseded_by)?.title ?? i.superseded_by}`)
-    ]
-  };
-}
-function summarizeItem(session, item, fw) {
-  const modules = ["core", item.type, ...item.modifiers.map((m) => `mod.${m}`)];
-  const answers = [];
-  for (const m of modules) {
-    for (const a of fw.modules[m]?.areas ?? []) {
-      const e = coverageFor(session, item, a.id);
-      if (!e?.updated_at) continue;
-      answers.push({ area: a.id, label: areaLabel(a.id), status: e.status, value: e.value, captured: isCaptured(e) });
-    }
-  }
-  const bands = Object.entries(item.facts).map(([fact, f]) => {
-    const { band, reason } = bandCheck(session, item, fact);
-    return {
-      fact,
-      label: factLabel(fw, fact),
-      text: bandText(fw, fact, band),
-      unknown: band === "unknown",
-      note: reason === "captured" ? `Left as not known: it rested only on a reply I didn't record properly (I'd have said "${bandText(fw, fact, f.band)}").` : reason === "no_number" ? "Shown as vague: nothing you said about it has a number to measure against." : null
-    };
-  });
-  return {
-    id: item.id,
-    title: item.title,
-    type: fw.router.types[item.type]?.label ?? item.type,
-    problem: item.prose.problem_statement ?? null,
-    today: item.prose.current_state ?? null,
-    smallest_version: item.prose.mvp ?? null,
-    out_of_scope: item.prose.out_of_scope ?? null,
-    mitigation: item.prose.mitigation ?? null,
-    answers,
-    bands,
-    acceptance: item.acceptance.map((a) => `${a.kind === "error_case" ? "If it goes wrong: " : ""}Given ${a.given}, when ${a.when}, then ${a.then}.`),
-    guardrails: item.guardrails.map((g) => `${humanize(g.kind)}: ${g.text}`),
-    open_questions: item.open_questions.map((q) => q.question)
-  };
-}
-var STATUS_NOTE = {
-  covered: "",
-  assumed: " (my reading; please check)",
-  unknown: " (not known yet)",
-  not_applicable: " (doesn't apply)",
-  declined: " (they preferred not to say)"
-};
-function summaryText(summary) {
-  const out2 = [];
-  for (const it of summary.items) {
-    out2.push(`## ${it.title} (${it.type})`, "");
-    for (const [label, text] of [["The problem", it.problem], ["Today", it.today], ["Smallest useful version", it.smallest_version], ["Out of scope", it.out_of_scope], ["How risk is reduced", it.mitigation]]) {
-      if (text) out2.push(`- ${label}: ${text}`);
-    }
-    if (it.answers.length) {
-      out2.push("", "What you told me:");
-      for (const a of it.answers) {
-        const value = a.value ?? "";
-        out2.push(`- ${a.label}: ${value}${a.captured ? " (your words as typed; not yet confirmed)" : STATUS_NOTE[a.status]}`.trimEnd());
-      }
-    }
-    if (it.bands.length) {
-      out2.push("", "How I'd rate it:");
-      for (const b of it.bands) out2.push(`- ${b.label}: ${b.text}${b.note ? `. ${b.note}` : ""}`);
-    }
-    if (it.acceptance.length) out2.push("", "It works when:", ...it.acceptance.map((a) => `- ${a}`));
-    if (it.guardrails.length) out2.push("", "Guardrails:", ...it.guardrails.map((g) => `- ${g}`));
-    if (it.open_questions.length) out2.push("", "Still open:", ...it.open_questions.map((q) => `- ${q}`));
-    out2.push("");
-  }
-  if (summary.set_aside.length) out2.push("Set aside:", ...summary.set_aside.map((s) => `- ${s}`), "");
-  return out2.join("\n").trim() + "\n";
-}
-
 // src/lib/diff.ts
 function lineDiff(before, after, context = 2) {
   const a = before.split("\n");
@@ -19848,7 +15456,11 @@ function paths(dir) {
     rejections: join3(state, "rejections.jsonl"),
     state: join3(state, "state.json"),
     archive: join3(state, "archive"),
-    gitignore: join3(state, ".gitignore")
+    gitignore: join3(state, ".gitignore"),
+    /** Interview engine v2 in the plugin: the model outputs for the turn in progress, one file per call. */
+    calls: join3(state, "calls"),
+    /** The replies shown to the user, one per line, so the next question can follow the conversation. */
+    replies: join3(state, "replies.jsonl")
   };
 }
 var STATE_GITIGNORE = `# Local intake-kit state. Transcripts hold the user's exact words and stay on this machine.
@@ -19885,6 +15497,17 @@ function readTranscript(dir) {
 function writeTranscript(dir, entries) {
   writeFileSync(paths(dir).transcript, entries.map((e) => JSON.stringify(e) + "\n").join(""));
 }
+function appendTranscript(dir, entry) {
+  appendFileSync(paths(dir).transcript, JSON.stringify(entry) + "\n");
+}
+function readReplies(dir) {
+  const file = paths(dir).replies;
+  if (!existsSync3(file)) return [];
+  return readFileSync3(file, "utf8").split("\n").filter((l) => l.trim()).map((l) => JSON.parse(l));
+}
+function appendReply(dir, reply) {
+  appendFileSync(paths(dir).replies, JSON.stringify(reply) + "\n");
+}
 function readSession(dir) {
   const file = paths(dir).session;
   return existsSync3(file) ? (0, import_yaml3.parse)(readFileSync3(file, "utf8")) : null;
@@ -19892,11 +15515,6 @@ function readSession(dir) {
 function writeSession(dir, session) {
   const header = "# Written by intake-kit. Edit with care: every SPEC and ACCEPTANCE line is rendered from this file.\n";
   writeFileSync(paths(dir).session, header + (0, import_yaml3.stringify)(session, { lineWidth: 0, aliasDuplicateObjects: false }));
-}
-function readRunState(dir) {
-  const file = paths(dir).state;
-  if (!existsSync3(file)) return { consecutive_rejections: 0 };
-  return JSON.parse(readFileSync3(file, "utf8"));
 }
 function writeRunState(dir, state) {
   writeFileSync(paths(dir).state, JSON.stringify(state, null, 2) + "\n");
@@ -19962,7 +15580,8 @@ function start(dir, opts) {
       provider: opts.provider,
       grounding: opts.grounding,
       reflect_back: null,
-      asked: {}
+      asked: {},
+      engine: newEngine()
     },
     core: { users: seeded(), outcome: seeded(), data: seeded(), systems: seeded(), constraints: seeded(), trust: seeded() },
     items: []
@@ -19977,55 +15596,6 @@ function start(dir, opts) {
     }
   }
   return out(0, { result: "started", session_id: session.session.id, session_file: p.session, warnings, status: statusOf(session, fw) });
-}
-function applyTurnCommand(dir, turnFile) {
-  const p = paths(dir);
-  const session = readSession(dir);
-  if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
-  if (!existsSync4(turnFile)) return out(4, { result: "no_turn", message: `Write the turn JSON to ${turnFile} first.` });
-  let turn;
-  try {
-    turn = JSON.parse(readFileSync4(turnFile, "utf8"));
-  } catch (err) {
-    turn = { __unparseable: err.message };
-  }
-  const transcript = session.session.grounding === "transcript" ? readTranscript(dir) ?? [] : null;
-  const fw = loadFramework(pluginRoot());
-  const state = readRunState(dir);
-  const result = applyTurn(session, turn, { fw, transcript, now: now(), lastReply: state.shown_reply ?? void 0, capture: state.consecutive_rejections > 0 });
-  if (!result.applied) {
-    const attempt = state.consecutive_rejections + 1;
-    writeFileSync2(p.rejections, JSON.stringify({ at: now(), attempt, rejections: result.rejections }) + "\n", { flag: "a" });
-    if (attempt === 1) {
-      writeRunState(dir, { ...state, consecutive_rejections: 1 });
-      return out(2, {
-        result: "rejected",
-        retry: true,
-        message: "Nothing was saved. Fix these and write the whole turn again, then rerun apply-turn. Don't show the reply to the user yet.",
-        rejections: result.rejections
-      });
-    }
-    const reply = turn?.reply;
-    writeRunState(dir, { consecutive_rejections: 0, shown_reply: typeof reply === "string" ? reply : null });
-    return out(3, {
-      result: "rejected",
-      retry: false,
-      message: "Rejected twice in a row, so nothing from this turn was saved. Say your reply to the user and carry on; capture these answers again on a later turn.",
-      rejections: result.rejections
-    });
-  }
-  writeSession(dir, result.session);
-  writeRunState(dir, { consecutive_rejections: 0 });
-  const rb = result.session.session.reflect_back;
-  const proposed = !!rb && !rb.confirmed && rb.proposed_at !== session.session.reflect_back?.proposed_at;
-  if (result.confirmed && existsSync4(p.marker)) rmSync(p.marker);
-  return out(0, {
-    result: "applied",
-    scored: result.confirmed,
-    ...result.confirmed ? { gates: result.session.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons, revisit_trigger: i.gate?.revisit_trigger })) } : { status: statusOf(result.session, fw, transcript ?? []) },
-    // The playback is built from the session by code, never from the model's reply.
-    ...proposed ? { summary: summaryText(buildSummary(result.session, fw)) } : {}
-  });
 }
 function renderCommand(dir, overwrite, keep) {
   const session = readSession(dir);
@@ -20087,12 +15657,112 @@ function renderCommand(dir, overwrite, keep) {
     ...pending.length ? { message: `These files already exist and would change: ${pending.join(", ")}. Show the user each diff and ask. Then run render once with --overwrite <file> for each one they approve and --keep <file> for each one they want left as it is.` } : {}
   });
 }
-function main() {
+var NeedCall = class extends ProviderError {
+  call;
+  request;
+  constructor(call, request) {
+    super(`needs ${call}`, { kind: "config" });
+    this.call = call;
+    this.request = request;
+  }
+};
+var VALIDATE = {
+  classify_opening: validateOpening2,
+  phrase: validatePhrase2,
+  extract: validateExtract2,
+  write_up: validateWriteUp2
+};
+async function turnCommand(dir, message) {
+  const p = paths(dir);
+  const session = readSession(dir);
+  if (!session) return out(4, { result: "no_session", message: "No intake in progress. Run start first." });
+  if (message !== void 0) {
+    ensureStateDir(dir);
+    appendTranscript(dir, { role: "user", text: message, at: now() });
+  }
+  const transcript = readTranscript(dir) ?? [];
+  const users = transcript.filter((t) => t.role === "user");
+  const engine = session.session.engine;
+  if (users.length === 0 || engine && engine.turns >= users.length && engine.phase !== "opening") {
+    return out(4, { result: "waiting", message: "Nothing new from the user yet. Ask your question and wait for their reply." });
+  }
+  const queues = {};
+  if (existsSync4(p.calls)) {
+    for (const file of readdirSync3(p.calls).filter((f) => f.endsWith(".json"))) {
+      const name = file.slice(0, -5);
+      if (!VALIDATE[name]) return out(4, { result: "bad_call_file", message: `${file} isn't a call this engine makes` });
+      let data;
+      try {
+        data = JSON.parse(readFileSync4(join4(p.calls, file), "utf8"));
+      } catch (err) {
+        return out(2, { result: "invalid", call: name, errors: [`not JSON: ${err.message}`] });
+      }
+      const list2 = Array.isArray(data) ? data : [data];
+      for (const [i, d] of list2.entries()) {
+        const v = VALIDATE[name](d);
+        if (!v.ok) return out(2, { result: "invalid", call: name, entry: i, errors: v.errors, message: `Fix ${file} and run turn again.` });
+      }
+      queues[name] = list2;
+    }
+  }
+  const provider = {
+    name: "claude",
+    async complete(request) {
+      const name = request.format.name;
+      const next = queues[name]?.shift();
+      if (next === void 0) throw new NeedCall(name, request);
+      return { text: JSON.stringify(next), model: "claude", usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 } };
+    }
+  };
+  const fw = loadFramework(pluginRoot());
+  let outcome;
+  try {
+    outcome = await runEngineTurn({ provider, fw, session, transcript, replies: readReplies(dir), now });
+  } catch (err) {
+    if (!(err instanceof NeedCall)) throw err;
+    const already = queuesUsed(p.calls, err.call);
+    return out(6, {
+      result: "needs",
+      call: err.call,
+      write_to: join4(".intake-kit", "calls", `${err.call}.json`),
+      how: already ? `Add your answer as one more entry to the JSON array already in that file (it holds ${already}), then run turn again.` : "Write a JSON array holding your one answer, then run turn again.",
+      instructions: err.request.system,
+      input: err.request.context,
+      schema: err.request.format?.name
+    });
+  }
+  if (outcome.result !== "applied") return out(3, { result: "send_again", message: "The answers in .intake-kit/calls didn't fit. Ask the user to send their message again.", events: outcome.events });
+  writeSession(dir, outcome.session);
+  appendReply(dir, outcome.reply);
+  if (existsSync4(p.calls)) rmSync(p.calls, { recursive: true, force: true });
+  const phase = outcome.session.session.engine?.phase;
+  if (outcome.confirmed && existsSync4(p.marker)) rmSync(p.marker);
+  return out(0, {
+    result: "applied",
+    reply: outcome.reply,
+    // The playback is built from the session by code; show it under the reply, word for word.
+    ...phase === "summary" ? { summary: summaryText(buildSummary(outcome.session, fw)) } : {},
+    ...outcome.confirmed ? { gates: outcome.session.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons, revisit_trigger: i.gate?.revisit_trigger })) } : {},
+    events: outcome.events
+  });
+}
+function queuesUsed(dir, call) {
+  const file = join4(dir, `${call}.json`);
+  if (!existsSync4(file)) return 0;
+  try {
+    const d = JSON.parse(readFileSync4(file, "utf8"));
+    return Array.isArray(d) ? d.length : 1;
+  } catch {
+    return 0;
+  }
+}
+async function main() {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
     options: {
       dir: { type: "string" },
       turn: { type: "string" },
+      message: { type: "string" },
       mode: { type: "string", default: "stakeholder" },
       provider: { type: "string", default: "claude" },
       grounding: { type: "string", default: "transcript" },
@@ -20114,8 +15784,8 @@ function main() {
       choice("grounding", values.grounding, ["transcript", "unverified"]);
       if (values.new && values.resume) out(4, { result: "bad_option", message: "use --new or --resume, not both" });
       return start(dir, { mode: values.mode, provider: values.provider, grounding: values.grounding, new: values.new, resume: values.resume });
-    case "apply-turn":
-      return applyTurnCommand(dir, values.turn ?? paths(dir).turn);
+    case "turn":
+      return await turnCommand(dir, values.message);
     case "render":
       return renderCommand(dir, values.overwrite, values.keep);
     case "status": {
@@ -20127,13 +15797,11 @@ function main() {
       process.stdout.write(guide(loadFramework(pluginRoot())));
       return;
     default:
-      return out(4, { result: "bad_command", message: "usage: intake.mjs start | apply-turn | render | status | guide  (see the header of src/cli/intake.ts)" });
+      return out(4, { result: "bad_command", message: "usage: intake.mjs start | turn [--message text] | render | status | guide  (see the header of src/cli/intake.ts)" });
   }
 }
-try {
-  main();
-} catch (err) {
+main().catch((err) => {
   process.stderr.write(`intake-kit: ${err.message}
 `);
   process.exit(1);
-}
+});

@@ -7393,7 +7393,11 @@ function paths(dir) {
     rejections: join(state, "rejections.jsonl"),
     state: join(state, "state.json"),
     archive: join(state, "archive"),
-    gitignore: join(state, ".gitignore")
+    gitignore: join(state, ".gitignore"),
+    /** Interview engine v2 in the plugin: the model outputs for the turn in progress, one file per call. */
+    calls: join(state, "calls"),
+    /** The replies shown to the user, one per line, so the next question can follow the conversation. */
+    replies: join(state, "replies.jsonl")
   };
 }
 var STATE_GITIGNORE = `# Local intake-kit state. Transcripts hold the user's exact words and stay on this machine.

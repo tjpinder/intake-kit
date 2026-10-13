@@ -1,6 +1,11 @@
 // Runs the persona evals against real models, with a hard spend cap. On demand, not in CI.
 //
-//   node scripts/eval-personas.mjs [--runs 3] [--budget 5] [--concurrency 2] [--personas id,id] [--report path]
+//   node scripts/eval-personas.mjs [--runs 3] [--runs-for id:n,id:n] [--budget 5] [--concurrency 2]
+//     [--personas id,id] [--report path] [--extract-model gpt-4.1-mini --extract-deployment intake-kit-turn]
+//
+// Every run is tied to a commit: the working tree must be clean (results are gitignored), and the
+// commit hash goes in the results and the report. --extract-model routes only the engine's
+// extract calls to another model, to measure whether a cheaper one classifies as reliably.
 //
 // Needs AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY. The interviewer runs on
 // AZURE_OPENAI_DEPLOYMENT / AZURE_OPENAI_MODEL (default intake-kit-eval-gpt41 / gpt-4.1, as in the
@@ -11,6 +16,7 @@
 // interviewers are compared against the same simulator. Writes evals/results/<stamp>.json (full
 // transcripts) and the report (default docs/evals/persona-report.md).
 
+import { execSync } from "node:child_process";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { loadFramework } from "../src/lib/framework-fs.ts";
@@ -27,11 +33,23 @@ const { values } = parseArgs({
     concurrency: { type: "string", default: "2" },
     personas: { type: "string" },
     report: { type: "string", default: "docs/evals/persona-report.md" },
+    "runs-for": { type: "string" },
+    "extract-model": { type: "string" },
+    "extract-deployment": { type: "string" },
   },
 });
 const runs = Number(values.runs);
 const budget = Number(values.budget);
 const concurrency = Number(values.concurrency);
+
+const dirty = execSync("git status --porcelain", { encoding: "utf8" }).trim();
+if (dirty) {
+  console.error(`Commit first: every gate run is tied to a commit hash.
+${dirty}`);
+  process.exit(2);
+}
+const commit = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
+const runsFor = Object.fromEntries((values["runs-for"] ?? "").split(",").filter(Boolean).map((p) => { const [id, n] = p.split(":"); return [id, Number(n)]; }));
 
 const env = process.env;
 if (!env.AZURE_OPENAI_ENDPOINT || !env.AZURE_OPENAI_API_KEY) {
@@ -48,20 +66,27 @@ const personas = loadPersonas().filter((p) => !wanted || wanted.includes(p.id));
 const simAzure = { ...azure, deployment: env.AZURE_SIMULATOR_DEPLOYMENT || "intake-kit-turn", model: env.AZURE_SIMULATOR_MODEL || "gpt-4.1-mini" };
 const simulator = createAzureSimulator(simAzure);
 
-const interviewers = [{ name: "azure-openai", model: azure.model, make: () => createAzureProvider({ ...azure, maxCompletionTokens: 8000 }) }];
+// Optionally, only the extract calls go to another deployment (a narrow classifier may not need the big model).
+const extractAzure = values["extract-model"] ? { ...azure, deployment: values["extract-deployment"] ?? "intake-kit-turn", model: values["extract-model"] } : null;
+const withExtract = (main) => {
+  if (!extractAzure) return main;
+  const ex = createAzureProvider({ ...extractAzure, maxCompletionTokens: 8000 });
+  return { name: main.name, complete: (req, signal) => (req.format?.name === "extract" ? ex : main).complete(req, signal) };
+};
+const interviewers = [{ name: "azure-openai", model: azure.model, make: () => withExtract(createAzureProvider({ ...azure, maxCompletionTokens: 8000 })) }];
 const notRun = [];
 if (env.ANTHROPIC_API_KEY) interviewers.push({ name: "claude", model: claudeModel, make: () => createClaudeProvider({ apiKey: env.ANTHROPIC_API_KEY, model: claudeModel }) });
 else notRun.push("Claude as interviewer: no ANTHROPIC_API_KEY was set, so the parity comparison covers Azure OpenAI only.");
 
 let spent = 0;
 const jobs = [];
-for (const iv of interviewers) for (const persona of personas) for (let run = 1; run <= runs; run++) jobs.push({ iv, persona, run });
+for (const iv of interviewers) for (const persona of personas) for (let run = 1; run <= (runsFor[persona.id] ?? runs); run++) jobs.push({ iv, persona, run });
 console.log(`${jobs.length} interviews (${personas.length} personas x ${runs} runs x ${interviewers.length} interviewer${interviewers.length > 1 ? "s" : ""}), budget $${budget}, concurrency ${concurrency}`);
 
 const records = [];
 let next = 0;
 // Each interview is appended here as it finishes, so a long run can be inspected mid-way.
-const stamp = `${new Date().toISOString().replace(/[:.]/g, "-")}-${azure.model}`; // the model keeps parallel runs apart
+const stamp = `${new Date().toISOString().replace(/[:.]/g, "-")}-${azure.model}-${commit}`; // model and commit keep parallel runs apart
 mkdirSync("evals/results", { recursive: true });
 const progressFile = `evals/results/${stamp}.progress.jsonl`;
 async function worker() {
@@ -82,10 +107,10 @@ async function worker() {
 await Promise.all(Array.from({ length: concurrency }, worker));
 if (next < jobs.length) notRun.push(`${jobs.length - next} interviews skipped: the $${budget} budget was reached.`);
 
-writeFileSync(`evals/results/${stamp}.json`, JSON.stringify({ stamp, azureModel: azure.model, spentUSD: spent, records }, null, 2));
+writeFileSync(`evals/results/${stamp}.json`, JSON.stringify({ stamp, commit, azureModel: azure.model, extractModel: extractAzure?.model ?? null, spentUSD: spent, records }, null, 2));
 mkdirSync("docs/evals", { recursive: true });
 const order = (r) => interviewers.findIndex((i) => i.name === r.provider) * 1000 + personas.findIndex((p) => p.id === r.persona) * 10 + r.run;
 writeFileSync(values.report, report(records.sort((a, b) => order(a) - order(b)), {
-  date: new Date().toISOString().slice(0, 10), interviewerModel: interviewers.map((i) => i.model).join(" and "), simulatorModel: simAzure.model, notRun,
+  date: new Date().toISOString().slice(0, 10), commit, interviewerModel: interviewers.map((i) => i.model).join(" and ") + (extractAzure ? ` (extract on ${extractAzure.model})` : ""), simulatorModel: simAzure.model, notRun,
 }));
-console.log(`\nspent $${spent.toFixed(3)}; wrote evals/results/${stamp}.json and ${values.report}`);
+console.log(`\ncommit ${commit}; spent $${spent.toFixed(3)}; wrote evals/results/${stamp}.json and ${values.report}`);

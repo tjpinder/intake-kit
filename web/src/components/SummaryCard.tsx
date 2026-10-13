@@ -10,7 +10,7 @@ const STATUS_NOTE: Record<string, string> = {
   not_applicable: "doesn't apply",
 };
 
-export function SummaryCard({ summary }: { summary: Summary }) {
+export function SummaryCard({ summary, onConfirm = null }: { summary: Summary; onConfirm?: (() => void) | null }) {
   return (
     <div className="msg bot summary" aria-label="Summary of what you told me">
       <p className="summary-lead">Here's what I've recorded. Tell me anything that's wrong or missing.</p>
@@ -55,6 +55,12 @@ export function SummaryCard({ summary }: { summary: Summary }) {
         </section>
       ))}
       {summary.set_aside.length ? (<><h5>Set aside</h5><ul>{summary.set_aside.map((s) => <li key={s}>{s}</li>)}</ul></>) : null}
+      {onConfirm ? (
+        <p className="summary-actions">
+          <button className="primary" onClick={onConfirm}>Looks right</button>
+          <span className="muted"> or type what to change below.</span>
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -15,6 +15,8 @@ export function Chat(props: {
   replies: string[];
   /** The proposed reflect-back, built from the session, and the reply it goes under. */
   summary?: { at: number; summary: Summary } | null;
+  /** Confirm the summary (live intakes); a correction is typed in the box. */
+  onConfirm?: (() => void) | null;
   pending: string | null;
   busy: boolean;
   disabled: boolean;
@@ -87,7 +89,7 @@ export function Chat(props: {
           <div key={`${i}-${entry.at}`}>
             <div className="msg user"><p>{entry.text}</p></div>
             {props.replies[i] !== undefined ? <div className="msg bot"><p>{props.replies[i]}</p></div> : null}
-            {props.summary?.at === i && props.replies[i] !== undefined ? <SummaryCard summary={props.summary.summary} /> : null}
+            {props.summary?.at === i && props.replies[i] !== undefined ? <SummaryCard summary={props.summary.summary} onConfirm={props.onConfirm ?? null} /> : null}
           </div>
         ))}
         {props.pending ? <div className="msg user pending"><p>{props.pending}</p></div> : null}

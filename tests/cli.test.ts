@@ -4,7 +4,7 @@
 import { test, describe, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
@@ -32,29 +32,10 @@ function intake(dir: string, ...args: string[]) {
   return { status: r.status, body, stderr: r.stderr };
 }
 
-function turn(dir: string, t: object) {
-  writeFileSync(join(dir, ".intake-kit", "turn.json"), JSON.stringify(t));
-  return intake(dir, "apply-turn");
-}
-
 const session = (dir: string) => parseYaml(readFileSync(join(dir, "intake-answers.yaml"), "utf8"));
 const transcript = (dir: string) => readFileSync(join(dir, ".intake-kit", "transcript.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
 const sleep = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
-function base(overrides: object = {}) {
-  return {
-    reply: "Next question?",
-    updates: [],
-    facts: [],
-    router: { new_items: [], reclassify: null, add_modifiers: [], remove_modifiers: [], supersede: null, drop: null },
-    prose: [],
-    acceptance: [],
-    guardrails: [],
-    open_questions: [],
-    reflect_back: null,
-    ...overrides,
-  };
-}
 
 describe("prompt hook", () => {
   test("ignores prompts when no intake is active, and creates nothing", () => {
@@ -154,99 +135,62 @@ describe("start", () => {
   });
 });
 
-describe("apply-turn", () => {
+describe("turn (interview engine v2, with Claude as the model)", () => {
+  const OPENING = { type: "data_report", confidence: "high", title: "Short-pick report", trigger_quote: "I need a report of short picks", modifiers: [], also_answers: [] };
   function started() {
     const dir = repo();
     prompt(dir, "/intake-kit:intake I need a report of short picks by shift and picker");
-    intake(dir, "start");
+    assert.equal(intake(dir, "start").status, 0);
     return dir;
   }
-  const newItem = { id: "item-1", type: "data_report", confidence: "high", title: "Pick-exception report", trigger_quote: "I need a report of short picks", spawned_from: null };
+  const answer = (dir: string, call: string, outputs: unknown[]) => {
+    mkdirSync(join(dir, ".intake-kit", "calls"), { recursive: true });
+    writeFileSync(join(dir, ".intake-kit", "calls", `${call}.json`), JSON.stringify(outputs));
+  };
 
-  test("a good turn is saved", () => {
+  test("asks for each model call it needs, one at a time, with its instructions", () => {
     const dir = started();
-    const r = turn(dir, base({ router: { new_items: [newItem], reclassify: null, add_modifiers: [], remove_modifiers: [], supersede: null, drop: null } }));
+    const r = intake(dir, "turn");
+    assert.equal(r.status, 6);
+    assert.equal(r.body.result, "needs");
+    assert.equal(r.body.call, "classify_opening");
+    assert.equal(r.body.write_to, join(".intake-kit", "calls", "classify_opening.json"));
+    assert.match(r.body.instructions, /Classify the opening statement/);
+    answer(dir, "classify_opening", [OPENING]);
+    const r2 = intake(dir, "turn");
+    assert.equal(r2.status, 6);
+    assert.equal(r2.body.call, "phrase");
+    assert.match(r2.body.input, /data_report\.decision/, "code chose the first question's area");
+    assert.ok(!existsSync(join(dir, "intake-answers.yaml")) || session(dir).items.length === 0, "nothing saved until the turn completes");
+  });
+
+  test("a completed turn is saved, its reply recorded, and its call files cleared", () => {
+    const dir = started();
+    answer(dir, "classify_opening", [OPENING]);
+    answer(dir, "phrase", [{ question: "What will you do differently with it?" }]);
+    const r = intake(dir, "turn");
     assert.equal(r.status, 0, JSON.stringify(r.body));
-    assert.equal(session(dir).items[0].title, "Pick-exception report");
-  });
-
-  test("rejected once: exit 2, nothing saved, logged; rejected again: exit 3; then the counter resets", () => {
-    const dir = started();
-    const before = readFileSync(join(dir, "intake-answers.yaml"), "utf8");
-    const bad = base({ updates: [{ item: null, area: "core.users", status: "covered", value: "x", quote: "words nobody said" }] });
-
-    const first = turn(dir, bad);
-    assert.equal(first.status, 2);
-    assert.equal(first.body.retry, true);
-    assert.equal(readFileSync(join(dir, "intake-answers.yaml"), "utf8"), before);
-
-    const second = turn(dir, bad);
-    assert.equal(second.status, 3);
-    assert.equal(second.body.retry, false);
-    assert.equal(readFileSync(join(dir, ".intake-kit", "rejections.jsonl"), "utf8").trim().split("\n").length, 2);
-
-    assert.equal(turn(dir, bad).status, 2, "a fresh rejection after the second one gets a retry again");
-    assert.equal(turn(dir, base()).status, 0);
-    assert.equal(turn(dir, bad).status, 2, "a success resets the count");
-  });
-
-  test("full flow: propose, user confirms, items are gated and recording stops", () => {
-    const dir = started();
-    prompt(dir, "so I know who to pull for retraining. short picks and wrong-location scans, not the cancelled lines");
-    prompt(dir, "I build it, the shift leads use it. It eats four hours every Monday. It all comes out of the WMS. If it's wrong the shift lead checks it.");
-    const q = (s: string) => s;
-    const core = (area: string, quote: string) => ({ item: null, area, status: "covered", value: quote, quote });
-    assert.equal(turn(dir, base({
-      router: { new_items: [newItem], reclassify: null, add_modifiers: [], remove_modifiers: [], supersede: null, drop: null },
-      updates: [
-        core("core.users", q("I build it, the shift leads use it")),
-        core("core.outcome", q("It eats four hours every Monday")),
-        core("core.data", q("It all comes out of the WMS")),
-        core("core.trust", q("If it's wrong the shift lead checks it")),
-        { item: "item-1", area: "data_report.decision", status: "covered", value: "Retraining", quote: "so I know who to pull for retraining" },
-        { item: "item-1", area: "data_report.definition", status: "covered", value: "Short picks and mislocations", quote: "short picks and wrong-location scans" },
-      ],
-      facts: [
-        ["rule_clarity", "written"], ["input_digital", "fully"], ["input_structured", "80+"], ["ways_done", "one"],
-        ["stability", "none"], ["documentation", "partial"], ["steps_apps", "under_20"], ["access", "programmatic"],
-        ["value", "high"], ["ai_applies", "no"], ["existing_asset", "none"], ["decision_depends", "yes"], ["success_metric", "measurable_with_baseline"],
-      ].map(([fact, band]) => ({ item: "item-1", fact, band, evidence: [fact === "success_metric" ? "core.outcome" : "core.data"], quote: null })),
-    })).status, 0);
-
-    assert.equal(turn(dir, base({ reflect_back: { text: "Daily exceptions by picker.", status: "proposed", corrections: [] } })).status, 0);
-
-    const early = turn(dir, base({ reflect_back: { text: "Daily exceptions by picker.", status: "confirmed", corrections: [] } }));
-    assert.equal(early.status, 2, "can't confirm before the user replies");
-
-    sleep(5);
-    prompt(dir, "yes, that's it");
-    const done = turn(dir, base({ reflect_back: { text: "Daily exceptions by picker.", status: "confirmed", corrections: [] } }));
-    assert.equal(done.status, 0, JSON.stringify(done.body));
-    assert.equal(done.body.scored, true);
-    assert.equal(done.body.gates[0].decision, "go");
-
+    assert.equal(r.body.reply, "What will you do differently with it?");
     const s = session(dir);
     assert.deepEqual(validateSession(s).errors, []);
-    assert.equal(s.items[0].gate.decision, "go");
-    assert.equal(existsSync(join(dir, ".intake-kit", "active")), false);
-
-    const lines = transcript(dir).length;
-    prompt(dir, "unrelated follow-up");
-    assert.equal(transcript(dir).length, lines, "recording stops after confirmation");
-    assert.equal(turn(dir, base()).status, 2, "a completed intake takes no more turns");
+    assert.equal(s.session.engine.pending.area, "data_report.decision");
+    assert.equal(existsSync(join(dir, ".intake-kit", "calls")), false);
+    assert.match(readFileSync(join(dir, ".intake-kit", "replies.jsonl"), "utf8"), /What will you do differently/);
+    assert.equal(intake(dir, "turn").body.result, "waiting", "nothing new from the user");
   });
 
-  test("no session or no turn file exits 4", () => {
-    const dir = repo();
-    assert.equal(intake(dir, "apply-turn").status, 4);
-    intake(dir, "start");
-    assert.equal(intake(dir, "apply-turn", "--turn", join(dir, "missing.json")).status, 4);
-  });
-
-  test("an unparseable turn file is a rejection, not a crash", () => {
+  test("an output that doesn't fit its schema exits 2 and saves nothing", () => {
     const dir = started();
-    writeFileSync(join(dir, ".intake-kit", "turn.json"), "{ not json");
-    assert.equal(intake(dir, "apply-turn").status, 2);
+    answer(dir, "classify_opening", [{ ...OPENING, type: "report" }]);
+    const r = intake(dir, "turn");
+    assert.equal(r.status, 2);
+    assert.equal(r.body.result, "invalid");
+    assert.equal(r.body.call, "classify_opening");
+    assert.equal(session(dir).items.length, 0);
+  });
+
+  test("no session exits 4", () => {
+    assert.equal(intake(repo(), "turn").status, 4);
   });
 });
 

@@ -294,9 +294,20 @@ describe("config endpoint and helpers", () => {
     assert.deepEqual(res.body, {
       ready: true, kitModel: "gpt-4.1-mini", byok: true,
       claudeModels: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"], defaultClaudeModel: "claude-opus-5-5",
-      turnstileSiteKey: "ts-site", sessionMaxTurns: 60, maxMessageChars: 4000,
+      turnstileSiteKey: "ts-site", sessionMaxTurns: 60, maxMessageChars: 4000, liveIntakeNote: null,
     });
     assert.doesNotMatch(JSON.stringify(res.body), /kit-key|ts-secret|salt/);
+  });
+
+  test("LIVE_INTAKE_NOTE pauses live intakes: turns are refused with the note, before any model call", async () => {
+    const note = "Live intakes are paused while intake-kit is being upgraded.";
+    const h = harness({ env: { LIVE_INTAKE_NOTE: note } });
+    assert.equal(configResponse(h.deps).body.liveIntakeNote, note);
+    const res = await handleTurn(request({}), h.deps);
+    assert.equal(res.status, 503);
+    assert.equal(res.body.error, "live_paused");
+    assert.equal(res.body.message, note);
+    assert.equal(h.azureConfigs.length, 0, "no provider built");
   });
 
   test("config warnings name what's switched off", () => {

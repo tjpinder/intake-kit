@@ -125,6 +125,7 @@ export function configResponse(deps: Pick<ServerDeps, "config">): ApiResponse {
     turnstileSiteKey: c.turnstile?.siteKey ?? null,
     sessionMaxTurns: c.sessionMaxTurns,
     maxMessageChars: c.maxMessageChars,
+    liveIntakeNote: c.liveIntakeNote,
   });
 }
 
@@ -137,6 +138,7 @@ export async function handleTurn(req: ApiRequest, deps: ServerDeps): Promise<Api
   if (req.method !== "POST") return fail(405, "method_not_allowed", "Use POST.");
   if (Buffer.byteLength(req.body, "utf8") > config.maxBodyBytes) return fail(413, "too_large", "This conversation is too long to send.");
   if (!config.ipHashSalt) return fail(503, "not_configured", "The service isn't fully configured yet.");
+  if (config.liveIntakeNote) return fail(503, "live_paused", config.liveIntakeNote);
 
   const body = parseBody(req.body, config);
   if (typeof body === "string") return fail(400, "bad_request", body);

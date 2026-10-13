@@ -11,6 +11,8 @@ export interface AppConfig {
   turnstileSiteKey: string | null;
   sessionMaxTurns: number;
   maxMessageChars: number;
+  /** Live intakes are paused when set; only the sample runs. */
+  liveIntakeNote?: string | null;
 }
 
 export type ProviderSettings =

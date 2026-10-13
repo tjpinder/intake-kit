@@ -20,7 +20,9 @@
           ],
           "reclassify": null,
           "add_modifiers": [],
-          "supersede": null
+          "remove_modifiers": [],
+          "supersede": null,
+          "drop": null
         },
         "prose": [],
         "acceptance": [],
@@ -87,7 +89,9 @@
           ],
           "reclassify": null,
           "add_modifiers": [],
-          "supersede": null
+          "remove_modifiers": [],
+          "supersede": null,
+          "drop": null
         },
         "prose": [],
         "acceptance": [],
@@ -169,7 +173,9 @@
           "new_items": [],
           "reclassify": null,
           "add_modifiers": [],
-          "supersede": null
+          "remove_modifiers": [],
+          "supersede": null,
+          "drop": null
         },
         "prose": [],
         "acceptance": [],
@@ -225,7 +231,7 @@
           {
             "item": "item-1",
             "fact": "access",
-            "band": "api_or_db",
+            "band": "programmatic",
             "evidence": [
               "core.systems"
             ],
@@ -254,7 +260,9 @@
           "new_items": [],
           "reclassify": null,
           "add_modifiers": [],
-          "supersede": null
+          "remove_modifiers": [],
+          "supersede": null,
+          "drop": null
         },
         "prose": [],
         "acceptance": [],
@@ -293,7 +301,9 @@
           "new_items": [],
           "reclassify": null,
           "add_modifiers": [],
-          "supersede": null
+          "remove_modifiers": [],
+          "supersede": null,
+          "drop": null
         },
         "prose": [],
         "acceptance": [],
@@ -325,7 +335,9 @@
           "new_items": [],
           "reclassify": null,
           "add_modifiers": [],
-          "supersede": null
+          "remove_modifiers": [],
+          "supersede": null,
+          "drop": null
         },
         "prose": [],
         "acceptance": [],
@@ -383,7 +395,9 @@
           "new_items": [],
           "reclassify": null,
           "add_modifiers": [],
-          "supersede": null
+          "remove_modifiers": [],
+          "supersede": null,
+          "drop": null
         },
         "prose": [],
         "acceptance": [],
@@ -449,11 +463,13 @@
           "new_items": [],
           "reclassify": null,
           "add_modifiers": [],
+          "remove_modifiers": [],
           "supersede": {
             "item": "item-2",
             "by": "item-1",
             "quote": "If I had the daily report every morning I'd stop doing the Monday thing"
-          }
+          },
+          "drop": null
         },
         "prose": [
           {
@@ -569,7 +585,9 @@
           "new_items": [],
           "reclassify": null,
           "add_modifiers": [],
-          "supersede": null
+          "remove_modifiers": [],
+          "supersede": null,
+          "drop": null
         },
         "prose": [],
         "acceptance": [],

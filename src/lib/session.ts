@@ -14,6 +14,32 @@ export interface CoverageEntry {
   quotes: string[];
   probe_count: number;
   updated_at?: string;
+  /**
+   * "captured": the user's reply stored word for word because the interviewer didn't record
+   * the answer to its own question. Shown to the user to confirm, never used as scoring evidence.
+   */
+  source?: "captured";
+}
+
+export const isCaptured = (e: CoverageEntry | undefined): boolean => e?.source === "captured";
+
+/** The key an area is stamped under in session.asked. */
+export const askedKey = (item: string | null, area: string): string | null => (area.startsWith("core.") ? area : item ? `${item}:${area}` : null);
+
+/**
+ * Whether an area counts as asked for an item: stamped as asked, or answered in full (covered
+ * or not applicable, in the interviewer's own record). Without stamps (older sessions), anything
+ * recorded counts.
+ */
+export function wasAsked(session: Session, item: Item | null, area: string): boolean {
+  const entry = area.startsWith("core.")
+    ? ((item?.core_overrides[area.slice(5)]) ?? session.core[area.slice(5) as keyof Session["core"]])
+    : item?.coverage[area];
+  const asked = session.session.asked;
+  if (!asked) return !!entry?.updated_at;
+  const key = askedKey(item?.id ?? null, area);
+  if (key && asked[key]) return true;
+  return !!entry?.updated_at && !isCaptured(entry) && (entry.status === "covered" || entry.status === "not_applicable");
 }
 
 export interface FactEntry {
@@ -68,6 +94,10 @@ export interface Item {
   modifiers: Modifier[];
   spawned_from: string | null;
   superseded_by: string | null;
+  /** Set when the item turned out not to apply. Not the same as being replaced by another item. */
+  dropped?: { reason: string; quote: string; at: string };
+  /** Modifiers taken back (router.remove_modifiers), so their hints don't come back. */
+  modifiers_removed?: Modifier[];
   type_history: Array<{ from: ItemType | null; to: ItemType; reason: string; quote: string; at: string }>;
   core_overrides: Record<string, CoverageEntry>;
   coverage: Record<string, CoverageEntry>;
@@ -90,8 +120,19 @@ export interface Session {
     provider: "claude" | "azure-openai" | "openai" | "codex";
     grounding: "transcript" | "unverified";
     reflect_back: { text: string; confirmed: boolean; corrections: string[]; proposed_at?: string } | null;
-    /** The area the last applied turn asked about, so an answer the model fails to record can be captured. */
-    last_target?: { item: string | null; area: string } | null;
+    /**
+     * The area the last applied turn asked about and the reply that asked it, so an answer the
+     * model fails to record can be captured, but only if that reply is the one the user saw.
+     */
+    last_target?: { item: string | null; area: string; reply?: string } | null;
+    /**
+     * When each area was first asked about, stamped by code from each applied turn's
+     * next_target: "core.users" for shared areas, "item-1:known_idea.push" for an item's own.
+     * Readiness counts an area as asked only if it was asked, or answered in full; an inference
+     * from the opening or an unknown marked before asking doesn't count. Sessions started
+     * before this existed don't have it and fall back to "anything recorded".
+     */
+    asked?: Record<string, string>;
   };
   core: Record<"users" | "outcome" | "data" | "systems" | "constraints" | "trust", CoverageEntry>;
   items: Item[];

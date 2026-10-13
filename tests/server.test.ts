@@ -57,7 +57,7 @@ function harness(opts: { env?: Record<string, string>; outputs?: string[]; error
       if (opts.error) throw opts.error;
       const text = outputs.shift();
       if (text === undefined) throw new Error("no scripted output left");
-      return { text, model: "gpt-4.1-mini", usage: { inputTokens: opts.usage?.inputTokens ?? 10_000, outputTokens: opts.usage?.outputTokens ?? 500, cachedInputTokens: 0 } };
+      return { text, model: "gpt-4.1", usage: { inputTokens: opts.usage?.inputTokens ?? 10_000, outputTokens: opts.usage?.outputTokens ?? 500, cachedInputTokens: 0 } };
     },
   });
   const deps: ServerDeps = {
@@ -100,9 +100,9 @@ describe("a good turn", () => {
     const usage = res.body.usage as { calls: number; costUSD: number };
     assert.equal(usage.calls, 1);
     // 10k input at $0.40/M + 500 output at $1.60/M
-    assert.equal(Number(usage.costUSD.toFixed(6)), 0.0048);
-    assert.equal(fromMicros(h.store.values.get(keys.monthSpend(NOW))!), 0.0048);
-    assert.equal(fromMicros(h.store.values.get(keys.sessionSpend("2026-10-11-beef"))!), 0.0048);
+    assert.equal(Number(usage.costUSD.toFixed(6)), 0.024);
+    assert.equal(fromMicros(h.store.values.get(keys.monthSpend(NOW))!), 0.024);
+    assert.equal(fromMicros(h.store.values.get(keys.sessionSpend("2026-10-11-beef"))!), 0.024);
   });
 
   test("the kit's provider gets the configured deployment and an output ceiling", async () => {
@@ -110,7 +110,7 @@ describe("a good turn", () => {
     await handleTurn(request({}), h.deps);
     assert.deepEqual(
       { ...h.azureConfigs[0] },
-      { endpoint: "https://example.openai.azure.com", apiKey: "kit-key", deployment: "intake-kit-turn", model: "gpt-4.1-mini", maxCompletionTokens: 8000 },
+      { endpoint: "https://example.openai.azure.com", apiKey: "kit-key", deployment: "intake-kit-eval-gpt41", model: "gpt-4.1", maxCompletionTokens: 8000 },
     );
   });
 
@@ -121,7 +121,7 @@ describe("a good turn", () => {
     const res = await handleTurn(request({}), h.deps);
     assert.equal(res.body.result, "applied");
     assert.equal((res.body.usage as { calls: number }).calls, 2);
-    assert.equal(fromMicros(h.store.values.get(keys.monthSpend(NOW))!), 0.0096);
+    assert.equal(fromMicros(h.store.values.get(keys.monthSpend(NOW))!), 0.048);
   });
 });
 
@@ -292,7 +292,7 @@ describe("config endpoint and helpers", () => {
   test("tells the UI what's available, without secrets", () => {
     const res = configResponse(harness().deps);
     assert.deepEqual(res.body, {
-      ready: true, kitModel: "gpt-4.1-mini", byok: true,
+      ready: true, kitModel: "gpt-4.1", byok: true,
       claudeModels: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"], defaultClaudeModel: "claude-opus-5-5",
       turnstileSiteKey: "ts-site", sessionMaxTurns: 60, maxMessageChars: 4000,
     });

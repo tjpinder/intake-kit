@@ -1,0 +1,65 @@
+id: enablement-kit
+title: Engineer with a detailed plan for a public AI enablement kit
+opening: "I want hiring managers to see I can do the enablement side of AI, not just the build side. My public repos only show building. Enablement and deployment roles ask for use-case discovery, rollout, training, champions, light governance and adoption measurement, and there's almost nothing on GitHub that shows that well."
+voice: Precise, experienced AI engineer. Answers in two to four full sentences with concrete specifics. Corrects the interviewer plainly when a question doesn't fit ("that doesn't apply here"). Has a written plan and doesn't wander.
+situation: |
+  You build AI tools and keep two public repos: a set of build recipes, and an intake tool that turns a request into a spec pack.
+  You want to add an "enablement" folder to the recipes repo so hiring managers for AI enablement and deployment strategist
+  roles can see the whole lifecycle in public: find use cases, gate them with the intake tool, build and evaluate with the
+  recipes, roll out, measure. Today there's nothing public to point at, so you explain it in interviews. The worst part is
+  describing a rollout instead of showing one. If it worked, you'd send a link, apply to strategist roles with the repo in the
+  application, and walk interviewers through a real rollout doc and adoption report.
+  The plan has six parts: a use-case ranker (backlog CSV in, ranked shortlist out, with "start now", "prep first" and
+  "not now" sections; weights in a config file), a rollout template plus one filled-in example, a 60-minute workshop guide
+  with three exercises and a one-page reference card, a champions programme guide, a one-page acceptable-use template and
+  risk register, a risk-card script that reads the intake tool's spec pack, and an adoption-report script that reads CSV logs
+  and prints a weekly summary. The first version is the ranker, the rollout template and the two scripts; the workshop and
+  champions docs can follow. Out of scope: any LMS, web UI or survey tool (CSV and markdown are enough), org-specific legal
+  policy, copying vendor training material, and the full pilot scorecard.
+  Who's involved: you build it; the readers are hiring managers, enablement leads who'd fork it, and facilitators, since the
+  workshop guide must be runnable by someone other than you. You decide what goes in; nobody else signs off.
+  Data: synthetic only. A made-up backlog of 25 warehouse and BI use cases, synthetic timing, review and usage logs, and
+  spec packs the intake tool writes. All CSV and markdown files in the repo, fully digital and structured. No real employer data.
+  Systems: TypeScript on Node 22, scripts run locally from the command line and read the files directly; no database, no API,
+  no network. The risk-card script must read the intake tool's spec-pack format exactly as its schema defines it, and the
+  adoption-report reads the log columns another recipe writes; column changes need a version bump. Nothing big will change
+  in the next six months.
+  Constraints: MIT licence, committed build output, synthetic data only, plain English for non-technical readers, templates
+  usable as blank copies, and the acceptable-use template must say it isn't legal advice. Build it after the first recipe exists.
+  Nothing uses an LLM: the ranker, risk card and adoption report are deterministic scripts.
+  When it goes wrong: a script shows a number it shouldn't (a metric from too little data, or a risk-card field the spec never
+  had), and a hiring manager concludes the whole thing is fake. Tests and CI must catch it first. The rule is to show MISSING
+  or "insufficient data (n=...)" instead of a number, and never to fill a missing field. You'd stop and rethink if the
+  scripts can't be kept honest that way. If a script broke, you'd fix it before publishing; nobody depends on it day to day.
+  Nobody has tried this before you; the closest things are Microsoft's Copilot adoption guides (Copilot-specific, not
+  forkable) and the ai-adoption topic on GitHub (about 166 repos, the top one at 28 stars, no forkable pilot ROI kit).
+  Adoption worry: readers may not trust synthetic examples, so every example says it's synthetic.
+  There's no manual process to replace. If the interviewer asks about one, say plainly that it doesn't apply.
+# Ground truth, worked from the situation above with skills/intake/scoring.yaml:
+# - Automation potential high: rules written down (deterministic scripts), input fully digital,
+#   80%+ structured (CSV and markdown), one way of doing it. Ease high: no change coming, partial
+#   documentation (a written plan, no SOP), under 20 steps, programmatic access (scripts read the
+#   files). So the Prioritize quadrant.
+# - Success: send a link, apply to strategist roles, walk interviewers through real documents. No
+#   number and no baseline anywhere, so success_metric is vague (measurable_no_baseline at most).
+# - Decisions depend on it (applications and interviews), nothing existing covers it, no AI.
+# Gate: Gather more, for one reason: no measurable success metric with a baseline. Not Go (Go needs
+# a baseline), and never Don't build: nothing here is evidence against building it.
+expect:
+  primary_type: known_idea
+  ai_applies: false
+  items:
+    - { type: known_idea, gates: [gather_more] }
+  min_items: 1
+  quadrant: [prioritize]
+  # Found in the first live test: a hypothetical fallback ("people go back to doing it by hand")
+  # spawned a manual-process item that could only be marked superseded.
+  no_items: [manual_process]
+  # Areas the interviewer itself must record (not captured, not unknown).
+  recorded: [core.users, core.outcome, core.data, core.systems, core.constraints, known_idea.proposal]
+  bands:
+    input_digital: [fully]
+    input_structured: ["80+"]
+    access: [programmatic]
+    success_metric: [vague, measurable_no_baseline]
+    existing_asset: [none]

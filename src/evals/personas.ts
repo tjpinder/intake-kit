@@ -29,6 +29,12 @@ export interface Persona {
     quadrant?: Quadrant[];
     /** For the vague persona: at least this many critical areas left unsettled on the primary item. */
     min_unknown_critical?: number;
+    /** Item types that must not be created at all (not even superseded). */
+    no_items?: ItemType[];
+    /** Areas the interviewer itself must record on the primary item: not captured, not unknown. */
+    recorded?: string[];
+    /** Acceptable bands per fact on the primary item, as scoring would see them. */
+    bands?: Record<string, string[]>;
   };
 }
 
@@ -46,6 +52,7 @@ export function parsePersona(text: string, file: string): Persona {
     for (const g of item.gates ?? []) if (!GATES.includes(g)) problems.push(`gate "${g}" isn't a gate`);
   }
   if (typeof p?.expect?.min_items !== "number") problems.push("expect.min_items is required");
+  for (const t of p?.expect?.no_items ?? []) if (!TYPES.includes(t)) problems.push(`no_items type "${t}" isn't an item type`);
   if (problems.length) throw new Error(`${file}: ${problems.join("; ")}`);
   return p;
 }

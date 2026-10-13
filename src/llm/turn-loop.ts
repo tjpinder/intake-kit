@@ -31,7 +31,7 @@ export interface TurnOutcome {
   result: "applied" | "rejected" | "invalid";
   confirmed: boolean;
   /** Each attempt: usage, the raw model output, and what the checks rejected. */
-  attempts: Array<{ usage: Usage; model: string; text: string; rejections: Rejection[] }>;
+  attempts: Array<{ usage: Usage; model: string; text: string; rejections: Rejection[]; warnings: string[] }>;
 }
 
 export const FALLBACK_REPLY = "Sorry, I lost my train of thought there. Could you say that again in a different way?";
@@ -62,9 +62,11 @@ export async function runTurn(input: TurnInput): Promise<TurnOutcome> {
     const result = await input.provider.complete(request, input.signal);
     const { turn, reply } = parseTurn(result.text);
     if (reply) lastReply = reply;
-    const applied = applyTurn(input.session, turn, { fw: input.fw, transcript: input.transcript, now: input.now() });
+    // The first attempt must record the answer to its own last question; the retry may fall back
+    // to capturing the user's words.
+    const applied = applyTurn(input.session, turn, { fw: input.fw, transcript: input.transcript, now: input.now(), lastReply: input.replies.at(-1) ?? null, capture: attempt > 0 });
     if (reply !== null || !("__unparseable" in (turn as object))) parsedEver = true;
-    attempts.push({ usage: result.usage, model: result.model, text: result.text, rejections: applied.rejections });
+    attempts.push({ usage: result.usage, model: result.model, text: result.text, rejections: applied.rejections, warnings: applied.warnings });
 
     if (applied.applied) {
       return { session: applied.session, reply: reply!, result: "applied", confirmed: applied.confirmed, attempts };

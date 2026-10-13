@@ -24,7 +24,7 @@ function emptyTurn(): any {
     reply: "What happens next?",
     updates: [],
     facts: [],
-    router: { new_items: [], reclassify: null, add_modifiers: [], supersede: null },
+    router: { new_items: [], reclassify: null, add_modifiers: [], remove_modifiers: [], supersede: null, drop: null },
     prose: [],
     acceptance: [],
     guardrails: [],
@@ -43,11 +43,13 @@ function freshSession(): Session {
   return s;
 }
 
-function run(turn: any, opts: { session?: Session; transcript?: TranscriptEntry[] | null; now?: string } = {}): ApplyResult {
+function run(turn: any, opts: { session?: Session; transcript?: TranscriptEntry[] | null; now?: string; lastReply?: string | null; capture?: boolean } = {}): ApplyResult {
   return applyTurn(opts.session ?? freshSession(), turn, {
     fw,
     transcript: opts.transcript === undefined ? TRANSCRIPT : opts.transcript,
     now: opts.now ?? NOW,
+    lastReply: opts.lastReply,
+    capture: opts.capture,
   });
 }
 
@@ -379,6 +381,15 @@ describe("reflect-back and scoring", () => {
     assert.equal(r.session.items[0].scoring, null);
   });
 
+  test("a proposal can't ask another question or add an item in the same turn (first live test)", () => {
+    const asking = rbTurn("proposed");
+    asking.next_target = { item: "item-1", area: "data_report.decision", is_probe: false };
+    expectRejected(run(asking, { session: readyItem() }), "/next_target/area", "asks only whether the summary is right");
+    const spawning = rbTurn("proposed");
+    spawning.router.new_items = [{ id: "item-2", type: "manual_process", confidence: "med", title: "Monday spreadsheet", trigger_quote: "I build it in Excel every Monday", spawned_from: "item-1" }];
+    expectRejected(run(spawning, { session: readyItem() }), "/reflect_back", "same turn as adding items");
+  });
+
   test("confirming before proposing is rejected", () => {
     expectRejected(run(rbTurn("confirmed"), { session: readyItem() }), "/reflect_back/status", "before it has been proposed");
   });
@@ -516,11 +527,71 @@ describe("answer capture (from the persona evals)", () => {
   };
   const said = [{ role: "user" as const, text: ANSWER, at: T0 }];
 
-  test("an answer the turn didn't record is stored as the user's words, assumed, under the area asked", () => {
+  test("an answer the turn didn't record is stored as the user's words, assumed and marked captured, under the area asked", () => {
     const r = run(emptyTurn(), { session: asked("core.outcome"), transcript: said });
     assert.equal(r.applied, true);
-    assert.deepEqual(r.session.core.outcome, { status: "assumed", value: ANSWER, quotes: [ANSWER], probe_count: 0, updated_at: NOW });
-    assert.match(r.warnings.join(" "), /core\.outcome recorded from the user's reply/);
+    assert.deepEqual(r.session.core.outcome, { status: "assumed", value: ANSWER, quotes: [ANSWER], probe_count: 0, updated_at: NOW, source: "captured" });
+    assert.match(r.warnings.join(" "), /core\.outcome captured from the user's reply/);
+  });
+
+  test("a first attempt that doesn't record the answer is sent back naming the area and the question; nothing is captured", () => {
+    const session = asked("core.outcome");
+    session.session.last_target!.reply = "What number would tell you this worked?";
+    const r = run(emptyTurn(), { session, transcript: said, capture: false });
+    expectRejected(r, "/updates", 'your last question ("What number would tell you this worked?") was about core.outcome');
+  });
+
+  test("a follow-up on an area already answered is sent back too, but never captured over the answer", () => {
+    const session = asked("core.outcome");
+    session.core.outcome = { status: "covered", value: "earlier", quotes: ["count by picker"], probe_count: 0, updated_at: T0 };
+    expectRejected(run(emptyTurn(), { session, transcript: said, capture: false }), "/updates", "was about core.outcome");
+    assert.equal(run(emptyTurn(), { session, transcript: said }).session.core.outcome.value, "earlier");
+  });
+
+  test("nothing is captured when the stored question isn't the one the user saw", () => {
+    // After a turn that couldn't be saved, the user saw that turn's reply, not the stored one.
+    const session = asked("core.outcome");
+    session.session.last_target!.reply = "What number would tell you this worked?";
+    for (const capture of [false, true]) {
+      const r = run(emptyTurn(), { session, transcript: said, lastReply: "Who signs off on it?", capture });
+      assert.equal(r.applied, true);
+      assert.equal(r.session.core.outcome.updated_at, undefined);
+    }
+    const seen = run(emptyTurn(), { session, transcript: said, lastReply: "What number would tell you this worked?" });
+    assert.equal(seen.session.core.outcome.source, "captured");
+  });
+
+  test("nothing is captured when the turn recorded the reply under another area", () => {
+    // Found in the first live test: a question about what makes mistakes easy was labelled
+    // core.systems, and the answer was captured there.
+    const t = emptyTurn();
+    t.updates = [{ item: null, area: "core.trust", status: "covered", value: "Baseline counts catch it", quote: "about 50 short picks a day" }];
+    const r = run(t, { session: asked("core.systems"), transcript: said, capture: false });
+    assert.equal(r.applied, true);
+    assert.equal(r.session.core.systems.updated_at, undefined);
+  });
+
+  test("a captured answer is replaced by the model's own record of the area", () => {
+    const session = asked("core.outcome");
+    session.core.outcome = { status: "assumed", value: "earlier words", quotes: ["count by picker"], probe_count: 0, updated_at: T0, source: "captured" };
+    const t = emptyTurn();
+    t.updates = [{ item: "item-1", area: "core.outcome", status: "covered", value: "50 a day now", quote: "about 50 short picks a day" }];
+    const r = run(t, { session, transcript: said });
+    assert.equal(r.session.core.outcome.status, "covered");
+    assert.equal(r.session.core.outcome.source, undefined);
+    assert.deepEqual(r.session.items[0].core_overrides, {}, "a captured shared answer is replaced, not overridden");
+  });
+
+  test("an item's answer replaces a shared area that was only marked unknown, rather than overriding it", () => {
+    // Found in the first live test: outcome was pre-marked unknown, the item's answer became an
+    // override, and the shared outcome stayed unknown.
+    const session = freshSession();
+    session.core.outcome = { status: "unknown", value: null, quotes: [], probe_count: 0, updated_at: T0 };
+    const t = emptyTurn();
+    t.updates = [{ item: "item-1", area: "core.outcome", status: "covered", value: "50 a day now", quote: "eats my whole Monday morning" }];
+    const r = run(t, { session });
+    assert.equal(r.session.core.outcome.status, "covered");
+    assert.deepEqual(r.session.items[0].core_overrides, {});
   });
 
   test("an item's module area is captured on that item", () => {
@@ -564,7 +635,7 @@ describe("answer capture (from the persona evals)", () => {
   test("each applied turn remembers what it asked", () => {
     const t = emptyTurn();
     t.next_target = { item: null, area: "core.trust", is_probe: false };
-    assert.deepEqual(run(t).session.session.last_target, { item: null, area: "core.trust" });
+    assert.deepEqual(run(t).session.session.last_target, { item: null, area: "core.trust", reply: "What happens next?" });
   });
 });
 
@@ -583,5 +654,93 @@ describe("supersede direction (from the persona evals)", () => {
     const r = run(t);
     assert.equal(r.applied, true);
     assert.equal(r.session.items[1].superseded_by, "item-1");
+  });
+});
+
+describe("asked stamps (first live test)", () => {
+  const stamped = () => { const s = freshSession(); s.session.asked = {}; return s; };
+
+  test("each applied turn stamps the area it asks, once", () => {
+    const t = emptyTurn();
+    t.next_target = { item: "item-1", area: "data_report.decision", is_probe: false };
+    const r = run(t, { session: stamped() });
+    assert.deepEqual(r.session.session.asked, { "item-1:data_report.decision": NOW });
+    const again = run(t, { session: r.session, now: "2026-10-10T15:00:00.000Z" });
+    assert.deepEqual(again.session.session.asked, { "item-1:data_report.decision": NOW });
+    const core = emptyTurn();
+    core.next_target = { item: "item-1", area: "core.users", is_probe: false };
+    assert.deepEqual(run(core, { session: stamped() }).session.session.asked, { "core.users": NOW });
+  });
+
+  test("a session without stamps doesn't start getting them", () => {
+    const t = emptyTurn();
+    t.next_target = { item: null, area: "core.users", is_probe: false };
+    assert.equal(run(t).session.session.asked, undefined);
+  });
+
+  test("the stamps are valid in the session schema", () => {
+    const t = emptyTurn();
+    t.next_target = { item: null, area: "core.users", is_probe: false };
+    assert.equal(validateSession(run(t, { session: stamped() }).session).ok, true);
+  });
+});
+
+describe("taking back what doesn't apply (first live test)", () => {
+  const withFollowOn = () => {
+    const s = freshSession();
+    const t = emptyTurn();
+    t.router.new_items = [{ id: "item-2", type: "manual_process", confidence: "med", title: "Monday spreadsheet", trigger_quote: "I build it in Excel every Monday", spawned_from: "item-1" }];
+    return run(t, { session: s }).session;
+  };
+
+  test("an item that doesn't apply is dropped with the user's words, not superseded", () => {
+    const t = emptyTurn();
+    t.router.drop = { item: "item-2", reason: "the user said it's a fallback, not something they do", quote: "eats my whole Monday morning" };
+    const r = run(t, { session: withFollowOn() });
+    assert.equal(r.applied, true);
+    assert.deepEqual(r.session.items[1].dropped, { reason: "the user said it's a fallback, not something they do", quote: "eats my whole Monday morning", at: NOW });
+    assert.equal(r.session.items[1].superseded_by, null);
+    assert.equal(validateSession(r.session).ok, true);
+  });
+
+  test("a drop needs a reason and the user's words, and can't be a supersede too", () => {
+    const t = emptyTurn();
+    t.router.drop = { item: "item-2", reason: " ", quote: "words nobody said" };
+    t.router.supersede = { item: "item-2", by: "item-1", quote: "count by picker" };
+    const r = run(t, { session: withFollowOn() });
+    expectRejected(r, "/router/drop/reason", "say why");
+    expectRejected(r, "/router/drop/quote", "isn't the user's words");
+    expectRejected(r, "/router/drop", "can't be dropped and superseded");
+  });
+
+  test("a modifier can be taken back, and is remembered as removed", () => {
+    const s = freshSession();
+    s.items[0].modifiers = ["integration"];
+    const t = emptyTurn();
+    t.router.remove_modifiers = [{ item: "item-1", modifier: "integration", reason: "they said there's no API" }];
+    const r = run(t, { session: s });
+    assert.deepEqual(r.session.items[0].modifiers, []);
+    assert.deepEqual(r.session.items[0].modifiers_removed, ["integration"]);
+  });
+});
+
+describe("one question and one follow-up per area (first live test)", () => {
+  const AREA = "data_report.decision";
+  const asking = () => { const t = emptyTurn(); t.next_target = { item: "item-1", area: AREA, is_probe: false }; return t; };
+  const answered = (probe_count: number) => {
+    const s = freshSession();
+    s.session.asked = { [`item-1:${AREA}`]: T0 };
+    s.items[0].coverage[AREA] = { status: "assumed", value: "retraining, I think", quotes: ["count by picker"], probe_count, updated_at: T0 };
+    return s;
+  };
+
+  test("asking an area again counts as its follow-up even when not flagged", () => {
+    const r = run(asking(), { session: answered(0) });
+    assert.equal(r.applied, true);
+    assert.equal(r.session.items[0].coverage[AREA].probe_count, 1);
+  });
+
+  test("a third question on the same area is rejected", () => {
+    expectRejected(run(asking(), { session: answered(1) }), "/next_target/area", "has had its question and one follow-up already");
   });
 });

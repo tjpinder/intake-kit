@@ -39,16 +39,22 @@
           ]
         },
         "last_target": {
-          "description": "The area the last applied turn asked about. If the next turn doesn't record it, the user's reply is captured as an assumed answer.",
+          "description": "The area the last applied turn asked about, and the reply that asked it. If the next turn doesn't record the area, the user's reply is captured as an assumed answer, but only when that reply is the one the user saw.",
           "oneOf": [
             { "type": "null" },
             {
               "type": "object",
               "additionalProperties": false,
               "required": ["item", "area"],
-              "properties": { "item": { "type": ["string", "null"] }, "area": { "type": "string" } }
+              "properties": { "item": { "type": ["string", "null"] }, "area": { "type": "string" }, "reply": { "type": "string" } }
             }
           ]
+        },
+        "asked": {
+          "description": "When each area was first asked about, stamped by code from each applied turn's next_target: core areas by ID, an item's own areas as <item>:<area>. Readiness counts an area as asked only if it's here or was answered in full.",
+          "type": "object",
+          "propertyNames": { "pattern": "^(core\\.[a-z_]+|item-\\d+:[a-z_.]+)$" },
+          "additionalProperties": { "type": "string", "format": "date-time" }
         }
       }
     },
@@ -88,7 +94,11 @@
         "value": { "type": ["string", "null"] },
         "quotes": { "type": "array", "items": { "$ref": "#/$defs/quote" } },
         "probe_count": { "type": "integer", "minimum": 0, "maximum": 1 },
-        "updated_at": { "type": "string", "format": "date-time" }
+        "updated_at": { "type": "string", "format": "date-time" },
+        "source": {
+          "enum": ["captured"],
+          "description": "captured: the user's reply stored word for word because the interviewer didn't record the answer to its own question. Shown for confirmation, never used as scoring evidence."
+        }
       },
       "allOf": [
         {
@@ -131,6 +141,22 @@
         "modifiers": { "type": "array", "uniqueItems": true, "items": { "enum": ["integration", "compliance", "migration"] } },
         "spawned_from": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/item_id" }] },
         "superseded_by": { "oneOf": [{ "type": "null" }, { "$ref": "#/$defs/item_id" }] },
+        "modifiers_removed": {
+          "description": "Modifiers taken back during the interview, so they aren't suggested again.",
+          "type": "array",
+          "items": { "enum": ["integration", "compliance", "migration"] }
+        },
+        "dropped": {
+          "description": "Set when the item turned out not to apply (the user said so). Gated Don't build with the reason; never confused with being replaced by another item.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reason", "quote", "at"],
+          "properties": {
+            "reason": { "type": "string", "minLength": 1 },
+            "quote": { "$ref": "#/$defs/quote" },
+            "at": { "type": "string", "format": "date-time" }
+          }
+        },
         "type_history": {
           "type": "array",
           "minItems": 1,

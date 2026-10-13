@@ -12,6 +12,8 @@ export type { ApplyContext, ApplyResult, Rejection } from "./lib/apply-turn.ts";
 export { scoreItem, levelOf, quadrantOf, adoptionRisks } from "./lib/score.ts";
 export { scoreAndGate, gateItem, criticalAreas } from "./lib/gates.ts";
 export { guide, statusOf, factsFor } from "./lib/guide.ts";
+export { buildSummary, summaryText, summaryIndex } from "./lib/summary.ts";
+export type { Summary, SummaryItem } from "./lib/summary.ts";
 export type { Status, ItemStatus } from "./lib/guide.ts";
 
 export { renderAll, scope, RenderError } from "./lib/render.ts";
@@ -29,5 +31,5 @@ export type { TurnInput, TurnOutcome } from "./llm/turn-loop.ts";
 export { ProviderError } from "./llm/types.ts";
 export type { Provider, ProviderResult, TurnRequest, ChatMessage, Usage } from "./llm/types.ts";
 
-export { coverageFor } from "./lib/session.ts";
+export { coverageFor, isCaptured } from "./lib/session.ts";
 export type { Session, Item, CoverageEntry, Gate, Scoring, Acceptance, Guardrail } from "./lib/session.ts";

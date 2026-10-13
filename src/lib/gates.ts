@@ -5,8 +5,8 @@
 // Gather more, with the unmet requirements as its reasons.
 
 import type { Framework } from "./framework.ts";
-import { aiOverlayPasses, bandOf, scoreItem } from "./score.ts";
-import { coverageFor, type Gate, type GateDecision, type Item, type Session } from "./session.ts";
+import { aiOverlayPasses, bandOf, scoreItem, scoringView } from "./score.ts";
+import { coverageFor, isCaptured, type Gate, type GateDecision, type Item, type Session } from "./session.ts";
 
 type Stage = "fix_not_build" | "dont_build_definitive" | "gather_more" | "dont_build_quadrant" | "go";
 
@@ -30,7 +30,8 @@ export function criticalAreas(item: Item, fw: Framework): string[] {
 
 function areaSettled(session: Session, item: Item, id: string): boolean {
   const entry = coverageFor(session, item, id);
-  if (!entry) return false;
+  // A captured reply is the user's words, but nobody judged what it answers: it never settles an area.
+  if (!entry || isCaptured(entry)) return false;
   if (entry.status === "covered" || entry.status === "not_applicable") return true;
   return entry.status === "assumed" && session.session.reflect_back?.confirmed === true;
 }
@@ -42,7 +43,7 @@ interface Evaluation { matches: Record<Stage, Match>; unmetForGo: string[] }
 function evaluate(session: Session, item: Item, fw: Framework, gateOf: (id: string) => Gate | null): Evaluation {
   const g = fw.scoring.gates;
   const scoring = item.scoring!;
-  const band = (fact: string) => bandOf(item, fact, fw);
+  const band = (fact: string) => bandOf(scoringView(session, item), fact, fw);
   const m: Record<Stage, Match> = {
     fix_not_build: { reasons: [], revisit_trigger: null },
     dont_build_definitive: { reasons: [], revisit_trigger: null },
@@ -67,7 +68,11 @@ function evaluate(session: Session, item: Item, fw: Framework, gateOf: (id: stri
     m.dont_build_definitive.reasons.push("An existing report or feature already covers it");
     triggers.dont_build_definitive.push("the existing report or feature stops covering this need");
   }
-  if (d.decision_depends.includes(band("decision_depends"))) {
+  // Don't build needs evidence. "No decision depends on it" is that evidence only for a report or
+  // dataset; for other types it's a gap, so it routes to Gather more below (first live test: a
+  // portfolio repo was killed twice on it).
+  const decisive = d.decision_depends_applies_to.includes(item.type);
+  if (decisive && d.decision_depends.includes(band("decision_depends"))) {
     m.dont_build_definitive.reasons.push("No decision depends on it");
     triggers.dont_build_definitive.push("a decision comes to depend on it");
   }
@@ -85,6 +90,10 @@ function evaluate(session: Session, item: Item, fw: Framework, gateOf: (id: stri
   const unsettled = criticalAreas(item, fw).filter((id) => !areaSettled(session, item, id));
   if (gm.critical_unknown) for (const id of unsettled) m.gather_more.reasons.push(`Critical area ${id} isn't covered`);
   if (gm.stability.includes(band("stability"))) m.gather_more.reasons.push("A major change is expected within six months");
+  const depends = band("decision_depends");
+  if ((gm.decision_depends ?? []).includes(depends) && !(decisive && d.decision_depends.includes(depends))) {
+    m.gather_more.reasons.push(depends === "unknown" ? "Nobody has said what decision or outcome depends on it" : "No decision or outcome depends on it yet");
+  }
   if (gm.review_without_mitigation && scoring.quadrant === "review" && !item.prose.mitigation) {
     m.gather_more.reasons.push("Review quadrant with no written mitigation");
   }
@@ -148,6 +157,8 @@ function evaluate(session: Session, item: Item, fw: Framework, gateOf: (id: stri
 /** Gates one scored item. gateOf returns the gate of another item (for supersession), or null. */
 export function gateItem(session: Session, item: Item, fw: Framework, gateOf: (id: string) => Gate | null = () => null): Gate {
   if (!item.scoring) throw new GateError(`${item.id} has no scoring; score it before gating`);
+  // An item that turned out not to apply isn't weighed at all; DECISIONS.md records why.
+  if (item.dropped) return { decision: "dont_build", reasons: [`Dropped during the interview: ${item.dropped.reason}`], revisit_trigger: null, rules_version: fw.scoring.rules_version };
   const { matches, unmetForGo } = evaluate(session, item, fw, gateOf);
   const order = fw.scoring.gates.precedence as Stage[];
   const winner = order.find((stage) => matches[stage].reasons.length > 0);
@@ -180,7 +191,7 @@ export function scoreAndGate(session: Session, fw: Framework): { session: Sessio
   const byId = new Map(out.items.map((i) => [i.id, i]));
   for (const item of out.items) {
     if (item.superseded_by && !byId.has(item.superseded_by)) throw new GateError(`${item.id} is superseded by unknown item ${item.superseded_by}`);
-    item.scoring = scoreItem(item, fw);
+    item.scoring = scoreItem(scoringView(out, item), fw);
     item.gate = null;
   }
 

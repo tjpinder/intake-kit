@@ -22,6 +22,7 @@ import { loadFramework, readTemplates } from "../lib/framework-fs.ts";
 import { applyTurn } from "../lib/apply-turn.ts";
 import { guide, statusOf } from "../lib/guide.ts";
 import { renderAll } from "../lib/render.ts";
+import { buildSummary, summaryText } from "../lib/summary.ts";
 import { lineDiff } from "../lib/diff.ts";
 import { readConfig } from "../lib/checks.ts";
 import {
@@ -86,6 +87,7 @@ function start(dir: string, opts: { mode: string; provider: string; grounding: s
       provider: opts.provider as Session["session"]["provider"],
       grounding: opts.grounding as Session["session"]["grounding"],
       reflect_back: null,
+      asked: {},
     },
     core: { users: seeded(), outcome: seeded(), data: seeded(), systems: seeded(), constraints: seeded(), trust: seeded() },
     items: [],
@@ -117,14 +119,15 @@ function applyTurnCommand(dir: string, turnFile: string) {
   }
   const transcript = session.session.grounding === "transcript" ? (readTranscript(dir) ?? []) : null;
   const fw = loadFramework(pluginRoot());
-  const result = applyTurn(session, turn, { fw, transcript, now: now() });
   const state = readRunState(dir);
+  // A first attempt that doesn't record the answer to its own last question is sent back; the retry may capture it.
+  const result = applyTurn(session, turn, { fw, transcript, now: now(), lastReply: state.shown_reply ?? undefined, capture: state.consecutive_rejections > 0 });
 
   if (!result.applied) {
     const attempt = state.consecutive_rejections + 1;
     writeFileSync(p.rejections, JSON.stringify({ at: now(), attempt, rejections: result.rejections }) + "\n", { flag: "a" });
     if (attempt === 1) {
-      writeRunState(dir, { consecutive_rejections: 1 });
+      writeRunState(dir, { ...state, consecutive_rejections: 1 });
       return out(2, {
         result: "rejected",
         retry: true,
@@ -132,7 +135,8 @@ function applyTurnCommand(dir: string, turnFile: string) {
         rejections: result.rejections,
       });
     }
-    writeRunState(dir, { consecutive_rejections: 0 });
+    const reply = (turn as { reply?: unknown })?.reply;
+    writeRunState(dir, { consecutive_rejections: 0, shown_reply: typeof reply === "string" ? reply : null });
     return out(3, {
       result: "rejected",
       retry: false,
@@ -143,6 +147,8 @@ function applyTurnCommand(dir: string, turnFile: string) {
 
   writeSession(dir, result.session);
   writeRunState(dir, { consecutive_rejections: 0 });
+  const rb = result.session.session.reflect_back;
+  const proposed = !!rb && !rb.confirmed && rb.proposed_at !== session.session.reflect_back?.proposed_at;
   if (result.confirmed && existsSync(p.marker)) rmSync(p.marker); // interview over: stop recording prompts
   return out(0, {
     result: "applied",
@@ -150,6 +156,8 @@ function applyTurnCommand(dir: string, turnFile: string) {
     ...(result.confirmed
       ? { gates: result.session.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons, revisit_trigger: i.gate?.revisit_trigger })) }
       : { status: statusOf(result.session, fw, transcript ?? []) }),
+    // The playback is built from the session by code, never from the model's reply.
+    ...(proposed ? { summary: summaryText(buildSummary(result.session, fw)) } : {}),
   });
 }
 

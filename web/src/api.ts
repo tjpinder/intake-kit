@@ -25,6 +25,14 @@ export interface TurnResponse {
   session: Session;
   transcript: TranscriptEntry[];
   usage: { calls: number; inputTokens: number; outputTokens: number; costUSD: number | null };
+  debug?: { attempts: TurnDebug["attempts"] };
+}
+
+/** One turn as the debug log keeps it: each attempt's raw output, rejections and warnings. */
+export interface TurnDebug {
+  at: string;
+  result: TurnResponse["result"];
+  attempts: Array<{ model: string; text: string; rejections: Array<{ path: string; reason: string }>; warnings: string[] }>;
 }
 
 export class ApiError extends Error {

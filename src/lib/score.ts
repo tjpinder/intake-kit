@@ -2,7 +2,7 @@
 // is a tunable constant.
 
 import type { Framework } from "./framework.ts";
-import type { CheckResult, Item, Quadrant, Scoring } from "./session.ts";
+import { coverageFor, isCaptured, type CheckResult, type Item, type Quadrant, type Scoring, type Session } from "./session.ts";
 
 export type Level = "high" | "medium" | "low";
 
@@ -15,6 +15,24 @@ export function bandOf(item: Item, fact: string, fw: Framework): string {
   if (!allowed) throw new ScoringError(`${item.id}: fact "${fact}" isn't defined in scoring.yaml`);
   if (!allowed.includes(band)) throw new ScoringError(`${item.id}: "${band}" isn't a band of ${fact} (allowed: ${allowed.join(", ")})`);
   return band;
+}
+
+/**
+ * The band a fact may be scored on. A band whose evidence answers were all captured from replies
+ * the interviewer didn't record is unknown: a captured reply is the user's words, but nobody
+ * judged what it answers, so it can't carry a score.
+ */
+export function usableBand(session: Session, item: Item, fact: string): string {
+  const f = item.facts[fact];
+  if (!f) return "unknown";
+  const answered = f.evidence.map((id) => coverageFor(session, item, id)).filter((e) => e?.updated_at);
+  return answered.length > 0 && answered.every(isCaptured) ? "unknown" : f.band;
+}
+
+/** The item as scoring sees it: facts resting only on captured replies are dropped. */
+export function scoringView(session: Session, item: Item): Item {
+  const facts = Object.fromEntries(Object.entries(item.facts).filter(([fact]) => usableBand(session, item, fact) === item.facts[fact].band));
+  return Object.keys(facts).length === Object.keys(item.facts).length ? item : { ...item, facts };
 }
 
 /**

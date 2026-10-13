@@ -49,8 +49,9 @@ criteria:
     usually_from: [manual_process.walkthrough, core.systems]
   access:
     label: Access
-    bands: { api_or_db: 5, ui_only: 3, none: 1, unknown: null }
-    describe: { api_or_db: API or direct DB read, ui_only: UI only, none: "No UI or API access, remote desktop only" }
+    bands: { programmatic: 5, ui_only: 3, none: 1, unknown: null }
+    # First live test: scripts reading local files had nowhere to go but "UI only".
+    describe: { programmatic: "Programmatic: API, database, or files and scripts", ui_only: "UI only: a person clicks through screens", none: "No UI or API access, remote desktop only" }
     usually_from: [core.systems, core.data]
   value:
     label: Value
@@ -115,6 +116,11 @@ adoption:
   forces: [push, pull, anxiety, habit]
   bands: [low, med, high, unknown]
   risk_when: { push: [low], habit: [high] }
+  usually_from:
+    push: [known_idea.push, exploratory.instances]
+    pull: [known_idea.pull, exploratory.value]
+    anxiety: [known_idea.adoption]
+    habit: [known_idea.adoption, known_idea.current]
 
 # Facts the gates read directly.
 gate_facts:
@@ -148,7 +154,10 @@ gates:
     when_workaround_permanent: ["yes"]
   dont_build_definitive:
     existing_asset: [covers]
+    # Don't build needs evidence; missing information means Gather more. "No decision depends on it"
+    # is evidence only for a report or dataset.
     decision_depends: ["no"]
+    decision_depends_applies_to: [data_report]
     value: [trivial]
     superseded_by_go_item: true
   gather_more:
@@ -160,6 +169,8 @@ gates:
     composite_null: true
     # The AI overlay applies but a check is unknown, or a check outside dont_build_on_fail failed.
     ai_overlay_unresolved: true
+    # Any type: nobody said what depends on it; other than data reports, nothing does yet.
+    decision_depends: ["no", unknown]
   dont_build_quadrant:
     quadrant: [defer]
     # A Defer item whose solution uses an LLM and passes every AI overlay check becomes an

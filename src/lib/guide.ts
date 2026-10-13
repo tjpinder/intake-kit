@@ -5,8 +5,8 @@
 import type { Area, Framework, ItemType } from "./framework.ts";
 import { criticalAreas } from "./gates.ts";
 import { normalize, type TranscriptEntry } from "./grounding.ts";
-import { scoreItem } from "./score.ts";
-import type { Item, Session } from "./session.ts";
+import { scoreItem, scoringView } from "./score.ts";
+import { coverageFor, wasAsked, type Item, type Session } from "./session.ts";
 
 const list = (xs: string[]) => xs.map((x) => `"${x}"`).join(", ");
 
@@ -55,7 +55,8 @@ export function guide(fw: Framework): string {
   out.push(`- \`${scoring.ai_overlay.applies_fact}\`: ${Object.keys(scoring.ai_overlay.applies_bands).map((b) => `\`${b}\``).join(", ")}. "yes" only when the proposed solution uses an LLM.`);
   out.push("", "AI overlay checks, only when ai_applies is yes. Each is `pass`, `fail` or `unknown`:", "");
   for (const [name, c] of Object.entries(scoring.ai_overlay.checks)) out.push(`- \`${name}\` (${c.label}): passes when ${c.passes_when}`);
-  out.push("", `Adoption forces, for ${scoring.adoption.applies_to.join(" and ")} items: ${scoring.adoption.forces.map((f) => `\`${f}\``).join(", ")}, each ${scoring.adoption.bands.map((b) => `\`${b}\``).join(", ")}.`);
+  const forceSources = Object.entries(scoring.adoption.usually_from ?? {}).map(([f, ids]) => `\`${f}\` from ${ids.join(", ")}`);
+  out.push("", `Adoption forces, for ${scoring.adoption.applies_to.join(" and ")} items: ${scoring.adoption.forces.map((f) => `\`${f}\``).join(", ")}, each ${scoring.adoption.bands.map((b) => `\`${b}\``).join(", ")}.${forceSources.length ? ` Usually from: ${forceSources.join("; ")}.` : ""}`);
   out.push("", "Gate facts:", "");
   for (const [name, bands] of Object.entries(scoring.gate_facts)) {
     const note = scoring.gate_fact_notes?.[name];
@@ -80,6 +81,8 @@ export interface ItemStatus {
   type: ItemType;
   modifiers: string[];
   superseded_by: string | null;
+  /** Dropped: the user said it doesn't apply. Needs nothing more. */
+  dropped: boolean;
   /** Spawned from another item (an exploratory example, or a workaround): gets a light pass, not a full interview. */
   light_pass: boolean;
   /** Once every band is picked, the quadrant this item would score in. */
@@ -95,8 +98,10 @@ export interface ItemStatus {
    * ops persona never reached Go because core.systems, the source of three ease bands, was never asked).
    */
   band_sources_unasked: string[];
-  /** Critical areas not yet asked. */
+  /** Critical areas not yet asked. Asked means the interviewer asked it, or recorded a full answer. */
   critical_unasked: string[];
+  /** Critical areas answered only vaguely (assumed) whose one probe hasn't been used. */
+  critical_unprobed: string[];
   /** Answered vaguely (assumed or unknown) with their one probe still unused. */
   probe_available: string[];
   facts_missing: string[];
@@ -121,7 +126,7 @@ export interface Status {
 
 /** Items that could be built need acceptance criteria and guardrails; superseded and exploratory ones don't. */
 function needsAcceptance(i: ItemStatus): boolean {
-  return i.superseded_by == null && i.type !== "exploratory" && !i.light_pass;
+  return i.superseded_by == null && !i.dropped && i.type !== "exploratory" && !i.light_pass;
 }
 
 /** For each scored band with no answered source area that applies to the item, the first applicable source. */
@@ -138,15 +143,24 @@ function bandSourcesUnasked(item: Item, fw: Framework, asked: (id: string) => bo
 
 /** Items scored on their own need band picks; superseded, light-pass and exploratory ones don't. */
 function needsBands(i: ItemStatus): boolean {
-  return i.superseded_by == null && !i.light_pass && i.type !== "exploratory";
+  return i.superseded_by == null && !i.dropped && !i.light_pass && i.type !== "exploratory";
 }
 
 /** Literal signal phrases ("by hand", "EDI"); descriptive ones like "a metric noun" can't be matched. */
 function said(signal: string, text: string): boolean {
   if (/^an? /.test(signal)) return false;
   const esc = normalize(signal).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(^|[^a-z0-9])${esc}([^a-z0-9]|$)`).test(text);
+  const re = new RegExp(`(^|[^a-z0-9])${esc}(?=[^a-z0-9]|$)`, "g");
+  // A negated mention doesn't count: "no database, no API and no network" isn't an integration
+  // (found in the first live test). Negated means a no, not or without in the five words before ("no database or external API").
+  for (const m of text.matchAll(re)) {
+    const before = text.slice(0, m.index + m[1].length).split(/[.;:!?\n]/).pop()!.trim().split(/[\s,]+/).slice(-5);
+    if (!before.some((w) => NEGATION.test(w))) return true;
+  }
+  return false;
 }
+
+const NEGATION = /^(no|not|without|never|nor|none|isn't|aren't|don't|doesn't|didn't|isnt|arent|dont|doesnt|didnt)$/;
 
 /**
  * The type the opening's own words point at: the most specific (longest) signal phrase that
@@ -173,13 +187,15 @@ export function routingHint(fw: Framework, transcript: TranscriptEntry[]): strin
  * are prompts to check, not rules: the interviewer decides whether it's really a separate pain.
  */
 export function structureHints(session: Session, fw: Framework, transcript: TranscriptEntry[], opts: { primaryInterviewed?: boolean } = {}): string[] {
-  const live = session.items.filter((i) => !i.superseded_by);
+  const live = session.items.filter((i) => !i.superseded_by && !i.dropped);
   if (live.length === 0) return [];
   const text = normalize(transcript.filter((t) => t.role === "user").map((t) => t.text).join("\n"));
   const hints: string[] = [];
   const primary = live[0];
   for (const [mod, def] of Object.entries(fw.router.modifiers)) {
-    if (live.some((i) => i.modifiers.includes(mod as Item["modifiers"][number]))) continue;
+    const m = mod as Item["modifiers"][number];
+    // A modifier taken back (router.remove_modifiers) isn't suggested again.
+    if (live.some((i) => i.modifiers.includes(m)) || session.items.some((i) => i.modifiers_removed?.includes(m))) continue;
     const heard = def.signals.filter((sig) => said(sig, text));
     if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}: if it's part of ${primary.id}, add the \`${mod}\` modifier (set it in that item's \`modifiers\`) and cover its areas.`);
   }
@@ -188,9 +204,12 @@ export function structureHints(session: Session, fw: Framework, transcript: Tran
   // made the model spawn items for every signal phrase and run out of turns. It waits until the
   // primary item's own interview is done: a second item early on put the whole interview in the
   // multi-item state where gpt-4.1-mini stopped recording answers (persona evals, rounds 2-3).
-  if (opts.primaryInterviewed && primary.type !== "manual_process" && primary.type !== "exploratory" && !live.some((i) => i.type === "manual_process")) {
+  // A dropped or superseded manual-process item counts too: the hint never comes back once acted on.
+  // Found in the first live test: "if it stops, people go back to doing the task by hand" is a
+  // fallback, not work done today, so the hint asks before anything is added.
+  if (opts.primaryInterviewed && primary.type !== "manual_process" && primary.type !== "exploratory" && !session.items.some((i) => i.type === "manual_process")) {
     const heard = fw.router.types.manual_process.signals.filter((sig) => said(sig, text));
-    if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}: if that's manual work they do today that ${primary.id} would replace, add it as one \`manual_process\` item with spawned_from "${primary.id}", and supersede it by ${primary.id} (router.supersede) once they say it would go away. It needs only a light pass (how often, how long), not a full interview. Don't add any other items for it.`);
+    if (heard.length) hints.push(`The user said ${heard.map((h) => `"${h}"`).join(", ")}. If that might be manual work they do today that ${primary.id} would replace (not just what they'd fall back to if something failed), ask whether it happens today and when it last did. Only once they describe it happening, add it as one \`manual_process\` item with spawned_from "${primary.id}", and supersede it by ${primary.id} (router.supersede) once they say it would go away; it needs only a light pass (how often, how long). If they say it doesn't apply, add nothing, or drop the item (router.drop) if you already added it.`);
   }
   if (live.some((i) => i.type === "exploratory") && live.length < 4) {
     hints.push("This is an exploratory intake: for each concrete example the user gives, add its own item with spawned_from the exploratory item and the type that fits the example (usually manual_process; never exploratory), and ask only one or two things about it (the last time it happened, roughly what it costs a week). Don't interview any one example in depth; aim for three or more.");
@@ -203,19 +222,23 @@ export function statusOf(session: Session, fw: Framework, transcript: Transcript
   const core = Object.entries(session.core).map(([key, e]) => ({
     area: `core.${key}`,
     status: e.status,
-    asked: !!e.updated_at,
+    asked: wasAsked(session, null, `core.${key}`),
     probe_available: !!e.updated_at && (e.status === "assumed" || e.status === "unknown") && e.probe_count === 0,
   }));
 
   const items = session.items.map((item): ItemStatus => {
     const modules = [item.type, ...item.modifiers.map((m) => `mod.${m}`)];
     const areas = modules.flatMap((m) => fw.modules[m]?.areas ?? []);
-    const asked = (id: string) => (id.startsWith("core.") ? !!(item.core_overrides[id.slice(5)] ?? session.core[id.slice(5) as keyof Session["core"]])?.updated_at : !!item.coverage[id]?.updated_at);
+    const asked = (id: string) => wasAsked(session, item, id);
+    // Shared core areas this type always asks (known ideas: constraints), on top of its own always-ask areas.
+    const asksCore = modules.flatMap((m) => (fw.modules[m]?.asks_core as string[] | undefined) ?? []);
+    const critical = criticalAreas(item, fw);
     const probeable = areas
       .map((a) => [a.id, item.coverage[a.id]] as const)
       .filter(([, e]) => e?.updated_at && (e.status === "assumed" || e.status === "unknown") && e.probe_count === 0)
       .map(([id]) => id);
-    const light = item.spawned_from != null;
+    // A spawned item gets a light pass; a dropped one needs nothing more at all.
+    const light = item.spawned_from != null || !!item.dropped;
     const factsMissing = factsFor(item, fw).filter((f) => !item.facts[f]);
     return {
       id: item.id,
@@ -223,12 +246,17 @@ export function statusOf(session: Session, fw: Framework, transcript: Transcript
       type: item.type,
       modifiers: item.modifiers,
       superseded_by: item.superseded_by,
-      light_pass: light,
-      preview_quadrant: factsMissing.length === 0 ? scoreItem(item, fw).quadrant ?? null : null,
+      dropped: !!item.dropped,
+      light_pass: item.spawned_from != null,
+      preview_quadrant: factsMissing.length === 0 ? scoreItem(scoringView(session, item), fw).quadrant ?? null : null,
       has_mitigation: !!item.prose.mitigation,
       unasked: areas.filter((a) => !asked(a.id)).map((a) => a.id),
-      always_ask_pending: light ? [] : areas.filter((a) => a.always_ask && !asked(a.id)).map((a) => a.id),
-      critical_unasked: light ? [] : criticalAreas(item, fw).filter((id) => !asked(id)),
+      always_ask_pending: light ? [] : [...areas.filter((a) => a.always_ask).map((a) => a.id), ...asksCore].filter((id) => !asked(id)),
+      critical_unasked: light ? [] : critical.filter((id) => !asked(id)),
+      critical_unprobed: light ? [] : critical.filter((id) => {
+        const e = coverageFor(session, item, id);
+        return asked(id) && e?.status === "assumed" && e.probe_count === 0;
+      }),
       band_sources_unasked: light || item.superseded_by || item.type === "exploratory" ? [] : bandSourcesUnasked(item, fw, asked),
       probe_available: probeable,
       facts_missing: factsMissing,
@@ -245,7 +273,8 @@ export function statusOf(session: Session, fw: Framework, transcript: Transcript
     };
   });
 
-  const interviewComplete = items.length > 0 && items.every((i) => i.critical_unasked.length === 0 && i.always_ask_pending.length === 0 && i.band_sources_unasked.length === 0);
+  const interviewed = (i: ItemStatus) => i.critical_unasked.length === 0 && i.critical_unprobed.length === 0 && i.always_ask_pending.length === 0 && i.band_sources_unasked.length === 0;
+  const interviewComplete = items.length > 0 && items.every(interviewed);
   // A superseded item needs no band picks: if its replacement doesn't reach Go, it's gated on
   // its unknowns, which honestly lands it in Gather more.
   const writeUpComplete = items.every(
@@ -254,8 +283,8 @@ export function statusOf(session: Session, fw: Framework, transcript: Transcript
       (!needsAcceptance(i) || (i.acceptance.criteria > 0 && i.acceptance.error_cases > 0 && i.guardrails.kill_criterion > 0 && i.guardrails.fallback > 0)),
   );
   const reflect = !rb ? "none" : rb.confirmed ? "confirmed" : "proposed";
-  const primary = items.find((i) => !i.superseded_by);
-  const primaryInterviewed = !!primary && primary.critical_unasked.length === 0 && primary.always_ask_pending.length === 0 && primary.band_sources_unasked.length === 0;
+  const primary = items.find((i) => !i.superseded_by && !i.dropped);
+  const primaryInterviewed = !!primary && interviewed(primary);
   const hints = reflect === "none" ? structureHints(session, fw, transcript, { primaryInterviewed }) : [];
   return {
     reflect_back: reflect,
@@ -280,15 +309,21 @@ function nextStep(reflect: Status["reflect_back"], interviewComplete: boolean, i
     return [
       "You've played back a summary. If the user's latest message agrees with it (yes, that's right, that captures it), send `reflect_back` with status \"confirmed\" and the same text; don't propose it again. If they corrected something, send status \"corrected\" with the corrections listed.",
       ...(review.length
-        ? [`${review.map((i) => i.id).join(", ")} would score in the Review quadrant, which can't reach Go without a written mitigation: add a one-line \`mitigation\` prose for it from what the user said would reduce the risk (their fallback or review step), or ask them if they haven't said.`]
+        ? [`${review.map((i) => i.id).join(", ")} would score in the Review quadrant, which can't reach Go without a written mitigation: add a one-line \`mitigation\` prose for it from what the user has already said would reduce the risk (their fallback, review step or rule). Ask only if they've said nothing at all about how risk is handled, and not about core.trust once it has had its question and follow-up.`]
         : []),
     ].join(" ");
   }
   if (items.length === 0) return ["Create the first item from the user's opening statement and ask your first question.", ...(routing ? [routing] : [])].join(" ");
   const check = hints.length ? ` Also check: ${hints.join(" ")}` : "";
   if (!interviewComplete) {
-    const open = items.flatMap((i) => [...i.critical_unasked, ...i.always_ask_pending, ...i.band_sources_unasked]);
-    return `Keep interviewing. Still to ask (in whatever order follows the conversation): ${[...new Set(open)].join(", ")}. Record every answer the user gives as you go.${check}`;
+    const open = [...new Set(items.flatMap((i) => [...i.critical_unasked, ...i.always_ask_pending, ...i.band_sources_unasked]))];
+    const probe = [...new Set(items.flatMap((i) => i.critical_unprobed))].filter((id) => !open.includes(id));
+    return [
+      "Keep interviewing.",
+      ...(open.length ? [`Still to ask (in whatever order follows the conversation; set next_target to the area you ask): ${open.join(", ")}.`] : []),
+      ...(probe.length ? [`Answered only vaguely, so ask once about the last time it happened (is_probe true): ${probe.join(", ")}.`] : []),
+      `Record every answer the user gives as you go.${check}`,
+    ].join(" ");
   }
   // Name only the items that need each part; with none, the clause is left out (an exploratory
   // intake's write-up once said "for no item", and the model sent bands for an empty item ID).

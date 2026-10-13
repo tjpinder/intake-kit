@@ -7,6 +7,7 @@ import { scoreAndGate, criticalAreas, gateItem, GateError } from "../src/lib/gat
 import { validateSession } from "../src/lib/schemas.ts";
 import { scoreItem } from "../src/lib/score.ts";
 import type { Gate, Item, Session } from "../src/lib/session.ts";
+import type { ItemType } from "../src/lib/framework.ts";
 import { makeItem, makeSession, unknown, assumed, covered, type ItemOptions } from "./helpers.ts";
 
 const fw = loadFramework(".");
@@ -283,5 +284,27 @@ describe("the worked-example fixture is exactly what the code produces", () => {
 
   test("the code's output is a valid session", () => {
     assert.deepEqual(validateSession(out).errors, []);
+  });
+});
+
+describe("Don't build needs evidence; missing information means Gather more (first live test)", () => {
+  const fwD = loadFramework(".");
+  const gateFor = (type: ItemType, band: string) =>
+    scoreAndGate(makeSession([makeItem("item-1", { type, facts: { decision_depends: band } })]), fwD).session.items[0].gate!;
+
+  test("no decision depending on it is a definitive Don't build only for a data or report item", () => {
+    assert.equal(gateFor("data_report", "no").decision, "dont_build");
+    const idea = gateFor("known_idea", "no");
+    assert.equal(idea.decision, "gather_more");
+    assert.ok(idea.reasons.includes("No decision or outcome depends on it yet"));
+    assert.equal(gateFor("manual_process", "no").decision, "gather_more");
+  });
+
+  test("an unknown decision routes to Gather more for every type", () => {
+    for (const type of ["data_report", "known_idea"] as const) {
+      const g = gateFor(type, "unknown");
+      assert.equal(g.decision, "gather_more", type);
+      assert.ok(g.reasons.includes("Nobody has said what decision or outcome depends on it"), type);
+    }
   });
 });

@@ -2,6 +2,7 @@
 // localStorage on this device; the server keeps none of it. The offline sample is in sample.ts.
 
 import type { Session, TranscriptEntry } from "../../src/core.ts";
+import type { TurnDebug } from "./api.ts";
 import { newSession } from "./kit.ts";
 
 export interface IntakeState {
@@ -12,6 +13,8 @@ export interface IntakeState {
   replies: string[];
   /** "sample" replays the worked example locally, with no API calls. */
   mode: "live" | "sample";
+  /** Per turn: the model's raw output, rejections and warnings, for the downloadable debug log. */
+  debug?: TurnDebug[];
 }
 
 const STORAGE_KEY = "intake-kit:intake";
@@ -47,6 +50,11 @@ export function clearState(): void {
   } catch {
     /* nothing to clear */
   }
+}
+
+/** Everything needed to explain an intake afterwards, as one JSON file. Stays on this device until downloaded. */
+export function debugLog(state: IntakeState): string {
+  return JSON.stringify({ exported_at: new Date().toISOString(), session: state.session, transcript: state.transcript, replies: state.replies, turns: state.debug ?? [] }, null, 2);
 }
 
 export const isComplete = (state: IntakeState) => state.session.session.reflect_back?.confirmed === true;

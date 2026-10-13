@@ -46,7 +46,7 @@ function base(overrides: object = {}) {
     reply: "Next question?",
     updates: [],
     facts: [],
-    router: { new_items: [], reclassify: null, add_modifiers: [], supersede: null },
+    router: { new_items: [], reclassify: null, add_modifiers: [], remove_modifiers: [], supersede: null, drop: null },
     prose: [],
     acceptance: [],
     guardrails: [],
@@ -166,7 +166,7 @@ describe("apply-turn", () => {
 
   test("a good turn is saved", () => {
     const dir = started();
-    const r = turn(dir, base({ router: { new_items: [newItem], reclassify: null, add_modifiers: [], supersede: null } }));
+    const r = turn(dir, base({ router: { new_items: [newItem], reclassify: null, add_modifiers: [], remove_modifiers: [], supersede: null, drop: null } }));
     assert.equal(r.status, 0, JSON.stringify(r.body));
     assert.equal(session(dir).items[0].title, "Pick-exception report");
   });
@@ -198,7 +198,7 @@ describe("apply-turn", () => {
     const q = (s: string) => s;
     const core = (area: string, quote: string) => ({ item: null, area, status: "covered", value: quote, quote });
     assert.equal(turn(dir, base({
-      router: { new_items: [newItem], reclassify: null, add_modifiers: [], supersede: null },
+      router: { new_items: [newItem], reclassify: null, add_modifiers: [], remove_modifiers: [], supersede: null, drop: null },
       updates: [
         core("core.users", q("I build it, the shift leads use it")),
         core("core.outcome", q("It eats four hours every Monday")),
@@ -209,7 +209,7 @@ describe("apply-turn", () => {
       ],
       facts: [
         ["rule_clarity", "written"], ["input_digital", "fully"], ["input_structured", "80+"], ["ways_done", "one"],
-        ["stability", "none"], ["documentation", "partial"], ["steps_apps", "under_20"], ["access", "api_or_db"],
+        ["stability", "none"], ["documentation", "partial"], ["steps_apps", "under_20"], ["access", "programmatic"],
         ["value", "high"], ["ai_applies", "no"], ["existing_asset", "none"], ["decision_depends", "yes"], ["success_metric", "measurable_with_baseline"],
       ].map(([fact, band]) => ({ item: "item-1", fact, band, evidence: ["core.data"], quote: null })),
     })).status, 0);

@@ -1,9 +1,11 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { buildSummary, summaryIndex } from "../../src/core.ts";
 import { ApiError, fetchConfig, sendTurn, type AppConfig, type ProviderSettings } from "./api.ts";
 import { Chat } from "./components/Chat.tsx";
 import { Settings, loadProvider } from "./components/Settings.tsx";
 import { Sidebar } from "./components/Sidebar.tsx";
-import { clearState, freshState, isComplete, loadState, saveState, type IntakeState } from "./state.ts";
+import { fw } from "./kit.ts";
+import { clearState, debugLog, freshState, isComplete, loadState, saveState, type IntakeState } from "./state.ts";
 import { getTurnstileToken } from "./turnstile.ts";
 
 // The review panel builds the spec pack (YAML writer, zip), so it loads only when an intake is done.
@@ -16,6 +18,15 @@ interface Notice {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function downloadDebugLog(state: IntakeState) {
+  const url = URL.createObjectURL(new Blob([debugLog(state)], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `intake-debug-${state.session.session.id}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 export function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -41,6 +52,8 @@ export function App() {
   }, []);
 
   const complete = isComplete(state);
+  const summaryAt = summaryIndex(state.session, state.transcript);
+  const summary = useMemo(() => (summaryAt == null ? null : { at: summaryAt, summary: buildSummary(state.session, fw) }), [summaryAt, state.session]);
 
   const startOver = useCallback((mode: IntakeState["mode"] = "live") => {
     playing.current = false;
@@ -68,7 +81,8 @@ export function App() {
       }
       const transcript = [...state.transcript, { role: "user" as const, text, at: new Date().toISOString() }];
       const res = await sendTurn({ session: state.session, transcript, replies: state.replies, provider, turnstileToken });
-      setState((s) => ({ ...s, session: res.session, transcript: res.transcript, replies: [...s.replies, res.reply] }));
+      const turn = { at: transcript.at(-1)!.at, result: res.result, attempts: res.debug?.attempts ?? [] };
+      setState((s) => ({ ...s, session: res.session, transcript: res.transcript, replies: [...s.replies, res.reply], debug: [...(s.debug ?? []), turn] }));
       setPending(null);
     } catch (err) {
       setPending(null);
@@ -125,6 +139,7 @@ export function App() {
           <button onClick={() => setShowSettings(true)} disabled={state.mode === "sample"}>
             Model: {provider.kind === "kit" ? "built-in" : provider.kind === "azure" ? "your Azure" : "your Claude"}
           </button>
+          {state.transcript.length && state.mode === "live" ? <button onClick={() => downloadDebugLog(state)} title="Your session, every message and the model's raw turns, as JSON">Debug log</button> : null}
           {state.transcript.length ? <button onClick={() => startOver("live")}>New intake</button> : null}
           <a href="https://github.com/tjpinder/intake-kit" target="_blank" rel="noreferrer">GitHub</a>
         </nav>
@@ -148,6 +163,7 @@ export function App() {
           <Chat
             transcript={state.transcript}
             replies={state.replies}
+            summary={summary}
             pending={pending}
             busy={busy}
             disabled={state.mode === "sample" || complete}

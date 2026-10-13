@@ -129,3 +129,118 @@ describe("routing hint (from the persona evals)", () => {
     assert.equal(routingHint(fwR, opening("Hello there.")), null);
   });
 });
+
+describe("readiness counts what was asked, not what was recorded (first live test)", () => {
+  const fw = loadFramework(".");
+  const AT = "2026-10-13T15:30:00.000Z";
+  const seeded = () => ({ status: "unknown" as const, value: null, quotes: [] as string[], probe_count: 0 });
+  const knownIdea = (): Session => ({
+    schema_version: 1,
+    framework_version: "0.1.0",
+    session: { id: "2026-10-13-abcd", started_at: AT, mode: "stakeholder", provider: "azure-openai", grounding: "transcript", reflect_back: null, asked: {} },
+    core: { users: seeded(), outcome: seeded(), data: seeded(), systems: seeded(), constraints: seeded(), trust: seeded() },
+    items: [{
+      id: "item-1", title: "Show the rollout side", type: "known_idea", confidence: "high", trigger_quote: "x", modifiers: [], spawned_from: null, superseded_by: null,
+      type_history: [{ from: null, to: "known_idea", reason: "opening", quote: "x", at: AT }],
+      core_overrides: {}, coverage: {}, facts: {}, prose: {}, acceptance: [], guardrails: [], scoring: null, gate: null, open_questions: [],
+    }],
+  });
+  const ALL = ["core.users", "core.outcome", "core.data", "core.systems", "core.constraints", "core.trust",
+    "item-1:known_idea.current", "item-1:known_idea.proposal", "item-1:known_idea.push", "item-1:known_idea.pull",
+    "item-1:known_idea.adoption", "item-1:known_idea.prior", "item-1:known_idea.existing"];
+
+  test("an answer inferred from the opening, or an unknown marked before asking, isn't asked", () => {
+    const s = knownIdea();
+    s.core.users = { status: "assumed", value: "Hiring managers", quotes: ["hiring managers"], probe_count: 0, updated_at: AT };
+    s.core.outcome = { status: "unknown", value: null, quotes: [], probe_count: 0, updated_at: AT };
+    const st = statusOf(s, fw);
+    assert.ok(st.items[0].critical_unasked.includes("core.users"));
+    assert.ok(st.items[0].critical_unasked.includes("core.outcome"));
+    assert.equal(st.core.find((c) => c.area === "core.users")!.asked, false);
+  });
+
+  test("a full answer counts even unasked; a stamped ask counts whatever the answer", () => {
+    const s = knownIdea();
+    s.core.trust = { status: "covered", value: "Tests catch it", quotes: ["tests"], probe_count: 0, updated_at: AT };
+    s.session.asked = { "core.outcome": AT };
+    const st = statusOf(s, fw);
+    assert.ok(!st.items[0].critical_unasked.includes("core.trust"));
+    assert.ok(!st.items[0].critical_unasked.includes("core.outcome"));
+  });
+
+  test("a known idea always asks push, pull, adoption, prior and constraints, and the proposal is critical", () => {
+    const st = statusOf(knownIdea(), fw);
+    for (const id of ["known_idea.push", "known_idea.pull", "known_idea.adoption", "known_idea.prior", "known_idea.existing", "core.constraints"]) {
+      assert.ok(st.items[0].always_ask_pending.includes(id), id);
+    }
+    assert.ok(st.items[0].critical_unasked.includes("known_idea.proposal"));
+  });
+
+  test("a critical area answered only vaguely needs its probe before the interview is complete", () => {
+    const s = knownIdea();
+    s.session.asked = Object.fromEntries(ALL.map((k) => [k, AT]));
+    s.core.outcome = { status: "assumed", value: "I'd send a link", quotes: ["send a link"], probe_count: 0, updated_at: AT };
+    let st = statusOf(s, fw);
+    assert.deepEqual(st.items[0].critical_unprobed, ["core.outcome"]);
+    assert.equal(st.interview_complete, false);
+    assert.match(st.next_step, /ask once about the last time it happened \(is_probe true\): core\.outcome/);
+    s.core.outcome.probe_count = 1;
+    st = statusOf(s, fw);
+    assert.equal(st.interview_complete, true);
+  });
+
+  test("sessions from before the stamps existed keep the old rule", () => {
+    const s = knownIdea();
+    delete s.session.asked;
+    s.core.users = { status: "assumed", value: "Hiring managers", quotes: ["hiring managers"], probe_count: 0, updated_at: AT };
+    assert.ok(!statusOf(s, fw).items[0].critical_unasked.includes("core.users"));
+  });
+});
+
+describe("hints after the first live test", () => {
+  const fw = loadFramework(".");
+  const AT = "2026-10-13T15:30:00.000Z";
+  const seeded = () => ({ status: "unknown" as const, value: null, quotes: [] as string[], probe_count: 0 });
+  const session = (items: Item[]): Session => ({
+    schema_version: 1, framework_version: "0.1.0",
+    session: { id: "2026-10-13-abcd", started_at: AT, mode: "stakeholder", provider: "azure-openai", grounding: "transcript", reflect_back: null },
+    core: { users: seeded(), outcome: seeded(), data: seeded(), systems: seeded(), constraints: seeded(), trust: seeded() },
+    items,
+  });
+  const item = (id: string, type: Item["type"], extra: Partial<Item> = {}): Item => ({
+    id, title: id, type, confidence: "high", trigger_quote: "x", modifiers: [], spawned_from: null, superseded_by: null,
+    type_history: [{ from: null, to: type, reason: "opening", quote: "x", at: AT }],
+    core_overrides: {}, coverage: {}, facts: {}, prose: {}, acceptance: [], guardrails: [], scoring: null, gate: null, open_questions: [], ...extra,
+  });
+  const said = (text: string) => [{ role: "user" as const, text, at: AT }];
+
+  test("a negated signal doesn't hint a modifier", () => {
+    const s = session([item("item-1", "known_idea")]);
+    assert.ok(!structureHints(s, fw, said("The scripts read files locally, with no database, no API and no network.")).some((h) => h.includes("integration")));
+    assert.ok(!structureHints(s, fw, said("Scripts read the committed files locally, with no database or external API involved.")).some((h) => h.includes("integration")));
+    assert.ok(structureHints(s, fw, said("The orders come in over an API from the customer.")).some((h) => h.includes("integration")));
+  });
+
+  test("a removed modifier isn't hinted again", () => {
+    const s = session([item("item-1", "known_idea", { modifiers_removed: ["integration"] })]);
+    assert.ok(!structureHints(s, fw, said("The orders come in over an API.")).some((h) => h.includes("integration")));
+  });
+
+  test("the manual-work hint asks before adding, and never comes back after a drop", () => {
+    const s = session([item("item-1", "data_report")]);
+    const t = said("If it stops, people go back to doing the task by hand.");
+    const hint = structureHints(s, fw, t, { primaryInterviewed: true }).find((h) => h.includes("manual_process"))!;
+    assert.match(hint, /ask whether it happens today/);
+    assert.match(hint, /router\.drop/);
+    s.items.push(item("item-2", "manual_process", { spawned_from: "item-1", dropped: { reason: "a fallback", quote: "by hand", at: AT } }));
+    assert.ok(!structureHints(s, fw, t, { primaryInterviewed: true }).some((h) => h.includes("manual_process")));
+  });
+
+  test("a dropped item needs nothing more and isn't the primary item", () => {
+    const s = session([item("item-1", "manual_process", { dropped: { reason: "doesn't apply", quote: "x", at: AT } }), item("item-2", "data_report")]);
+    const st = statusOf(s, fw);
+    assert.equal(st.items[0].dropped, true);
+    assert.deepEqual(st.items[0].critical_unasked, []);
+    assert.deepEqual(st.items[0].always_ask_pending, []);
+  });
+});

@@ -4,6 +4,7 @@
 
 import type { Framework } from "../lib/framework.ts";
 import { guide, statusOf } from "../lib/guide.ts";
+import { buildSummary, summaryText } from "../lib/summary.ts";
 import type { Session } from "../lib/session.ts";
 import type { TranscriptEntry } from "../lib/grounding.ts";
 import type { ChatMessage, TurnRequest } from "./types.ts";
@@ -27,7 +28,7 @@ You're interviewing someone about a problem so it can become a build-ready spec.
 
 ## How this conversation works
 
-This is a web chat. Every time the user speaks, answer with exactly one JSON object that matches the turn schema. Its \`reply\` field is the only thing the user sees: one question, or the reflect-back. Everything else in the object is what you learned this turn.
+This is a web chat. Every time the user speaks, answer with exactly one JSON object that matches the turn schema. Its \`reply\` field is what the user sees: one question, or a sentence introducing the reflect-back (the app shows the summary itself). Everything else in the object is what you learned this turn.
 
 The app checks every turn before the user sees it. Each user message is recorded exactly as typed, and every quote must come from one of them. If a turn breaks a rule, the app sends you the reasons; send the whole turn again, fixed. After the history, a system message gives you this turn's session state and status: what's already recorded, what's still unasked, which probes are left, which bands are missing, and whether you're ready to reflect back. Use it to choose your next question.
 
@@ -39,8 +40,8 @@ const REFLECT_BACK = `## Reflect-back
 
 When the status's next step says to stop asking, or the user wants to wrap up, write up and play back in the same turn: fill every missing band from what you heard, write the acceptance criteria and guardrails, then:
 
-1. Propose it (\`reflect_back.status: "proposed"\`). In your reply, play back each item in their words: the problem, who's involved, what success looks like, and every band pick in plain language ("the rules can be written down; the data's all digital; there's no written procedure"), so they can correct any of them. End by asking if you got it right.
-2. On their answer: \`confirmed\` if they agree. \`corrected\` (with each correction listed) if they change anything; fix the affected updates and facts in the same turn, then propose again.
+1. Propose it (\`reflect_back.status: "proposed"\`), on a turn of its own: no new items, no other question, \`next_target.area\` null. The app builds the summary from what's recorded (each item's problem, answers, every band pick in plain language, criteria and guardrails) and shows it right after your reply, so your reply only introduces it in a sentence ("Here's what I heard; does it look right?"). Put a short version of the same playback in \`reflect_back.text\`. Answers marked as captured are the user's words taken as typed; ask them to check those.
+2. On their answer: \`confirmed\` if they agree. If they say they can't see it, say it's just above your message and ask again; never describe a summary you haven't proposed. \`corrected\` (with each correction listed) if they change anything; fix the affected updates and facts in the same turn, then propose again.
 3. Once you mark it confirmed, the app scores and gates every item and shows the user the results and the spec pack. Your reply should just thank them briefly. Don't predict or describe the outcome yourself.`;
 
 /**
@@ -102,6 +103,9 @@ export function buildContext(session: Session, fw: Framework, transcript: Transc
     "```json",
     JSON.stringify(statusOf(session, fw, transcript)),
     "```",
+    ...(session.session.reflect_back && !session.session.reflect_back.confirmed
+      ? ["The summary the user is looking at (the app shows it under your proposal):", "```", summaryText(buildSummary(session, fw)).trim(), "```"]
+      : []),
   ].join("\n");
 }
 

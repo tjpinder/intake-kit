@@ -7,7 +7,7 @@ import type { Framework, ItemType, Modifier } from "./framework.ts";
 import { findQuote, type TranscriptEntry } from "./grounding.ts";
 import { scoreAndGate } from "./gates.ts";
 import { validateSession, validateTurn } from "./schemas.ts";
-import type { CoverageEntry, Item, Session } from "./session.ts";
+import { askedKey, isCaptured, type CoverageEntry, type Item, type Session } from "./session.ts";
 
 export interface Rejection {
   /** Where in the turn, e.g. /updates/2/quote. */
@@ -20,6 +20,19 @@ export interface ApplyContext {
   /** The user's recorded prompts, or null when the session's grounding is "unverified". */
   transcript: TranscriptEntry[] | null;
   now: string;
+  /**
+   * The reply the user saw before their latest message. The answer to a question is captured
+   * only when the question stored in last_target is the one they saw: after a turn that
+   * couldn't be saved, they saw a different reply, so nothing is captured. Undefined skips the
+   * check (for callers that can't know what was shown).
+   */
+  lastReply?: string | null;
+  /**
+   * false (a turn's first attempt): a turn that doesn't record the answer to its own last
+   * question is rejected, naming the area, so the model records it in its own judgment.
+   * true (the retry, and the default): the user's words are captured instead.
+   */
+  capture?: boolean;
 }
 
 export interface ApplyResult {
@@ -42,7 +55,9 @@ interface Turn {
     new_items: Array<{ id: string; type: ItemType; confidence: Item["confidence"]; title: string; trigger_quote: string; spawned_from: string | null }>;
     reclassify: { item: string; to: ItemType; reason: string; quote: string } | null;
     add_modifiers: Array<{ item: string; modifier: Modifier; quote: string }>;
+    remove_modifiers: Array<{ item: string; modifier: Modifier; reason: string }>;
     supersede: { item: string; by: string; quote: string } | null;
+    drop: { item: string; reason: string; quote: string } | null;
   };
   prose: Array<{ item: string | null; field: keyof Item["prose"]; text: string }>;
   acceptance: Array<{ item: string; kind: "criterion" | "error_case"; given: string; when: string; then: string; evidence: string[] }>;
@@ -54,6 +69,10 @@ interface Turn {
 
 const ITEM_ID = /^item-\d+$/;
 const CORE_AREAS = ["users", "outcome", "data", "systems", "constraints", "trust"] as const;
+
+/** A shared core answer an item could differ from. A pre-marked unknown or a captured reply isn't one. */
+const sharedAnswer = (e: CoverageEntry | undefined): boolean =>
+  !!e?.updated_at && !isCaptured(e) && !(e.status === "unknown" && e.quotes.length === 0);
 
 export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContext): ApplyResult {
   const reject = (rejections: Rejection[]): ApplyResult => ({ session: original, rejections, applied: false, confirmed: false, warnings: [] });
@@ -157,6 +176,34 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
     grounded(`${path}/quote`, m.quote);
   });
 
+  // A modifier heard in passing can be taken back. Found in the first live test: "no API" added
+  // the integration modifier to a repo of local scripts.
+  turn.router.remove_modifiers.forEach((m, i) => {
+    const path = `/router/remove_modifiers/${i}`;
+    const item = needItem(`${path}/item`, m.item);
+    if (!item) return;
+    if (!m.reason.trim()) fail(`${path}/reason`, "say why the modifier doesn't apply");
+    if (!item.modifiers.includes(m.modifier)) warnings.push(`${path} skipped: ${item.id} has no ${m.modifier} modifier`);
+    else {
+      item.modifiers = item.modifiers.filter((x) => x !== m.modifier);
+      item.modifiers_removed = [...new Set([...(item.modifiers_removed ?? []), m.modifier])];
+    }
+  });
+
+  // An item that turned out not to apply is dropped, not superseded. Found in the first live test:
+  // an item spawned from a hypothetical fallback could only be marked "replaced by item-1".
+  const drop = turn.router.drop;
+  if (drop) {
+    const item = needItem("/router/drop/item", drop.item);
+    if (!drop.reason.trim()) fail("/router/drop/reason", "say why the item doesn't apply");
+    grounded("/router/drop/quote", drop.quote);
+    if (item) {
+      if (turn.router.supersede?.item === item.id) fail("/router/drop", `${item.id} can't be dropped and superseded in the same turn: drop it if it doesn't apply, supersede it if the other item replaces it`);
+      item.dropped = { reason: drop.reason, quote: drop.quote, at: now };
+      item.superseded_by = null;
+    }
+  }
+
   const sup = turn.router.supersede;
   if (sup) {
     const item = needItem("/router/supersede/item", sup.item);
@@ -195,7 +242,7 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
         // Shared core is captured once; an item overrides it only when its answer differs from
         // one already given. With no shared answer yet, this answer becomes the shared one.
         const shared = session.core[key as (typeof CORE_AREAS)[number]];
-        target = shared?.updated_at || item.core_overrides[key] ? item.core_overrides : session.core;
+        target = sharedAnswer(shared) || item.core_overrides[key] ? item.core_overrides : session.core;
       }
     } else {
       const item = needItem(`${path}/item`, u.item);
@@ -282,16 +329,28 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
   if (nt.area != null && knownArea("/next_target/area", nt.area) && nt.item != null && items.has(nt.item) && !nt.area.startsWith("core.")) {
     areaFits("/next_target/area", items.get(nt.item)!, nt.area);
   }
+  const targetEntry = (): CoverageEntry | undefined => {
+    if (nt.area == null) return undefined;
+    if (nt.area.startsWith("core.")) {
+      const key = nt.area.slice(5) as (typeof CORE_AREAS)[number];
+      return (nt.item != null ? items.get(nt.item)?.core_overrides[key] : undefined) ?? session.core[key];
+    }
+    return nt.item != null ? items.get(nt.item)?.coverage[nt.area] : undefined;
+  };
+  // A second question on an area already asked is its follow-up, flagged or not; a third isn't
+  // allowed. Found in the first live test: four questions on core.trust, none flagged as a probe.
+  const askedBefore = !!nt.area && !!original.session.asked && !!original.session.asked[askedKey(nt.item, nt.area) ?? ""];
+  if (askedBefore && !nt.is_probe && fw.areas.has(nt.area!)) {
+    const entry = targetEntry();
+    if (entry?.updated_at) {
+      if (entry.probe_count >= 1) fail("/next_target/area", `${nt.area} has had its question and one follow-up already. Record what the user said (assumed or unknown if it's still vague) and ask about something else; anything still missing goes in open_questions.`);
+      else entry.probe_count = 1;
+    }
+  }
   if (nt.is_probe) {
     if (nt.area == null) fail("/next_target/is_probe", "a probe has to target an area");
     else if (fw.areas.has(nt.area)) {
-      let entry: CoverageEntry | undefined;
-      if (nt.area.startsWith("core.")) {
-        const key = nt.area.slice(5) as (typeof CORE_AREAS)[number];
-        entry = (nt.item != null ? items.get(nt.item)?.core_overrides[key] : undefined) ?? session.core[key];
-      } else if (nt.item != null) {
-        entry = items.get(nt.item)?.coverage[nt.area];
-      }
+      const entry = targetEntry();
       // `start` seeds core areas without updated_at; any answer recorded through a turn sets it.
       if (!entry || !entry.updated_at) {
         fail("/next_target/is_probe", `${nt.area} hasn't been answered yet, so this is a first ask, not a probe`);
@@ -311,6 +370,10 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
     const prior = original.session.reflect_back;
     if (rb.status === "proposed") {
       if (items.size === 0) fail("/reflect_back", "there's nothing to reflect back yet: no items");
+      // Found in the first live test: a turn proposed the reflect-back while its reply asked about
+      // a new item, so the user never saw a summary and was then asked to confirm one.
+      if (turn.router.new_items.length) fail("/reflect_back", "a reflect-back can't be proposed in the same turn as adding items: add the item and ask about it now, and propose once its questions are done");
+      if (nt.area != null) fail("/next_target/area", "a reflect-back proposal asks only whether the summary is right: set next_target.area to null and ask no other question in the reply");
       session.session.reflect_back = { text: rb.text, confirmed: false, corrections: prior?.corrections ?? [], proposed_at: now };
     } else if (!prior?.proposed_at) {
       fail("/reflect_back/status", `can't mark the reflect-back ${rb.status} before it has been proposed to the user`);
@@ -326,39 +389,58 @@ export function applyTurn(original: Session, turnData: unknown, ctx: ApplyContex
   }
 
   // 6b. Answer capture. The last applied turn named the area it asked about. If this turn doesn't
-  // record that area and the user gave a real answer, the user's exact words are stored as an
-  // assumed answer, which the reflect-back then asks them to confirm. Found in the persona evals:
-  // with two or more items, gpt-4.1-mini often heard an answer, recorded nothing and asked again,
-  // forever. Only an area with no answer yet is filled, or one marked unknown on an earlier turn
-  // (the model sometimes marks the area it's about to ask as unknown before asking it); this
-  // turn's own record of the area always wins.
+  // record that area and the user gave a real answer, the first attempt is rejected, naming the
+  // area (even one already answered); on the retry, the user's exact words are stored as a captured answer, which the summary
+  // shows for confirmation and scoring never uses. Found in the persona evals and the first live
+  // test: gpt-4.1-mini often heard an answer, recorded nothing and asked again.
+  // Capture needs the question on record to be the one the user saw (after a turn that couldn't
+  // be saved, they saw another), and stops if the turn recorded anything from their reply, since
+  // the model may have filed it under the area it really answers (in the live test a question
+  // about what makes mistakes easy was labelled core.systems). Only an area with no answer yet,
+  // an unknown or an earlier captured reply is filled; this turn's own record always wins.
   const asked = original.session.last_target;
   const lastUser = ctx.transcript?.filter((e) => e.role === "user").at(-1);
-  if (asked && lastUser && !original.session.reflect_back && fw.areas.has(asked.area) && !turn.updates.some((u) => u.area === asked.area) && lastUser.text.trim().split(/\s+/).length >= 4) {
+  const sawAsked = !!asked && (ctx.lastReply === undefined || asked.reply === undefined || asked.reply === ctx.lastReply);
+  const recordedReply = !!lastUser && turn.updates.some((u) => u.quote != null && findQuote(u.quote, [lastUser]));
+  if (asked && sawAsked && lastUser && !original.session.reflect_back && fw.areas.has(asked.area) && !turn.updates.some((u) => u.area === asked.area) && !recordedReply && lastUser.text.trim().split(/\s+/).length >= 4) {
     let target: Record<string, CoverageEntry> | null = null;
     let key = asked.area;
     if (asked.area.startsWith("core.")) {
       key = asked.area.slice(5);
       const item = asked.item == null ? null : items.get(asked.item);
       const shared = session.core[key as (typeof CORE_AREAS)[number]];
-      target = !item || !shared?.updated_at ? session.core : item.core_overrides;
+      target = !item || !sharedAnswer(shared) ? session.core : item.core_overrides;
     } else {
       const item = asked.item == null ? undefined : items.get(asked.item);
       const module = asked.area.startsWith("mod.") ? asked.area.split(".").slice(0, 2).join(".") : asked.area.split(".")[0];
       if (item && (module === item.type || item.modifiers.some((m) => `mod.${m}` === module))) target = item.coverage;
     }
-    if (target && (!target[key]?.updated_at || target[key].status === "unknown")) {
+    const current = target?.[key];
+    const open = !current?.updated_at || current.status === "unknown" || isCaptured(current);
+    if (target && ctx.capture === false) {
+      // Sent back even when the area already had an answer: a follow-up's answer was lost that
+      // way in the replays of the live test (a second question on core.trust, nothing recorded).
+      const question = asked.reply ? ` ("${asked.reply}")` : "";
+      fail("/updates", `your last question${question} was about ${asked.area}${asked.item ? ` for ${asked.item}` : ""}, and this turn records nothing from the user's answer. Record it under the area it really answers (covered, assumed or unknown, quoting them exactly). If it doesn't answer your question, record what it does answer and ask again.`);
+    } else if (target && open) {
       // "I don't know" is an answer too, but an unknown one, never an assumption (the vague
       // persona's don't-knows were being stored as assumed answers).
       const text = lastUser.text.trim();
       const dontKnow = /\b(don'?t|do not) know\b|\bnot sure\b|\bno idea\b|\bunsure\b/i.test(text);
+      const quotes = current?.quotes.includes(text) ? current.quotes : [...(current?.quotes ?? []), text];
+      const probe_count = current?.probe_count ?? 0;
       target[key] = dontKnow
-        ? { status: "unknown", value: null, quotes: [text], probe_count: target[key]?.probe_count ?? 0, updated_at: now }
-        : { status: "assumed", value: text, quotes: [text], probe_count: target[key]?.probe_count ?? 0, updated_at: now };
-      warnings.push(`${asked.area} recorded from the user's reply: the turn didn't record the answer to the question it asked`);
+        ? { status: "unknown", value: null, quotes, probe_count, updated_at: now, source: "captured" }
+        : { status: "assumed", value: text, quotes, probe_count, updated_at: now, source: "captured" };
+      warnings.push(`${asked.area} captured from the user's reply: the turn didn't record the answer to the question it asked`);
     }
   }
-  session.session.last_target = turn.next_target.area ? { item: turn.next_target.item, area: turn.next_target.area } : null;
+  // 6c. Stamp the area this turn asks about (a proposal asks nothing). Readiness reads these.
+  if (session.session.asked && nt.area && fw.areas.has(nt.area) && rb?.status !== "proposed") {
+    const key = askedKey(nt.item, nt.area);
+    if (key && !session.session.asked[key]) session.session.asked = { ...session.session.asked, [key]: now };
+  }
+  session.session.last_target = turn.next_target.area ? { item: turn.next_target.item, area: turn.next_target.area, reply: turn.reply } : null;
 
   if (!turn.reply.trim()) fail("/reply", "the reply to the user can't be empty");
 

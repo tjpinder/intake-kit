@@ -91,7 +91,11 @@ export function writeSession(dir: string, session: Session): void {
   writeFileSync(paths(dir).session, header + stringifyYaml(session, { lineWidth: 0, aliasDuplicateObjects: false }));
 }
 
-interface RunState { consecutive_rejections: number }
+interface RunState {
+  consecutive_rejections: number;
+  /** The reply the user was shown after a turn that couldn't be saved, so a stale question isn't captured against. */
+  shown_reply?: string | null;
+}
 
 export function readRunState(dir: string): RunState {
   const file = paths(dir).state;

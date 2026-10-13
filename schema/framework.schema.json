@@ -79,6 +79,11 @@
         "candidates": { "type": "string" },
         "adoption_forces": { "type": "array", "items": { "enum": ["push", "pull", "anxiety", "habit"] } },
         "spawns_items": { "type": "boolean" },
+        "asks_core": {
+          "description": "Shared core areas that are always asked for items of this type, though not critical for every type.",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^core\\.[a-z_]+$" }
+        },
         "self_serve_rule": { "type": "string" },
         "areas": {
           "type": "array",
@@ -221,7 +226,12 @@
             "applies_to": { "type": "array", "items": { "$ref": "#/$defs/item_type" } },
             "forces": { "const": ["push", "pull", "anxiety", "habit"] },
             "bands": { "$ref": "#/$defs/band_list" },
-            "risk_when": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } }
+            "risk_when": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } },
+            "usually_from": {
+              "description": "Per force, the areas its band is usually picked from. Shown in the guide.",
+              "type": "object",
+              "additionalProperties": { "type": "array", "items": { "type": "string" } }
+            }
           }
         },
         "gate_facts": {
@@ -256,10 +266,15 @@
             "dont_build_definitive": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["existing_asset", "decision_depends", "value", "superseded_by_go_item"],
+              "required": ["existing_asset", "decision_depends", "decision_depends_applies_to", "value", "superseded_by_go_item"],
               "properties": {
                 "existing_asset": { "type": "array", "items": { "type": "string" } },
                 "decision_depends": { "type": "array", "items": { "type": "string" } },
+                "decision_depends_applies_to": {
+                  "description": "Item types where no decision depending on it is a definitive Don't build. For other types it routes to Gather more.",
+                  "type": "array",
+                  "items": { "$ref": "#/$defs/item_type" }
+                },
                 "value": { "type": "array", "items": { "type": "string" } },
                 "superseded_by_go_item": { "type": "boolean" }
               }
@@ -275,7 +290,12 @@
                 "modifiers": { "type": "array", "items": { "$ref": "#/$defs/modifier" } },
                 "defer_with_critical_unknown": { "type": "boolean" },
                 "composite_null": { "type": "boolean" },
-                "ai_overlay_unresolved": { "type": "boolean" }
+                "ai_overlay_unresolved": { "type": "boolean" },
+                "decision_depends": {
+                  "description": "decision_depends bands that route to Gather more when they aren't a definitive Don't build for the item's type. Missing information is never a reason not to build.",
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
               }
             },
             "dont_build_quadrant": {

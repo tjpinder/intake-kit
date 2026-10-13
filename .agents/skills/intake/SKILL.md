@@ -31,7 +31,7 @@ Run commands exactly as written below: one command, no `&&`, `||`, pipes or redi
    - `result: "resumed"`: read the `status` it returns and `intake-answers.yaml`, briefly remind the user where you left off, and ask the next question.
 2. **Each time the user speaks**, decide what you learned, then write the whole turn to `.intake-kit/turn.json` with your file tool (format below).
 3. **Run** `node "<KIT>/dist/intake.mjs" apply-turn`.
-   - Exit 0: the turn is saved. Now send the user your `reply`, word for word. Use the `status` that came back to plan the next question.
+   - Exit 0: the turn is saved. Now send the user your `reply`, word for word. If the result has a `summary` (you proposed the reflect-back), show it after your reply, word for word: that's the playback the user checks. Use the `status` that came back to plan the next question.
    - Exit 2: nothing was saved. Read every rejection, fix the turn, write it again in full and rerun. Don't show the reply yet.
    - Exit 3: rejected twice. Nothing from that turn was saved. Send the reply anyway and carry on; capture those answers again on a later turn.
 
@@ -56,13 +56,14 @@ These are tested behaviour, not suggestions.
 
 - **One question per message.** Never stack questions. Keep messages short.
 - **Follow their thread first.** Ask only about gaps the story hasn't already covered. Use `status.unasked` and `status.critical_unasked` to find them; don't march down the list in order.
-- **Anchor vague answers to the past, once.** "Usually", "would", "normally", "I think" get one follow-up: "Tell me about the last time…". In that same turn, record the vague answer (`assumed` with their words, or `unknown`) and set `next_target.is_probe: true` on the follow-up. A probe needs an answer on record to probe, and you get one per area; `apply-turn` rejects a second.
+- **Anchor vague answers to the past, once.** "Usually", "would", "normally", "I think" get one follow-up: "Tell me about the last time…". In that same turn, record the vague answer (`assumed` with their words, or `unknown`) and set `next_target.is_probe: true` on the follow-up. A probe needs an answer on record to probe, and you get one per area; `apply-turn` rejects a second. Any second question on an area you already asked counts as its follow-up, flagged or not, so each area gets at most two questions.
 - **Still vague after the probe?** Record it as `assumed`, with their words as the quote, or as `unknown`. Never answer for the user, never suggest an answer, and never record your own guess.
 - **Blameless.** When something went wrong, ask what about the setup made it easy to go wrong, not who did it.
 - **Plain language.** Don't say "coverage area", "quadrant", "modifier", "band" or "gate" to the user. Say what you mean.
 - **Covered means complete.** Mark an area `covered` only when the user has answered what the guide says it must capture. A partial answer isn't covered yet: keep asking, and record the area once it's complete (quotes can come from any earlier message).
 - **Each distinct pain is its own item.** A stated solution is a hypothesis: for idea-first openings, walk back to what happens today before anything else. Exploratory openings spawn several items: one per concrete example, typed by what the example is (usually `manual_process`, never `exploratory`), each with `spawned_from` the exploratory item. Any spawned item gets only a light pass (when it last happened, rough weekly cost), never a full interview. Outside exploratory intakes, add a follow-on item (like a manual workaround the main item would replace) only after the main item's questions are done; `status.hints` says when.
-- **Today's manual workaround is its own item.** When the user does something by hand to get what they're asking for (a weekly spreadsheet, a copy-paste routine), create a `manual_process` item for it with `spawned_from` set to the main item. If they say the new thing would replace it, record `router.supersede`.
+- **Today's manual workaround is its own item.** When the user does something by hand today to get what they're asking for (a weekly spreadsheet, a copy-paste routine), create a `manual_process` item for it with `spawned_from` set to the main item, once the main item's questions are done (`status.hints` says when). What they'd fall back to if the new thing failed isn't a workaround: ask whether it happens today before adding anything. If they say the new thing would replace it, record `router.supersede`.
+- **Take back what doesn't apply.** If an item turns out not to apply, drop it with `router.drop` (the reason, and their words saying so); `supersede` is only for an item the new one replaces. If a modifier doesn't fit after all, remove it with `router.remove_modifiers`.
 - **Always ask** the areas marked "always ask" in the guide before the reflect-back.
 - **The user can stop any time.** If they want to wrap up, go to the reflect-back with what you have; unasked areas become open questions.
 
@@ -89,7 +90,7 @@ Write guardrails for the same items, also from the user's words only, each citin
 - `review_point`: who checks its output, and when, before anyone acts on it.
 - `data_rule`: how the data must be handled (read-only, sensitive fields, where it may go).
 
-If the user can't say what would make them switch it off, ask "What would make you switch it off?" once. If they still can't, don't write one: the missing kill criterion becomes a visible gap, which is the right outcome. `status.items[].guardrails` shows the counts.
+If the user hasn't said what would make them switch it off, use core.trust's one follow-up for "What would make you switch it off?" if it's still free. If they still can't say, or the follow-up is used, don't write one: the missing kill criterion becomes a visible gap, which is the right outcome. `status.items[].guardrails` shows the counts.
 
 Add an `open_question` for anything left `unknown` that matters: what to ask, who could answer it, and what artifact would settle it.
 
@@ -97,8 +98,8 @@ Add an `open_question` for anything left `unknown` that matters: what to ask, wh
 
 When `status.interview_complete` is true (`status.next_step` says to stop asking), or the user wants to wrap up, write up and play back in the same turn: fill every missing band from what you heard, write the acceptance criteria and guardrails, then:
 
-1. Propose it (`reflect_back.status: "proposed"`). In your reply, play back each item in their words: the problem, who's involved, what success looks like, and every band pick in plain language ("the rules can be written down; the data's all digital; there's no written procedure"), so they can correct any of them. End by asking if you got it right.
-2. On their answer: `confirmed` if they agree. `corrected` (with each correction listed) if they change anything; fix the affected updates and facts in the same turn, then propose again.
+1. Propose it (`reflect_back.status: "proposed"`), on a turn of its own: no new items, no other question, `next_target.area` null. The app builds the summary the user sees from what's recorded (each item's problem, answers, every band pick in plain language, criteria and guardrails) and shows it with your reply, so your reply only introduces it in a sentence and asks whether you got it right. Put a short version of the same playback in `reflect_back.text`. Answers marked as captured are the user's words taken as typed; ask them to check those.
+2. On their answer: `confirmed` if they agree. If they say they can't see a summary, say it's just above and ask again; never describe a summary you haven't proposed. `corrected` (with each correction listed) if they change anything; fix the affected updates and facts in the same turn, then propose again.
 3. Once confirmed, `apply-turn` scores and gates every item and returns `gates`. Tell the user the outcome for each item in a sentence or two, using the reasons it returned, and the revisit trigger for anything not going ahead. "Don't build" and "fix, not build" are good outcomes when they're right; say so plainly.
 
 ## Render the spec pack
@@ -129,7 +130,9 @@ Every field is required, every time. Use `[]` and `null` for empty.
     "new_items": [ { "id": "item-1", "type": "data_report", "confidence": "high", "title": "Daily pick-exception report", "trigger_quote": "I need a report of short picks", "spawned_from": null } ],
     "reclassify": null,
     "add_modifiers": [],
-    "supersede": null
+    "remove_modifiers": [],
+    "supersede": null,
+    "drop": null
   },
   "prose": [ { "item": "item-1", "field": "problem_statement", "text": "Retraining is chosen by guesswork." } ],
   "acceptance": [
@@ -151,7 +154,7 @@ Every field is required, every time. Use `[]` and `null` for empty.
 - `item: null` for shared-core areas (`core.*`) that apply to the whole session. Give an item ID to record a core answer that differs for that item only.
 - Module areas (`data_report.*`, `mod.integration.*`, …) need the item they belong to, and only fit items of that type or with that modifier.
 - Item IDs are `item-1`, `item-2`, … Create an item before (or in the same turn as) anything that refers to it.
-- `router.supersede` when the user says one item would replace another ("if I had that I'd stop doing the Monday thing").
+- `router.supersede` when the user says one item would replace another ("if I had that I'd stop doing the Monday thing"). `router.drop` (`{ "item", "reason", "quote" }`) when an item turns out not to apply. `router.remove_modifiers` (`[{ "item", "modifier", "reason" }]`) when a modifier doesn't fit.
 - `next_target` is the area your reply asks about (`null` for the reflect-back); `is_probe` only for the one follow-up on a vague answer.
 - `reflect_back`: `null`, or `{ "text", "status": "proposed" | "confirmed" | "corrected", "corrections": [] }`.
 

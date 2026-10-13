@@ -39,7 +39,7 @@ export function readServerConfig(env: Record<string, string | undefined>): Serve
 
   let azure: ServerConfig["azure"] = null;
   if (endpoint && apiKey) {
-    azure = { endpoint, apiKey, deployment: env.AZURE_OPENAI_DEPLOYMENT || "intake-kit-turn", model: env.AZURE_OPENAI_MODEL || "gpt-4.1-mini" };
+    azure = { endpoint, apiKey, deployment: env.AZURE_OPENAI_DEPLOYMENT || "intake-kit-eval-gpt41", model: env.AZURE_OPENAI_MODEL || "gpt-4.1" };
   } else {
     warnings.push("AZURE_OPENAI_ENDPOINT or AZURE_OPENAI_API_KEY is missing, so the kit's own model is off; visitors need their own key.");
   }

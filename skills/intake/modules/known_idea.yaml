@@ -4,6 +4,9 @@ module: known_idea
 applies_to: known_idea
 methods: [The Mom Test (Rob Fitzpatrick), jobs-to-be-done]
 adoption_forces: [push, pull, anxiety, habit]
+# Constraints are optional for most types, but a known idea usually arrives with them (stack,
+# licence, what it mustn't do), and the first live test lost all of them.
+asks_core: [core.constraints]
 
 areas:
   - id: known_idea.current
@@ -17,10 +20,26 @@ areas:
     feeds:
       - { file: SPEC.md, section: current_state }
 
+  # Found in the first live test: a known idea with a detailed plan behind it had nowhere to
+  # record the plan, so the smallest version and what's out of scope were guessed.
+  - id: known_idea.proposal
+    must_capture: What they propose to build, its main parts, the smallest version that would be useful, and what's deliberately left out
+    probes:
+      - "What would the first version include, and what would you leave out?"
+      - "If you could only build one part of it, which would it be?"
+    critical: true
+    followup_conditions:
+      - when: the parts are named but not what's left out
+        ask: "What's deliberately not in the first version?"
+    feeds:
+      - { file: SPEC.md, section: mvp }
+      - { file: SPEC.md, section: out_of_scope }
+
   - id: known_idea.push
     must_capture: The worst part of how it's done now
     probes:
       - "What's the worst part of how it's done now?"
+    always_ask: true
     critical: false
     followup_conditions: []
     feeds:
@@ -31,6 +50,7 @@ areas:
     must_capture: What would be different on a normal day if it worked
     probes:
       - "If it worked perfectly, what would be different on a normal Tuesday?"
+    always_ask: true
     critical: false
     followup_conditions: []
     feeds:
@@ -41,6 +61,7 @@ areas:
     must_capture: What would stop people trusting it and what they'd keep doing the old way
     probes:
       - "What would make you not trust it? What would people keep doing the old way?"
+    always_ask: true
     critical: false
     followup_conditions: []
     feeds:
@@ -51,15 +72,18 @@ areas:
     must_capture: Previous attempts and what happened
     probes:
       - "Has anyone tried to solve this before? What happened?"
+    always_ask: true
     critical: false
     followup_conditions: []
     feeds:
       - { file: DECISIONS.md, section: gate }
 
   - id: known_idea.existing
-    must_capture: Whether an existing WMS, ERP or BI feature already does something close
+    # Found in the first live test: the warehouse wording (WMS, ERP, BI) was asked word for word
+    # about a repo of documents and scripts.
+    must_capture: Whether a tool they already have, or one they could get, already does something close
     probes:
-      - "Does your WMS, ERP or BI tool already do something close to this?"
+      - "Does anything you already use, or could easily get, do something close to this?"
     always_ask: true
     critical: false
     followup_conditions: []

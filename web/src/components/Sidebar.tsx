@@ -66,7 +66,7 @@ export function Sidebar({ session }: { session: Session }) {
             <h3>
               {item.title}
               <span className="badge">{TYPE_LABEL[item.type]}</span>
-              {item.superseded_by ? <span className="badge subtle">replaced by {item.superseded_by}</span> : null}
+              {item.dropped ? <span className="badge subtle">dropped: doesn't apply</span> : item.superseded_by ? <span className="badge subtle">replaced by {item.superseded_by}</span> : null}
             </h3>
             <ul className="areas">
               {areas.map((a) => <Area key={a.id} session={session} itemIndex={i} id={a.id} critical={a.critical} />)}

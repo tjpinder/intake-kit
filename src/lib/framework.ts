@@ -50,14 +50,14 @@ export interface Scoring {
     check_bands: ["pass", "fail", "unknown"];
     dont_build_on_fail: string[];
   };
-  adoption: { applies_to: ItemType[]; forces: string[]; bands: Band[]; risk_when: Record<string, Band[]> };
+  adoption: { applies_to: ItemType[]; forces: string[]; bands: Band[]; risk_when: Record<string, Band[]>; usually_from?: Record<string, string[]> };
   gate_facts: Record<string, Band[]>;
   gate_fact_notes?: Record<string, string>;
   gates: {
     go_requires_core: string[];
     precedence: string[];
     fix_not_build: { applies_to: ItemType[]; when_cause: Band[]; when_workaround_permanent: Band[] };
-    dont_build_definitive: { existing_asset: Band[]; decision_depends: Band[]; value: Band[]; superseded_by_go_item: boolean };
+    dont_build_definitive: { existing_asset: Band[]; decision_depends: Band[]; decision_depends_applies_to: ItemType[]; value: Band[]; superseded_by_go_item: boolean };
     gather_more: {
       critical_unknown: boolean;
       stability: Band[];
@@ -66,6 +66,7 @@ export interface Scoring {
       defer_with_critical_unknown: boolean;
       composite_null: boolean;
       ai_overlay_unresolved: boolean;
+      decision_depends?: Band[];
     };
     dont_build_quadrant: { quadrant: string[]; defer_rescued_by_ai_overlay: boolean; ai_overlay_fail: boolean };
     go: {
@@ -224,6 +225,9 @@ export function buildFramework(sources: FrameworkSources, options: BuildOptions 
     issues.push(`modules/core.yaml areas (${moduleCore.join(", ")}) must match the session schema's core (${coreIds.join(", ")})`);
   }
   for (const id of scoring.gates.go_requires_core) if (!areas.has(id)) issues.push(`scoring.yaml: go_requires_core names unknown area ${id}`);
+  for (const mod of Object.values(modules)) {
+    for (const id of (mod.asks_core as string[] | undefined) ?? []) if (!coreIds.includes(id)) issues.push(`modules/${mod.module}.yaml: asks_core names unknown core area ${id}`);
+  }
 
   // Facts: scoring.yaml, turn schema and session schema must agree exactly
   const factBands = new Map<string, Band[]>();
@@ -262,6 +266,10 @@ export function buildFramework(sources: FrameworkSources, options: BuildOptions 
   if (scoring.thresholds.low_below_pct >= scoring.thresholds.high_min_pct) issues.push("scoring.yaml: low_below_pct must be below high_min_pct");
   for (const c of scoring.ai_overlay.dont_build_on_fail) if (!scoring.ai_overlay.checks[c]) issues.push(`scoring.yaml: dont_build_on_fail names unknown check ${c}`);
   for (const force of Object.keys(scoring.adoption.risk_when)) if (!scoring.adoption.forces.includes(force)) issues.push(`scoring.yaml: adoption.risk_when names unknown force ${force}`);
+  for (const [force, ids] of Object.entries(scoring.adoption.usually_from ?? {})) {
+    if (!scoring.adoption.forces.includes(force)) issues.push(`scoring.yaml: adoption.usually_from names unknown force ${force}`);
+    for (const id of ids) if (!areas.has(id)) issues.push(`scoring.yaml: adoption.usually_from.${force} names unknown area ${id}`);
+  }
 
   const bandRefs: Array<[string, string, Band[]]> = [
     ["broken_cause", "gates.fix_not_build.when_cause", scoring.gates.fix_not_build.when_cause],
@@ -270,6 +278,7 @@ export function buildFramework(sources: FrameworkSources, options: BuildOptions 
     ["decision_depends", "gates.dont_build_definitive.decision_depends", scoring.gates.dont_build_definitive.decision_depends],
     ["value", "gates.dont_build_definitive.value", scoring.gates.dont_build_definitive.value],
     ["stability", "gates.gather_more.stability", scoring.gates.gather_more.stability],
+    ["decision_depends", "gates.gather_more.decision_depends", scoring.gates.gather_more.decision_depends ?? []],
     ["success_metric", "gates.go.success_metric", scoring.gates.go.success_metric],
   ];
   for (const [fact, path, bands] of bandRefs) {

@@ -1,7 +1,7 @@
 // USD per million tokens. Used to enforce the spend caps, so an unknown model throws rather
 // than being costed at zero, and prices err high where unsure.
 //
-// Azure OpenAI rates match an existing production table (gpt-4.1-mini $0.40 / $1.60). Cached
+// Azure OpenAI rates match an existing production table (gpt-4.1-mini $0.40 / $1.60, the simulated user in evals; gpt-4.1 $2 / $8, the web app's interviewer). Cached
 // input is charged at the full input rate: conservative for a cap.
 // Claude rates are Anthropic's first-party prices as of 2026-10-06; Haiku 5.5's cache-read
 // rate wasn't listed, so it's charged at the full input rate.
@@ -16,6 +16,7 @@ export interface Price {
 
 export const PRICES: Record<string, Price> = {
   "gpt-4.1-mini": { input: 0.4, cachedInput: 0.4, output: 1.6 },
+  "gpt-4.1": { input: 2, cachedInput: 2, output: 8 },
   "claude-opus-5-5": { input: 4, cachedInput: 0.2, output: 20, cacheWriteMultiplier: 1.25 },
   "claude-sonnet-5-5": { input: 2, cachedInput: 0.2, output: 10, cacheWriteMultiplier: 1.25 },
   "claude-haiku-5-5": { input: 0.1, cachedInput: 0.1, output: 0.5, cacheWriteMultiplier: 1.25 },

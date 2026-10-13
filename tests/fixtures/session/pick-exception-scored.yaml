@@ -76,7 +76,7 @@ items:
       stability: { band: none, evidence: [core.systems], quotes: ["nothing's changing on the WMS this year"] }
       documentation: { band: partial, evidence: [data_report.definition], quotes: [] }
       steps_apps: { band: under_20, evidence: [core.systems], quotes: [] }
-      access: { band: api_or_db, evidence: [core.systems], quotes: ["we've got read access to the reporting copy"] }
+      access: { band: programmatic, evidence: [core.systems], quotes: ["we've got read access to the reporting copy"] }
       value: { band: high, evidence: [core.outcome], quotes: ["it eats my whole Monday morning, call it four hours"] }
       ai_applies: { band: "no", evidence: [data_report.definition], quotes: [] }
       existing_asset: { band: none, evidence: [data_report.existing], quotes: ["the dashboard only gives me the total for the building"] }
@@ -105,7 +105,7 @@ items:
         stability: { score: 5, band: none, evidence: [core.systems] }
         documentation: { score: 3, band: partial, evidence: [data_report.definition] }
         steps_apps: { score: 5, band: under_20, evidence: [core.systems] }
-        access: { score: 5, band: api_or_db, evidence: [core.systems] }
+        access: { score: 5, band: programmatic, evidence: [core.systems] }
         value: { score: 5, band: high, evidence: [core.outcome] }
       automation_potential: 5.0
       ease: 4.5
@@ -161,6 +161,7 @@ items:
       decision: dont_build
       reasons:
         - Superseded by item-1, which reaches Go
+        - (also matched gather_more) Nobody has said what decision or outcome depends on it
         - (also matched gather_more) Too few known criteria to score automation potential
         - (also matched gather_more) Too few known criteria to score ease
       revisit_trigger: Revisit if item-1 isn't built, or doesn't replace this

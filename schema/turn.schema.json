@@ -83,12 +83,14 @@
     "router": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["new_items", "reclassify", "add_modifiers", "supersede"],
+      "required": ["new_items", "reclassify", "add_modifiers", "remove_modifiers", "supersede", "drop"],
       "properties": {
         "new_items": { "type": "array", "items": { "$ref": "#/$defs/new_item" } },
         "reclassify": { "anyOf": [{ "$ref": "#/$defs/reclassify" }, { "type": "null" }] },
         "add_modifiers": { "type": "array", "items": { "$ref": "#/$defs/add_modifier" } },
-        "supersede": { "anyOf": [{ "$ref": "#/$defs/supersede" }, { "type": "null" }] }
+        "remove_modifiers": { "type": "array", "items": { "$ref": "#/$defs/remove_modifier" } },
+        "supersede": { "anyOf": [{ "$ref": "#/$defs/supersede" }, { "type": "null" }] },
+        "drop": { "anyOf": [{ "$ref": "#/$defs/drop" }, { "type": "null" }] }
       }
     },
     "new_item": {
@@ -123,6 +125,26 @@
         "item": { "type": "string" },
         "modifier": { "type": "string", "enum": ["integration", "compliance", "migration"] },
         "quote": { "type": "string" }
+      }
+    },
+    "remove_modifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item", "modifier", "reason"],
+      "properties": {
+        "item": { "type": "string" },
+        "modifier": { "type": "string", "enum": ["integration", "compliance", "migration"] },
+        "reason": { "type": "string", "description": "Why it doesn't apply, e.g. the user said there's no API." }
+      }
+    },
+    "drop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item", "reason", "quote"],
+      "properties": {
+        "item": { "type": "string", "description": "An item that turned out not to apply. Not for an item the new one replaces: that's supersede." },
+        "reason": { "type": "string" },
+        "quote": { "type": "string", "description": "The user's words saying it doesn't apply." }
       }
     },
     "supersede": {

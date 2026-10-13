@@ -1,7 +1,8 @@
 // The conversation: the interviewer's replies and the user's messages, and the box to answer in.
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import type { TranscriptEntry } from "../../../src/core.ts";
+import type { Summary, TranscriptEntry } from "../../../src/core.ts";
+import { SummaryCard } from "./SummaryCard.tsx";
 
 export const STARTERS = [
   "I need a daily report of late trailers by carrier. Right now I copy the yard log into a spreadsheet every morning.",
@@ -12,6 +13,8 @@ export const STARTERS = [
 export function Chat(props: {
   transcript: TranscriptEntry[];
   replies: string[];
+  /** The proposed reflect-back, built from the session, and the reply it goes under. */
+  summary?: { at: number; summary: Summary } | null;
   pending: string | null;
   busy: boolean;
   disabled: boolean;
@@ -84,6 +87,7 @@ export function Chat(props: {
           <div key={`${i}-${entry.at}`}>
             <div className="msg user"><p>{entry.text}</p></div>
             {props.replies[i] !== undefined ? <div className="msg bot"><p>{props.replies[i]}</p></div> : null}
+            {props.summary?.at === i && props.replies[i] !== undefined ? <SummaryCard summary={props.summary.summary} /> : null}
           </div>
         ))}
         {props.pending ? <div className="msg user pending"><p>{props.pending}</p></div> : null}

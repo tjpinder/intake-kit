@@ -10,6 +10,7 @@ import { createAzureSimulator, simulatorPrompt, type Simulator } from "../src/ev
 import { report, runInterview, scoreRun, storedQuotes } from "../src/evals/run.ts";
 import type { Provider } from "../src/llm/types.ts";
 import type { Session } from "../src/lib/session.ts";
+import { makeItem, makeSession } from "./helpers.ts";
 
 const fw = loadFramework(".");
 const SKILL = readFileSync("skills/intake/SKILL.md", "utf8");
@@ -18,8 +19,8 @@ const personas = loadPersonas();
 const opsSupervisor = personas.find((p) => p.id === "ops-supervisor-report")!;
 
 describe("persona cards", () => {
-  test("all six load and cover the spec's personas", () => {
-    assert.deepEqual(personas.map((p) => p.expect.primary_type), ["data_report", "broken", "manual_process", "known_idea", "exploratory", "data_report"]);
+  test("the spec's six personas load, plus the enablement kit from the first live test", () => {
+    assert.deepEqual(personas.map((p) => p.expect.primary_type), ["data_report", "broken", "manual_process", "known_idea", "exploratory", "data_report", "known_idea"]);
   });
 
   test("a malformed card fails loudly", () => {
@@ -88,11 +89,14 @@ describe("a scripted interview", () => {
     const turns = CONVO.steps.map((s: { turn: object }) => JSON.stringify(s.turn));
     const users = CONVO.steps.slice(1).map((s: { user: string }) => s.user);
     const interviewer: Provider = { name: "azure-openai", complete: async () => ({ text: turns.shift()!, model: "gpt-4.1-mini", usage: { inputTokens: 1000, outputTokens: 100, cachedInputTokens: 0 } }) };
-    const simulator: Simulator = { reply: async () => ({ text: users.shift()!, model: "gpt-4.1-mini", usage: { inputTokens: 200, outputTokens: 20, cachedInputTokens: 0 } }) };
+    const seen: string[] = [];
+    const simulator: Simulator = { reply: async (_p, conversation) => { seen.push(conversation.at(-1)!.content); return { text: users.shift()!, model: "gpt-4.1-mini", usage: { inputTokens: 200, outputTokens: 20, cachedInputTokens: 0 } }; } };
     const persona = { ...opsSupervisor, opening: CONVO.steps[0].user };
     let spent = 0;
     const record = await runInterview({ persona, run: 1, interviewer, interviewerModel: "gpt-4.1-mini", simulator, simulatorModel: "gpt-4.1-mini", fw, skill: SKILL, onSpend: (u) => { spent += u; } });
     assert.equal(record.completed, true);
+    // The simulated user sees the summary card under the proposal, as a web user would.
+    assert.ok(seen.some((m) => m.includes("What you told me:")), "the simulator never saw the summary");
     assert.equal(record.turns, CONVO.steps.length);
     assert.deepEqual(record.score.notes, []);
     assert.ok(spent > 0 && Math.abs(spent - record.costUSD) < 1e-9);
@@ -107,5 +111,24 @@ describe("a scripted interview", () => {
     const record = await runInterview({ persona: opsSupervisor, run: 1, interviewer, interviewerModel: "gpt-4.1-mini", simulator, simulatorModel: "gpt-4.1-mini", fw, skill: SKILL, shouldStop: () => true });
     assert.equal(record.turns, 0);
     assert.match(record.error!, /budget/);
+  });
+});
+
+describe("persona expectations from the first live test", () => {
+  const fw = loadFramework(".");
+  const p = loadPersonas().find((x) => x.id === "enablement-kit")!;
+
+  test("an invented manual-process item, a captured answer or a wrong band fails the checks", () => {
+    const s = makeSession([makeItem("item-1", { type: "known_idea" })], { confirmed: true });
+    s.items[0].facts.input_digital = { band: "partly", evidence: ["core.data"], quotes: [] };
+    s.core.constraints = { status: "assumed", value: "MIT", quotes: ["MIT"], probe_count: 0, updated_at: "2026-10-13T15:00:00.000Z", source: "captured" };
+    s.items.push(makeItem("item-2", { type: "manual_process", superseded_by: "item-1" }));
+    const score = scoreRun(p, s, [], true, fw);
+    assert.equal(score.expectations, false);
+    const note = score.notes.find((n) => n.startsWith("expectations"))!;
+    assert.match(note, /has a manual_process item/);
+    assert.match(note, /core\.constraints only captured/);
+    assert.match(note, /input_digital partly \(want fully\)/);
+    assert.equal(score.captured, 1);
   });
 });

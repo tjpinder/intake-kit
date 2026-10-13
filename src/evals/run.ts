@@ -6,7 +6,9 @@
 import type { Framework } from "../lib/framework.ts";
 import { findQuote, type TranscriptEntry } from "../lib/grounding.ts";
 import { criticalAreas } from "../lib/gates.ts";
-import { coverageFor, type Item, type Session } from "../lib/session.ts";
+import { usableBand } from "../lib/score.ts";
+import { buildSummary, summaryIndex, summaryText } from "../lib/summary.ts";
+import { coverageFor, isCaptured, type Item, type Session } from "../lib/session.ts";
 import { costUSD } from "../llm/pricing.ts";
 import { runTurn } from "../llm/turn-loop.ts";
 import type { ChatMessage, Provider } from "../llm/types.ts";
@@ -47,6 +49,10 @@ export interface RunScore {
   quadrant: boolean | null;
   enoughItems: boolean;
   unknownCritical: boolean | null;
+  /** no_items, recorded and bands from the persona card, all met. */
+  expectations: boolean | null;
+  /** Answers in the final session captured from replies the interviewer didn't record. */
+  captured: number;
   ungroundedQuotes: number;
   notes: string[];
 }
@@ -56,7 +62,7 @@ function emptySession(id: string, provider: Session["session"]["provider"], now:
   return {
     schema_version: 1,
     framework_version: "0.1.0",
-    session: { id, started_at: now.toISOString(), mode: "stakeholder", provider, grounding: "transcript", reflect_back: null },
+    session: { id, started_at: now.toISOString(), mode: "stakeholder", provider, grounding: "transcript", reflect_back: null, asked: {} },
     core: { users: seeded(), outcome: seeded(), data: seeded(), systems: seeded(), constraints: seeded(), trust: seeded() },
     items: [],
   };
@@ -121,10 +127,30 @@ export function scoreRun(persona: Persona, session: Session, transcript: Transcr
     if (!unknownCritical) notes.push(`only ${unsettled.length} critical areas unknown`);
   }
 
+  let expectations: boolean | null = null;
+  if (x.no_items || x.recorded || x.bands) {
+    const problems: string[] = [];
+    for (const t of x.no_items ?? []) if (session.items.some((i) => i.type === t)) problems.push(`has a ${t} item`);
+    for (const id of x.recorded ?? []) {
+      const e = primary ? coverageFor(session, primary, id) : undefined;
+      if (!e?.updated_at) problems.push(`${id} not recorded`);
+      else if (isCaptured(e)) problems.push(`${id} only captured`);
+      else if (e.status === "unknown") problems.push(`${id} unknown`);
+    }
+    for (const [fact, ok] of Object.entries(x.bands ?? {})) {
+      const band = primary ? usableBand(session, primary, fact) : "unknown";
+      if (!ok.includes(band)) problems.push(`${fact} ${band} (want ${ok.join("/")})`);
+    }
+    expectations = problems.length === 0;
+    if (problems.length) notes.push(`expectations: ${problems.join("; ")}`);
+  }
+  if (primary?.modifiers.length) notes.push(`modifiers: ${primary.modifiers.join(", ")}`);
+  const captured = [...Object.values(session.core), ...session.items.flatMap((i) => [...Object.values(i.core_overrides), ...Object.values(i.coverage)])].filter(isCaptured).length;
+
   const ungroundedQuotes = storedQuotes(session).filter((q) => !findQuote(q, transcript)).length;
   if (ungroundedQuotes) notes.push(`${ungroundedQuotes} ungrounded quotes`);
 
-  return { routed, primaryTypeFinal: !!session.items.find((i) => i.type === x.primary_type), itemsFound, gatesCorrect, modifiers, aiApplies, quadrant, enoughItems, unknownCritical, ungroundedQuotes, notes };
+  return { routed, primaryTypeFinal: !!session.items.find((i) => i.type === x.primary_type), itemsFound, gatesCorrect, modifiers, aiApplies, quadrant, enoughItems, unknownCritical, expectations, captured, ungroundedQuotes, notes };
 }
 
 export interface InterviewArgs {
@@ -180,7 +206,14 @@ export async function runInterview(args: InterviewArgs): Promise<RunRecord> {
     }
     if (session.session.reflect_back?.confirmed) break;
 
-    const conversation: ChatMessage[] = transcript.flatMap((t, i) => [{ role: "user" as const, content: t.text }, { role: "assistant" as const, content: replies[i] }]);
+    // The simulated user sees what a web user sees: the summary card goes under the reply that
+    // proposed it. Without it, the simulator asked to see a summary and the model took that as yes.
+    const at = summaryIndex(session, transcript);
+    const summary = at == null ? null : summaryText(buildSummary(session, args.fw));
+    const conversation: ChatMessage[] = transcript.flatMap((t, i) => [
+      { role: "user" as const, content: t.text },
+      { role: "assistant" as const, content: i === at ? `${replies[i]}\n\n${summary}` : replies[i] },
+    ]);
     try {
       const sim = await args.simulator.reply(args.persona, conversation);
       spend(costUSD(args.simulatorModel, sim.usage));
@@ -225,19 +258,19 @@ export function report(records: RunRecord[], meta: { date: string; interviewerMo
     };
     const turns = rs.reduce((n, r) => n + r.turns, 0);
     return `| ${name} | ${rs.length} | ${rate((r) => r.completed)} | ${rate((r) => r.score.routed)} | ${rate((r) => r.score.itemsFound && r.score.enoughItems)} | ${rate((r) => r.score.gatesCorrect)} | ${rate((r) => {
-      const checks = [r.score.modifiers, r.score.aiApplies, r.score.quadrant, r.score.unknownCritical].filter((v) => v !== null);
+      const checks = [r.score.modifiers, r.score.aiApplies, r.score.quadrant, r.score.unknownCritical, r.score.expectations ?? null].filter((v) => v !== null);
       return checks.length ? checks.every(Boolean) : null;
-    })} | ${rs.reduce((n, r) => n + r.score.ungroundedQuotes, 0)} | ${pct(rs.reduce((n, r) => n + r.retriedTurns, 0), turns)} | ${pct(rs.reduce((n, r) => n + r.failedTurns, 0), turns)} | ${(turns / rs.length).toFixed(1)} | $${(rs.reduce((n, r) => n + r.costUSD, 0) / rs.length).toFixed(3)} |`;
+    })} | ${rs.reduce((n, r) => n + r.score.ungroundedQuotes, 0)} | ${(rs.reduce((n, r) => n + (r.score.captured ?? 0), 0) / rs.length).toFixed(1)} | ${pct(rs.reduce((n, r) => n + r.retriedTurns, 0), turns)} | ${pct(rs.reduce((n, r) => n + r.failedTurns, 0), turns)} | ${(turns / rs.length).toFixed(1)} | $${(rs.reduce((n, r) => n + r.costUSD, 0) / rs.length).toFixed(3)} |`;
   };
   const lines = [
     "# Persona eval report",
     "",
     `Run ${meta.date}. Interviewer: ${meta.interviewerModel} (the real turn loop, same prompt and checks as the web app). Simulated user: ${meta.simulatorModel}, which sees each persona's situation and voice but never its expected outcome.`,
     "",
-    "Rates are across runs. Completed means the user confirmed the reflect-back within 30 turns. Gates are scored only for completed runs. Checks covers each persona's extra expectations (modifiers, AI overlay, quadrant, unknown critical areas). Retried means the model's first attempt at a turn was rejected by the app's checks; failed means nothing from that turn could be saved.",
+    "Rates are across runs. Completed means the user confirmed the reflect-back within 30 turns. Gates are scored only for completed runs. Checks covers each persona's extra expectations (modifiers, AI overlay, quadrant, unknown critical areas, items that mustn't appear, areas the interviewer must record, band picks). Captured answers are the user's replies stored word for word because the interviewer didn't record them; they never count as scoring evidence. Retried means the model's first attempt at a turn was rejected by the app's checks; failed means nothing from that turn could be saved.",
     "",
-    "| Persona | Runs | Completed | Routed | Items | Gates | Checks | Ungrounded quotes | Retried turns | Failed turns | Avg turns | Avg cost |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Persona | Runs | Completed | Routed | Items | Gates | Checks | Ungrounded quotes | Captured answers (avg) | Retried turns | Failed turns | Avg turns | Avg cost |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...[...byPersona].map(([p, rs]) => row(p, rs)),
     row("**All**", records),
     "",

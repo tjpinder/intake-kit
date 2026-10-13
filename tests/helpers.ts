@@ -11,7 +11,7 @@ export const assumed = (value = "probably"): CoverageEntry => ({ status: "assume
 /** Band picks that put an item in Prioritize with a measurable metric. */
 export const GO_FACTS: Record<string, string> = {
   rule_clarity: "written", input_digital: "fully", input_structured: "80+", ways_done: "one",
-  stability: "none", documentation: "sop_and_examples", steps_apps: "under_20", access: "api_or_db",
+  stability: "none", documentation: "sop_and_examples", steps_apps: "under_20", access: "programmatic",
   value: "high", ai_applies: "no", existing_asset: "none", decision_depends: "yes", success_metric: "measurable_with_baseline",
 };
 

@@ -30,7 +30,9 @@
     ],
     "reclassify": null,
     "add_modifiers": [],
-    "supersede": null
+    "remove_modifiers": [],
+    "supersede": null,
+    "drop": null
   },
   "prose": [],
   "acceptance": [],

@@ -29,6 +29,7 @@ export function newSession(provider: "kit" | "azure" | "claude", now = new Date(
       provider: provider === "claude" ? "claude" : "azure-openai",
       grounding: "transcript",
       reflect_back: null,
+      asked: {},
     },
     core: { users: seeded(), outcome: seeded(), data: seeded(), systems: seeded(), constraints: seeded(), trust: seeded() },
     items: [],

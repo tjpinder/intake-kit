@@ -14,7 +14,7 @@
     {
       "item": "item-1",
       "fact": "access",
-      "band": "api_or_db",
+      "band": "programmatic",
       "evidence": [
         "core.systems"
       ],
@@ -34,11 +34,13 @@
     "new_items": [],
     "reclassify": null,
     "add_modifiers": [],
+    "remove_modifiers": [],
     "supersede": {
       "item": "item-2",
       "by": "item-1",
       "quote": "if I had that every morning I'd stop doing the Monday thing"
-    }
+    },
+    "drop": null
   },
   "prose": [
     {

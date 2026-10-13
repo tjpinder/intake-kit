@@ -26,7 +26,8 @@ describe("framework loads and matches the spec", () => {
 
   test("the spec's always-asked areas are marked always_ask", () => {
     const always = [...fw.areas.values()].filter((a) => a.always_ask).map((a) => a.id).sort();
-    assert.deepEqual(always, ["broken.workaround", "data_report.decision", "data_report.existing", "known_idea.existing"]);
+    assert.deepEqual(always, ["broken.workaround", "data_report.decision", "data_report.existing", "known_idea.adoption", "known_idea.existing", "known_idea.prior", "known_idea.pull", "known_idea.push"]);
+    assert.deepEqual(fw.modules.known_idea.asks_core, ["core.constraints"]);
   });
 
   test("Go requires users, outcome, data and trust", () => {
@@ -133,7 +134,7 @@ describe("a bad edit fails loudly", () => {
   });
 
   test("criterion missing its unknown band", () => {
-    has(issuesAfter((r) => replaceIn(r, "skills/intake/scoring.yaml", "api_or_db: 5, ui_only: 3, none: 1, unknown: null", "api_or_db: 5, ui_only: 3, none: 1")),
+    has(issuesAfter((r) => replaceIn(r, "skills/intake/scoring.yaml", "programmatic: 5, ui_only: 3, none: 1, unknown: null", "programmatic: 5, ui_only: 3, none: 1")),
       "must have required property 'unknown'");
   });
 

@@ -233,6 +233,9 @@ export async function handleTurn(req: ApiRequest, deps: ServerDeps): Promise<Api
       session: outcome.session,
       transcript,
       usage: summarize(calls, kitModel),
+      // The model's raw output for each attempt, what the checks rejected and what was captured,
+      // so a visitor's debug log can explain a turn. Nothing here is stored on the server.
+      debug: { attempts: outcome.attempts.map((a) => ({ model: a.model, text: a.text, rejections: a.rejections, warnings: a.warnings })) },
     });
   } catch (err) {
     if (err instanceof ProviderError) {

@@ -10,6 +10,29 @@ import type { Session } from "../lib/session.ts";
 import { areaFits, grounded, setEntry, type ApplyContext } from "./apply.ts";
 import type { OpeningResult } from "./types.ts";
 
+/** The one question asked when the opening's type is in doubt. */
+export const TYPE_QUESTION = "Do you already have something specific in mind to build, or are you looking for where to start?";
+
+/**
+ * Does the opening's wording back the model's type? Signal phrases (literal, not negated) for
+ * another type point elsewhere; none for the chosen type means nothing in the words supports it.
+ * Found in the first v2 gate: "I want hiring managers to see I can do the enablement side of AI"
+ * was classified exploratory, with high confidence, in all six runs.
+ */
+export function signalCheck(fw: Framework, opening: string, type: string): { agrees: boolean; points_to: string | null } {
+  const text = normalize(opening);
+  let best: { type: string; len: number } | null = null;
+  let supports = false;
+  for (const [t, def] of Object.entries(fw.router.types)) {
+    for (const sig of def.signals) {
+      if (!said(sig, text)) continue;
+      if (t === type) supports = true;
+      if (!best || sig.length > best.len) best = { type: t, len: sig.length };
+    }
+  }
+  return { agrees: supports && (!best || best.type === type), points_to: best?.type ?? null };
+}
+
 export type OpenOutcome =
   | { kind: "probe"; question: string; events: string[] }
   | { kind: "created"; session: Session; events: string[] };
@@ -28,8 +51,12 @@ export function keepModifier(fw: Framework, modifier: string, quote: string): bo
 
 export function applyOpening(original: Session, r: OpeningResult, ctx: ApplyContext, opts: { mayProbe: boolean }): OpenOutcome {
   const events: string[] = [];
-  if (r.confidence === "low" && opts.mayProbe) {
-    return { kind: "probe", question: ctx.fw.router.types[r.type].low_confidence_probe, events: [`opening: low confidence (${r.type}), one probe`] };
+  if (opts.mayProbe) {
+    const opening = ctx.transcript.find((t) => t.role === "user")?.text ?? "";
+    const check = signalCheck(ctx.fw, opening, r.type);
+    if (r.confidence !== "high" || !check.agrees) {
+      return { kind: "probe", question: TYPE_QUESTION, events: [`opening: ${r.type} (${r.confidence}); signal phrases ${check.points_to ? `point to ${check.points_to}` : "say nothing"}; asking the type question`] };
+    }
   }
   const session: Session = structuredClone(original);
   const users = ctx.transcript.filter((t) => t.role === "user");

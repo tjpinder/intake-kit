@@ -4,6 +4,7 @@
 // and the user was asked to confirm a summary they never saw.
 
 import type { Framework } from "./framework.ts";
+import { scoreAndGate } from "./gates.ts";
 import { bandCheck } from "./score.ts";
 import { coverageFor, isCaptured, type CoverageEntry, type Item, type Session } from "./session.ts";
 
@@ -45,6 +46,11 @@ export interface SummaryItem {
 
 export interface Summary {
   items: SummaryItem[];
+  /**
+   * Every definitive Don't-build reason the gates would apply, as a question the user confirms
+   * with the summary. Don't build needs evidence, and the user is the one who can give it.
+   */
+  confirm_first: string[];
   /** Items left out of the playback, and why (dropped, or replaced by another item). */
   set_aside: string[];
 }
@@ -88,6 +94,7 @@ export function buildSummary(session: Session, fw: Framework): Summary {
   const live = session.items.filter((i) => !i.superseded_by && !i.dropped);
   return {
     items: live.map((item) => summarizeItem(session, item, fw)),
+    confirm_first: dontBuildQuestions(session, fw),
     set_aside: [
       ...session.items.filter((i) => i.dropped).map((i) => `${i.title}: dropped (${i.dropped!.reason})`),
       ...session.items.filter((i) => i.superseded_by && !i.dropped).map((i) => `${i.title}: replaced by ${session.items.find((x) => x.id === i.superseded_by)?.title ?? i.superseded_by}`),
@@ -144,6 +151,30 @@ const STATUS_NOTE: Record<CoverageEntry["status"], string> = {
   declined: " (they preferred not to say)",
 };
 
+/** The definitive Don't-build reasons the gates would apply if the user confirmed now, as questions. */
+export function dontBuildQuestions(session: Session, fw: Framework): string[] {
+  if (!session.items.length) return [];
+  let preview: Session;
+  try {
+    preview = scoreAndGate({ ...session, session: { ...session.session, reflect_back: { text: "", confirmed: true, corrections: [] } } }, fw).session;
+  } catch {
+    return [];
+  }
+  const out: string[] = [];
+  for (const item of preview.items) {
+    if (item.gate?.decision !== "dont_build" || item.dropped) continue;
+    for (const reason of item.gate.reasons) {
+      if (reason.startsWith("(also")) continue;
+      const by = item.superseded_by ? preview.items.find((i) => i.id === item.superseded_by)?.title : null;
+      if (reason.startsWith("An existing report or feature already covers it")) out.push(`You said something you already have does what "${item.title}" would do, so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("No decision depends on it")) out.push(`No decision depends on "${item.title}", so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("The user describes its value as trivial")) out.push(`You described "${item.title}" as low value, so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("Superseded by") && by) out.push(`"${item.title}" would go away once "${by}" exists, so it wouldn't be built on its own. Is that right?`);
+    }
+  }
+  return out;
+}
+
 /** The summary as plain text, for the CLI and for the model's context. */
 export function summaryText(summary: Summary): string {
   const out: string[] = [];
@@ -169,6 +200,7 @@ export function summaryText(summary: Summary): string {
     out.push("");
   }
   if (summary.set_aside.length) out.push("Set aside:", ...summary.set_aside.map((s) => `- ${s}`), "");
+  if (summary.confirm_first.length) out.push("Please confirm:", ...summary.confirm_first.map((q) => `- ${q}`), "");
   return out.join("\n").trim() + "\n";
 }
 

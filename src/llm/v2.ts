@@ -120,7 +120,7 @@ export const CHECK_TEXT = {
   manual_work: '"yes" if they describe doing that work today (not only as a fallback if the new thing failed), "no" if they don\'t, "unclear" if you can\'t tell. Put their words in quote.',
   existing_asset: '"yes" if something they have or could get already does all or part of this, "no" if nothing does, "unclear" if you can\'t tell.',
   confirm: '"yes" if they agree, "no" if they say it\'s wrong, "unclear" otherwise.',
-  summary: '"yes" if they say the summary is right, "no" if they want changes, "unclear" otherwise. Put each change they give in also_answers, under the area it corrects.',
+  summary: '"yes" if they say the summary is right, even if they add a note or a detail; "no" only if they say something in it is wrong; "unclear" otherwise. Put each change or added detail they give in also_answers, under the area it belongs to.',
 };
 
 /** write-up: bands, prose, criteria and guardrails for one item, at the summary. */

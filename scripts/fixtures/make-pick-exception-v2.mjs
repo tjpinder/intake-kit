@@ -87,7 +87,8 @@ const steps = [
   },
   {
     user: "The WMS dashboard only gives me the total for the building, nothing by picker.",
-    model: [extract(ans("The WMS dashboard shows building totals only", "The WMS dashboard only gives me the total for the building", { check: "yes" })), phrase("Do you still build that Monday Excel sheet by hand today? When did you last do it?")],
+    // The manual-work question is fixed text, so no phrase call.
+    model: [extract(ans("The WMS dashboard shows building totals only", "The WMS dashboard only gives me the total for the building", { check: "yes" }))],
   },
   {
     user: "Yes, I built it last Monday. If I had the daily report every morning I'd stop doing the Monday thing.",

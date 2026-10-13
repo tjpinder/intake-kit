@@ -14649,7 +14649,7 @@ var CHECK_TEXT = {
   manual_work: `"yes" if they describe doing that work today (not only as a fallback if the new thing failed), "no" if they don't, "unclear" if you can't tell. Put their words in quote.`,
   existing_asset: `"yes" if something they have or could get already does all or part of this, "no" if nothing does, "unclear" if you can't tell.`,
   confirm: `"yes" if they agree, "no" if they say it's wrong, "unclear" otherwise.`,
-  summary: '"yes" if they say the summary is right, "no" if they want changes, "unclear" otherwise. Put each change they give in also_answers, under the area it corrects.'
+  summary: '"yes" if they say the summary is right, even if they add a note or a detail; "no" only if they say something in it is wrong; "unclear" otherwise. Put each change or added detail they give in also_answers, under the area it belongs to.'
 };
 function writeUpRequest(fw, session, item, transcript) {
   const g = guide(fw);
@@ -14689,6 +14689,20 @@ var ProviderError = class extends Error {
 };
 
 // src/engine/open.ts
+var TYPE_QUESTION = "Do you already have something specific in mind to build, or are you looking for where to start?";
+function signalCheck(fw, opening, type) {
+  const text = normalize(opening);
+  let best = null;
+  let supports = false;
+  for (const [t, def] of Object.entries(fw.router.types)) {
+    for (const sig of def.signals) {
+      if (!said(sig, text)) continue;
+      if (t === type) supports = true;
+      if (!best || sig.length > best.len) best = { type: t, len: sig.length };
+    }
+  }
+  return { agrees: supports && (!best || best.type === type), points_to: best?.type ?? null };
+}
 function keepModifier(fw, modifier, quote) {
   const def = fw.router.modifiers[modifier];
   if (!def) return false;
@@ -14699,8 +14713,12 @@ function keepModifier(fw, modifier, quote) {
 }
 function applyOpening(original, r, ctx, opts) {
   const events = [];
-  if (r.confidence === "low" && opts.mayProbe) {
-    return { kind: "probe", question: ctx.fw.router.types[r.type].low_confidence_probe, events: [`opening: low confidence (${r.type}), one probe`] };
+  if (opts.mayProbe) {
+    const opening = ctx.transcript.find((t) => t.role === "user")?.text ?? "";
+    const check2 = signalCheck(ctx.fw, opening, r.type);
+    if (r.confidence !== "high" || !check2.agrees) {
+      return { kind: "probe", question: TYPE_QUESTION, events: [`opening: ${r.type} (${r.confidence}); signal phrases ${check2.points_to ? `point to ${check2.points_to}` : "say nothing"}; asking the type question`] };
+    }
   }
   const session = structuredClone(original);
   const users = ctx.transcript.filter((t) => t.role === "user");
@@ -14790,6 +14808,7 @@ function buildSummary(session, fw) {
   const live = session.items.filter((i) => !i.superseded_by && !i.dropped);
   return {
     items: live.map((item) => summarizeItem(session, item, fw)),
+    confirm_first: dontBuildQuestions(session, fw),
     set_aside: [
       ...session.items.filter((i) => i.dropped).map((i) => `${i.title}: dropped (${i.dropped.reason})`),
       ...session.items.filter((i) => i.superseded_by && !i.dropped).map((i) => `${i.title}: replaced by ${session.items.find((x) => x.id === i.superseded_by)?.title ?? i.superseded_by}`)
@@ -14839,6 +14858,28 @@ var STATUS_NOTE = {
   not_applicable: " (doesn't apply)",
   declined: " (they preferred not to say)"
 };
+function dontBuildQuestions(session, fw) {
+  if (!session.items.length) return [];
+  let preview;
+  try {
+    preview = scoreAndGate({ ...session, session: { ...session.session, reflect_back: { text: "", confirmed: true, corrections: [] } } }, fw).session;
+  } catch {
+    return [];
+  }
+  const out2 = [];
+  for (const item of preview.items) {
+    if (item.gate?.decision !== "dont_build" || item.dropped) continue;
+    for (const reason of item.gate.reasons) {
+      if (reason.startsWith("(also")) continue;
+      const by = item.superseded_by ? preview.items.find((i) => i.id === item.superseded_by)?.title : null;
+      if (reason.startsWith("An existing report or feature already covers it")) out2.push(`You said something you already have does what "${item.title}" would do, so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("No decision depends on it")) out2.push(`No decision depends on "${item.title}", so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("The user describes its value as trivial")) out2.push(`You described "${item.title}" as low value, so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("Superseded by") && by) out2.push(`"${item.title}" would go away once "${by}" exists, so it wouldn't be built on its own. Is that right?`);
+    }
+  }
+  return out2;
+}
 function summaryText(summary) {
   const out2 = [];
   for (const it of summary.items) {
@@ -14863,6 +14904,7 @@ function summaryText(summary) {
     out2.push("");
   }
   if (summary.set_aside.length) out2.push("Set aside:", ...summary.set_aside.map((s) => `- ${s}`), "");
+  if (summary.confirm_first.length) out2.push("Please confirm:", ...summary.confirm_first.map((q) => `- ${q}`), "");
   return out2.join("\n").trim() + "\n";
 }
 
@@ -14944,6 +14986,8 @@ var SendAgain = class extends Error {
   }
 };
 var SUMMARY_REPLY = "Here's what I heard. Check the summary below, then confirm it or tell me what to change.";
+var MAX_SUMMARY_ROUNDS = 2;
+var MANUAL_QUESTION = "Is any part of this done by hand today, like a spreadsheet you build?";
 var DONE_REPLY = "Thanks for confirming. Here's how each item came out.";
 async function runEngineTurn(input) {
   const { fw, provider, transcript } = input;
@@ -15032,9 +15076,13 @@ async function runEngineTurn(input) {
       question = `You said "${e.quotes.at(-1) ?? e.value}". Is that right?`;
       engine().areas[key] = { ...stateOf(engine(), key), confirm: "asked" };
     } else {
-      const partial = stateOf(engine(), key).partial;
-      const p = await call("phrase", phraseRequest(fw, { target, item, transcript, replies: [...input.replies, ""], partial: partial?.quote ?? partial?.value ?? null }), validatePhrase2);
-      question = p.question.trim();
+      if (target.check === "manual_work") {
+        question = MANUAL_QUESTION;
+      } else {
+        const partial = stateOf(engine(), key).partial;
+        const p = await call("phrase", phraseRequest(fw, { target, item, transcript, replies: [...input.replies, ""], partial: partial?.quote ?? partial?.value ?? null }), validatePhrase2);
+        question = p.question.trim();
+      }
       if (target.kind === "probe") engine().areas[key] = { ...stateOf(engine(), key), probed: true };
       if (target.kind === "check" && target.check === "manual_work") {
         const ck = `${item.id}:manual_work`;
@@ -15091,16 +15139,29 @@ async function runEngineTurn(input) {
     if (corrections.length) {
       s.session.reflect_back = { ...s.session.reflect_back, corrections: [...s.session.reflect_back.corrections, ...corrections] };
       events.push(`corrected ${corrections.length}`);
-      for (const item of s.items) item.facts = {};
-      const out2 = await toSummary();
-      return { ...out2, reply: "I've updated the summary. Does it look right now?" };
     }
-    if (x.check === "yes") {
+    const rounds = (engine().summary_rounds ?? 0) + (x.check === "yes" ? 0 : 1);
+    engine().summary_rounds = rounds;
+    const atBudget = engine().turns >= TURN_BUDGET;
+    if (x.check === "yes" || rounds > MAX_SUMMARY_ROUNDS || atBudget) {
+      if (x.check !== "yes") events.push(atBudget ? "turn budget reached at the summary; confirmed with notes attached" : `${MAX_SUMMARY_ROUNDS} correction rounds used; confirmed with notes attached`);
+      if (x.check !== "yes" && x.value && !corrections.length) s.session.reflect_back = { ...s.session.reflect_back, corrections: [...s.session.reflect_back.corrections, `note: ${x.value}`] };
+      if (corrections.length) await rewrite();
       s = confirmSummary(s, fw);
       events.push("summary confirmed");
       return done(DONE_REPLY, true);
     }
-    return { session: original, reply: "What should I change? Tell me what's wrong or missing.", result: "applied", confirmed: false, calls, events };
+    if (corrections.length) {
+      await rewrite();
+      return { ...done("I've updated the summary. Does it look right now?") };
+    }
+    return done("What should I change? Tell me what's wrong or missing.");
+  }
+  async function rewrite() {
+    const keep = engine().summary_rounds;
+    for (const item of s.items) item.facts = {};
+    await toSummary();
+    engine().summary_rounds = keep;
   }
 }
 

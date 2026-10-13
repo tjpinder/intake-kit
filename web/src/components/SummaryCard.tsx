@@ -55,6 +55,7 @@ export function SummaryCard({ summary, onConfirm = null }: { summary: Summary; o
         </section>
       ))}
       {summary.set_aside.length ? (<><h5>Set aside</h5><ul>{summary.set_aside.map((s) => <li key={s}>{s}</li>)}</ul></>) : null}
+      {summary.confirm_first.length ? (<><h5>Please confirm</h5><ul>{summary.confirm_first.map((q) => <li key={q}><strong>{q}</strong></li>)}</ul></>) : null}
       {onConfirm ? (
         <p className="summary-actions">
           <button className="primary" onClick={onConfirm}>Looks right</button>

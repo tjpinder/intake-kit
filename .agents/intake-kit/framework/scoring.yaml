@@ -137,6 +137,10 @@ gate_fact_notes:
     "about 50 a day") is a baseline. Use measurable_with_baseline when they also said what would
     show it worked; measurable_no_baseline only when nothing about today was measured. Cite as
     evidence the answer that holds the number: with no number in a cited answer, code scores it vague.
+  existing_asset: >-
+    covers only when the user says something they already have does what they need; partial when
+    it does some of it (totals but not per person, the data but not the view); none when nothing
+    does. Only covers can make it Don't build, and the summary asks the user to confirm that.
 
 gates:
   # Areas that must be covered or confirmed-assumed for Go. Module areas marked

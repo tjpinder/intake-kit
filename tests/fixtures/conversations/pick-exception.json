@@ -240,12 +240,6 @@
             "wrap_up": false,
             "also_answers": []
           }
-        },
-        {
-          "call": "phrase",
-          "output": {
-            "question": "Do you still build that Monday Excel sheet by hand today? When did you last do it?"
-          }
         }
       ]
     },

@@ -159,3 +159,24 @@ describe("a baseline needs a number (persona 7)", () => {
     assert.match(band.note!, /nothing you said about it has a number/);
   });
 });
+
+describe("definitive Don't build is confirmed by the user", () => {
+  test("the summary asks about every definitive Don't-build reason", () => {
+    const kept = makeItem("item-1");
+    kept.facts.existing_asset = { band: "covers", evidence: [], quotes: [] };
+    const follow = makeItem("item-2", { type: "manual_process", superseded_by: "item-1" });
+    follow.title = "Monday sheet";
+    const s = makeSession([kept, follow], { confirmed: false });
+    const q = buildSummary(s, fw).confirm_first;
+    assert.ok(q.some((x) => x.includes("already have does what") && x.endsWith("Is that right?")), q.join(" | "));
+    assert.match(summaryText(buildSummary(s, fw)), /Please confirm:/);
+  });
+
+  test("partial existing assets raise no question and can't force Don't build", () => {
+    const item = makeItem("item-1");
+    item.facts.existing_asset = { band: "partial", evidence: [], quotes: [] };
+    const s = makeSession([item], { confirmed: false });
+    assert.deepEqual(buildSummary(s, fw).confirm_first, []);
+    assert.notEqual(scoreAndGate({ ...s, session: { ...s.session, reflect_back: { text: "x", confirmed: true, corrections: [] } } }, fw).session.items[0].gate!.decision, "dont_build");
+  });
+});

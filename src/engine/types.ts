@@ -40,6 +40,8 @@ export interface EngineState {
   checks: Record<string, { asks: number; result: CheckResult | null }>;
   /** The opening's one disambiguating probe has been asked. */
   disambiguated: boolean;
+  /** Replies to the summary that weren't a plain yes (corrections, or a no). */
+  summary_rounds?: number;
 }
 
 /** classify_opening (schema/v2/opening.schema.json). */

@@ -58,6 +58,10 @@ class SendAgain extends Error {
 }
 
 export const SUMMARY_REPLY = "Here's what I heard. Check the summary below, then confirm it or tell me what to change.";
+/** Correction rounds on the summary before it's confirmed with the notes attached. */
+export const MAX_SUMMARY_ROUNDS = 2;
+/** The manual-work check, asked word for word. */
+export const MANUAL_QUESTION = "Is any part of this done by hand today, like a spreadsheet you build?";
 export const DONE_REPLY = "Thanks for confirming. Here's how each item came out.";
 
 export async function runEngineTurn(input: EngineTurnInput): Promise<EngineTurnOutcome> {
@@ -145,9 +149,15 @@ export async function runEngineTurn(input: EngineTurnInput): Promise<EngineTurnO
       question = `You said "${e.quotes.at(-1) ?? e.value}". Is that right?`;
       engine().areas[key] = { ...stateOf(engine(), key), confirm: "asked" };
     } else {
-      const partial = stateOf(engine(), key).partial;
-      const p = await call<{ question: string }>("phrase", phraseRequest(fw, { target, item, transcript, replies: [...input.replies, ""], partial: partial?.quote ?? partial?.value ?? null }), validatePhrase);
-      question = p.question.trim();
+      if (target.check === "manual_work") {
+        // A fixed, concrete question: a phrased one drifted to "updated every shift?" and the
+        // user's clear yes was read as no (first v2 gate, persona 1 run 2).
+        question = MANUAL_QUESTION;
+      } else {
+        const partial = stateOf(engine(), key).partial;
+        const p = await call<{ question: string }>("phrase", phraseRequest(fw, { target, item, transcript, replies: [...input.replies, ""], partial: partial?.quote ?? partial?.value ?? null }), validatePhrase);
+        question = p.question.trim();
+      }
       // A probe counts when it's asked, not when it's answered.
       if (target.kind === "probe") engine().areas[key] = { ...stateOf(engine(), key), probed: true };
       if (target.kind === "check" && target.check === "manual_work") {
@@ -207,11 +217,33 @@ export async function runEngineTurn(input: EngineTurnInput): Promise<EngineTurnO
     if (corrections.length) {
       s.session.reflect_back = { ...s.session.reflect_back!, corrections: [...s.session.reflect_back!.corrections, ...corrections] };
       events.push(`corrected ${corrections.length}`);
-      for (const item of s.items) item.facts = {};
-      const out = await toSummary();
-      return { ...out, reply: "I've updated the summary. Does it look right now?" };
     }
-    if (x.check === "yes") { s = confirmSummary(s, fw); events.push("summary confirmed"); return done(DONE_REPLY, true); }
-    return { session: original, reply: "What should I change? Tell me what's wrong or missing.", result: "applied", confirmed: false, calls, events };
+    // The summary can't loop (persona 1 went to turn 34 on "looks right, just note it's 7am"):
+    // "yes, plus a note" applies the note and confirms; after two correction rounds, or at the
+    // turn budget, the summary is confirmed with the notes attached.
+    const rounds = (engine().summary_rounds ?? 0) + (x.check === "yes" ? 0 : 1);
+    engine().summary_rounds = rounds;
+    const atBudget = engine().turns >= TURN_BUDGET;
+    if (x.check === "yes" || rounds > MAX_SUMMARY_ROUNDS || atBudget) {
+      if (x.check !== "yes") events.push(atBudget ? "turn budget reached at the summary; confirmed with notes attached" : `${MAX_SUMMARY_ROUNDS} correction rounds used; confirmed with notes attached`);
+      if (x.check !== "yes" && x.value && !corrections.length) s.session.reflect_back = { ...s.session.reflect_back!, corrections: [...s.session.reflect_back!.corrections, `note: ${x.value}`] };
+      if (corrections.length) await rewrite();
+      s = confirmSummary(s, fw);
+      events.push("summary confirmed");
+      return done(DONE_REPLY, true);
+    }
+    if (corrections.length) {
+      await rewrite();
+      return { ...done("I've updated the summary. Does it look right now?") };
+    }
+    return done("What should I change? Tell me what's wrong or missing.");
+  }
+
+  /** Re-writes the items after a correction and re-renders the summary, keeping the engine's round count. */
+  async function rewrite(): Promise<void> {
+    const keep = engine().summary_rounds;
+    for (const item of s.items) item.facts = {};
+    await toSummary();
+    engine().summary_rounds = keep;
   }
 }

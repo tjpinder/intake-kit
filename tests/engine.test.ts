@@ -12,7 +12,7 @@ import { validateSession } from "../src/lib/schemas.ts";
 import type { Session } from "../src/lib/session.ts";
 import type { TranscriptEntry } from "../src/lib/grounding.ts";
 import { applyAnswer, applyCheck, entryOf } from "../src/engine/apply.ts";
-import { applyOpening, keepModifier } from "../src/engine/open.ts";
+import { applyOpening, keepModifier, signalCheck, TYPE_QUESTION } from "../src/engine/open.ts";
 import { nextTarget, queueFor, requiredAreas } from "../src/engine/plan.ts";
 import { newEngine, SEND_AGAIN, TURN_BUDGET, type Extraction, type OpeningResult, type Pending } from "../src/engine/types.ts";
 import { runEngineTurn, SUMMARY_REPLY } from "../src/engine/turn.ts";
@@ -56,11 +56,18 @@ describe("Open", () => {
     assert.equal(keepModifier(fw, "integration", "orders come in over an API from the customer"), true);
   });
 
-  test("a low-confidence opening asks the one disambiguating probe, then accepts", () => {
+  test("an uncertain opening, or one its signal phrases don't back, gets the one type question, then is accepted", () => {
     const low = applyOpening(empty(), opening({ confidence: "low" }), ctx, { mayProbe: true });
     assert.equal(low.kind, "probe");
-    assert.equal((low as { question: string }).question, fw.router.types.data_report.low_confidence_probe);
+    assert.equal((low as { question: string }).question, TYPE_QUESTION);
     assert.equal(applyOpening(empty(), opening({ confidence: "low" }), ctx, { mayProbe: false }).kind, "created");
+    // High confidence, but nothing in the words backs it (persona 7's opening, classified exploratory).
+    const idea = [user("I want hiring managers to see I can do the enablement side of AI, not just the build side.")];
+    assert.equal(applyOpening(empty(), opening({ type: "exploratory" }), { ...ctx, transcript: idea }, { mayProbe: true }).kind, "probe");
+    // High confidence and the words agree: no question.
+    assert.equal(applyOpening(empty(), opening(), ctx, { mayProbe: true }).kind, "created");
+    assert.deepEqual(signalCheck(fw, OPENING, "data_report"), { agrees: true, points_to: "data_report" });
+    assert.equal(signalCheck(fw, "Could AI write our SOPs?", "manual_process").agrees, false, "a known-idea signal points elsewhere");
   });
 
   test("areas the opening answers start covered, only with the user's words", () => {
@@ -341,3 +348,34 @@ describe("the turn loop", () => {
 });
 
 void scoreAndGate;
+
+describe("the summary can't loop (first v2 gate)", () => {
+  async function atSummary(): Promise<Session> {
+    const s = started();
+    s.session.engine!.pending = ask("data_report.decision");
+    return (await runEngineTurn({ provider: scripted({ extract: [x({ wrap_up: true })], write_up: [writeUp] }), fw, session: s, transcript: T.slice(0, 2), replies: ["q?"], now: () => NOW })).session;
+  }
+  const note = [{ area: "core.constraints", value: "Ready by 7am every day", quote: "about four hours every Monday morning" }];
+
+  test("yes plus a note applies the note and confirms", async () => {
+    const out = await runEngineTurn({ provider: scripted({ extract: [x({ check: "yes", also_answers: note })], write_up: [writeUp] }), fw, session: await atSummary(), transcript: T, replies: ["q?", SUMMARY_REPLY], now: () => NOW });
+    assert.equal(out.confirmed, true);
+    assert.equal(out.session.core.constraints.value, "Ready by 7am every day");
+  });
+
+  test("after two correction rounds the summary is confirmed with the notes attached", async () => {
+    let s = await atSummary();
+    for (const round of [1, 2, 3]) {
+      const out = await runEngineTurn({ provider: scripted({ extract: [x({ check: "no", also_answers: note })], write_up: [writeUp] }), fw, session: s, transcript: T, replies: ["q?", SUMMARY_REPLY], now: () => NOW });
+      assert.equal(out.confirmed, round === 3, `round ${round}`);
+      s = out.session;
+    }
+    assert.ok(s.session.reflect_back!.corrections.length >= 3);
+  });
+
+  test("the turn budget ends the interview at the summary too", async () => {
+    const many = Array.from({ length: TURN_BUDGET }, (_, i) => user(i === 0 ? OPENING : "who to pull for retraining", i));
+    const out = await runEngineTurn({ provider: scripted({ extract: [x({ check: "no" })] }), fw, session: await atSummary(), transcript: many, replies: [], now: () => NOW });
+    assert.equal(out.confirmed, true);
+  });
+});

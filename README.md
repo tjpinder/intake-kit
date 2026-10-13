@@ -2,11 +2,13 @@
 
 Turn a vague ops request into a build-ready spec in 30 minutes.
 
-**Try it:** https://agreeable-hill-0ede1650f.5.azurestaticapps.net (or [watch a sample intake](https://agreeable-hill-0ede1650f.5.azurestaticapps.net/?sample), no sign-up, no model calls).
+intake-kit is a Claude Code plugin first. It runs a guided intake interview, scores what it hears, gates each item (Go, Gather more, Don't build, Fix not build), and writes a spec pack with guardrails derived from what the user actually said. Code runs the interview: it decides what to ask, when to follow up, when an answer counts and when the interview is done. The model only phrases each question and classifies each answer, and every answer is recorded only in the user's own words.
 
-intake-kit is a Claude Code plugin, a Codex kit and a web app. It runs a guided intake interview, scores what it hears, gates each item (Go, Gather more, Don't build, Fix not build), and writes a spec pack with guardrails derived from what the user actually said.
+**Use it in Claude Code** (below). That's the primary way to run an intake.
 
-> **Status:** in development. All three commands work in Claude Code. The Codex packaging is built but not yet tested in Codex. The worked example and the docs site are still to come. See [HANDOFF.md](HANDOFF.md) for the full spec.
+**See it:** [watch a sample intake](https://agreeable-hill-0ede1650f.5.azurestaticapps.net/?sample). It replays the worked example through the current engine in your browser, with no sign-up and no model calls. Live intakes on the web app are paused while the interview engine is upgraded.
+
+> **Status:** in development. All three commands work in Claude Code. The Codex packaging is built but not yet tested in Codex. The docs site is still to come. See [HANDOFF.md](HANDOFF.md) for the full spec.
 
 ## Prerequisites
 

@@ -479,6 +479,14 @@ How v2 was built. Where these conflict with an earlier section, these win; the v
 - **Fix round after the first v2 gate (Oct 14).** The summary can't loop: the turn budget applies at the summary; "yes, plus a note" applies the note and confirms; after two correction rounds the summary is confirmed with the notes attached. When the opening's classification isn't high confidence, or the signal phrases don't back it (another type's phrase, or none for the chosen type), the user is asked once: "Do you already have something specific in mind to build, or are you looking for where to start?", and the opening is classified again with their answer. The manual-work check asks a fixed question: "Is any part of this done by hand today, like a spreadsheet you build?". Every definitive Don't-build reason the gates would apply appears in the summary as a question the user confirms; existing_asset is covers / partial / none (unknown when unsaid), and only covers can force Don't build.
 - **Repo hygiene** stores the forbidden outside-framework names encoded, so the test itself contains none, and scans every file, docs and this spec included. The StartVest brand isn't a framework reference.
 
+## Known issues (Oct 14, 2026, not fixed)
+
+Found by the second v2 gate on commit 89cde19, which missed the ship bar (4 of 6 runs matched ground truth on gpt-4.1). The web app stays in sample-only mode and the plugin is the primary demo, per the fallback above.
+
+- **One yes confirms every Don't-build question.** The summary asks about each definitive Don't-build reason, but one "Yes, that's right" confirms all of them. In persona 1 the user was agreeing that the Monday sheet would go away, and that also confirmed "No decision depends on it" for the report. Fix: confirm each reason separately, and apply only the ones confirmed.
+- **decision_depends can contradict an answered decision area.** The write-up picked `decision_depends: no` for a report whose decision ("who to pull for retraining") was answered and covered. Fix: check the band against that area, and treat a contradiction as missing (Gather more), never as Don't build.
+- **Lead for cost work.** With only `extract` routed to gpt-4.1-mini (phrasing, classification and write-up on gpt-4.1), the same gate on the same commit matched 5 of 6 runs, at about three-quarters of the cost. That's worth measuring further before the next gate.
+
 ## Build decisions
 
 Resolved after Claude Code's pre-build review on Oct 10, 2026. Where these conflict with an earlier section, these win.

@@ -423,7 +423,7 @@ Decided Oct 13, 2026, after the first live web test and two failed gate checks. 
 **The engine.** Each turn runs through these steps. Code owns every step not marked *model*.
 
 1. **Open.** *Model* classifies the opening: type, modifiers, confidence and the triggering quote. Code applies the negation rule ("no API" doesn't trigger integration) and accepts or asks the one disambiguating probe.
-2. **Plan.** Code builds an ordered queue of targets: required core areas, then the type module's required areas, then modifier areas. *Model* checks the opening message against the full area list and returns any areas it already answers, each with a grounded quote. Those start as covered and leave the queue.
+2. **Plan.** Code builds an ordered queue of required targets: the type module's anchor area first (`known_idea.current`, `manual_process.walkthrough`, `broken.symptom`, `data_report.decision`, `exploratory.instances`), then the remaining required core areas, then the rest of the module's required areas, then modifier areas. Required means critical, always-ask (including a module's `asks_core`), a band source, or an area a spec-pack template section depends on (at least `core.constraints` and `known_idea.proposal`); every templated section maps to a required area or renders as an open question. The opening classification (step 1) also returns any areas the opening already answers, each with a grounded quote. Those start as covered and leave the queue.
 3. **Ask.** Code takes the next target. *Model* phrases a natural question for that one area, given its must-capture list and what the user has already said. It never chooses the area.
 4. **Extract.** *Model* classifies the reply to that one question: `answered`, `partial`, `not_applicable`, `declined` or `off_topic`, plus a value and a verbatim quote. It may also list other areas the reply answers, each with its own quote. Designated check questions also return `yes`, `no` or `unclear`.
 5. **Apply.** Code checks every quote against the user's turns, then updates state:
@@ -431,17 +431,18 @@ Decided Oct 13, 2026, after the first live web test and two failed gate checks. 
    - `partial` or `off_topic`: one probe is queued for the same area. The probe counts when it is asked, not when an answer is recorded.
    - Still unresolved after one probe: assumed if there is a quote, otherwise unknown.
    - `not_applicable` or `declined`: marked as such, never re-asked.
-   - An assumed answer on a critical area gets one confirmation question ("You said X. Is that right?"). Yes makes it covered.
+   - An assumed answer on a critical area gets one confirmation question ("You said X. Is that right?"). Yes makes it covered. No discards the value and marks the area unknown, not assumed.
 6. **Spawn.** Only designated check questions can create items: the manual-work check and the existing-asset check. Code creates a follow-on item only on `yes` with a grounded quote. `unclear` is asked once more, then treated as no. Follow-on items are queued after the primary item and get a light pass (users, outcome, volume or value, existing).
 7. **Summary.** Code moves to the summary only when the queue is empty, the turn budget is reached, or the user asks to wrap up. Code renders the summary from the session file. The user confirms or corrects with buttons, or through a yes / no / correction classifier in the plugin. A correction goes back through Extract, and the summary re-renders.
 8. **Score and gate.** Code, unchanged: the model picks a band for each criterion, the evidence must be covered or confirmed, `measurable_with_baseline` requires a number attached to a unit, and a baseline may come from any quote in the session.
 
-**Model contract (schema version 2).** Every turn makes two small structured calls, both strict-mode compatible:
+**Model contract (schema version 2).** Every turn makes two small structured calls, both strict-mode compatible, and the first turn adds a third:
 
+- `classify_opening(opening, types, modifiers, areas)`, first turn only: type, modifiers, confidence, the triggering quote, and the areas the opening already answers, each with a quote.
 - `phrase(target, must_capture, context)` returns the question text only.
-- `extract(question, reply, target, checks)` returns status, value, quote, `also_answers[]` and check results.
+- `extract(question, reply, target, checks)` returns status, value, quote, `also_answers[]` and check results, for the one target asked. It stays single-target.
 
-Neither call returns the next target, item creation, readiness, scores or gates. The v1 turn contract in Data contract is retired.
+None of these returns the next target, item creation, readiness, scores or gates. The v1 turn contract in Data contract is retired. A failed call (unusable output or a provider error) is retried at most twice per turn; after that the user sees "Sorry, could you send that again?" and nothing is recorded.
 
 **In the plugin.** The same engine runs as scripts. `scripts/next` returns the target and phrasing guidance. Claude asks exactly that question. Claude then sends the extraction JSON to `scripts/apply-turn`. The transcript hook keeps grounding the same as in the web UI.
 
@@ -460,7 +461,7 @@ Neither call returns the next target, item creation, readiness, scores or gates.
 
 1. Production stays in sample-only mode until the ship bar passes.
 2. Build v2 behind the existing tests. Add unit tests for every step above, especially the Apply rules and Spawn.
-3. Run one gate round on the tuning personas, then the held-out personas, on gpt-4.1. Also measure `extract` on gpt-4.1-mini: as a narrow classifier it may be reliable enough to cut cost.
+3. Run one gate round on the tuning personas (1 and 7, three runs each), then the held-out personas (2–6 once each, plus a second run of persona 6), on gpt-4.1. Also measure `extract` on gpt-4.1-mini: as a narrow classifier it may be reliable enough to cut cost.
 4. If it passes: merge, deploy, then set the Azure model settings, in that order.
 5. **Fallback** if it misses after one fix round: ship the Claude Code plugin as the primary demo, keep the web UI in sample-only mode, and move on to the Week 2 proof pieces. Either way, the kit ships.
 

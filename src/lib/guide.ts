@@ -153,7 +153,8 @@ function needsBands(i: ItemStatus): boolean {
 }
 
 /** Literal signal phrases ("by hand", "EDI"); descriptive ones like "a metric noun" can't be matched. */
-function said(signal: string, text: string): boolean {
+/** Whether a literal signal phrase appears in normalized text, not negated. */
+export function said(signal: string, text: string): boolean {
   if (/^an? /.test(signal)) return false;
   const esc = normalize(signal).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const re = new RegExp(`(^|[^a-z0-9])${esc}(?=[^a-z0-9]|$)`, "g");
@@ -166,7 +167,7 @@ function said(signal: string, text: string): boolean {
   return false;
 }
 
-const NEGATION = /^(no|not|without|never|nor|none|isn't|aren't|don't|doesn't|didn't|isnt|arent|dont|doesnt|didnt)$/;
+const NEGATION = /^(no|not|without|never|nor|none|nothing|nobody|isn't|aren't|don't|doesn't|didn't|isnt|arent|dont|doesnt|didnt)$/;
 
 /**
  * The type the opening's own words point at: the most specific (longest) signal phrase that

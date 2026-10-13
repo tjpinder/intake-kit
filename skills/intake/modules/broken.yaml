@@ -3,6 +3,9 @@ module: broken
 applies_to: broken
 methods: [ITIL 4 problem management, Google SRE blameless postmortems, branching 5 Whys]
 
+# Interview engine v2 asks this area first.
+anchor: broken.symptom
+
 areas:
   - id: broken.symptom
     must_capture: What exactly is seen, and whether it affects everything or some cases

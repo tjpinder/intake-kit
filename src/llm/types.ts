@@ -15,6 +15,8 @@ export interface TurnRequest {
   history: ChatMessage[];
   /** This turn's session state and status, sent after the history as a system message. */
   context: string;
+  /** The structured output for this call (interview engine v2: classify_opening, phrase, extract, write-up). Without it, the v1 turn schema. */
+  format?: { name: string; schema: object };
 }
 
 export interface Usage {

@@ -55,6 +55,65 @@
           "type": "object",
           "propertyNames": { "pattern": "^(core\\.[a-z_]+|item-\\d+:[a-z_.]+)$" },
           "additionalProperties": { "type": "string", "format": "date-time" }
+        },
+        "engine": {
+          "description": "Interview engine v2 state. Code owns every field: the phase, the user replies used against the turn budget, the one question waiting for an answer, each area's probe and confirmation state, and each check's result.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version", "phase", "turns", "pending", "areas", "checks", "disambiguated"],
+          "properties": {
+            "version": { "const": 2 },
+            "phase": { "enum": ["opening", "interview", "summary", "confirmed"] },
+            "turns": { "type": "integer", "minimum": 0 },
+            "disambiguated": { "type": "boolean" },
+            "pending": {
+              "oneOf": [
+                { "type": "null" },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["item", "area", "kind", "check", "question"],
+                  "properties": {
+                    "item": { "type": ["string", "null"] },
+                    "area": { "type": "string", "minLength": 1 },
+                    "kind": { "enum": ["ask", "probe", "confirm", "check", "disambiguate", "summary"] },
+                    "check": { "enum": ["manual_work", "existing_asset", null] },
+                    "question": { "type": "string" }
+                  }
+                }
+              ]
+            },
+            "areas": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["probed", "confirm", "partial"],
+                "properties": {
+                  "probed": { "type": "boolean" },
+                  "confirm": { "enum": ["none", "asked", "done"] },
+                  "partial": {
+                    "oneOf": [
+                      { "type": "null" },
+                      { "type": "object", "additionalProperties": false, "required": ["value", "quote"], "properties": { "value": { "type": ["string", "null"] }, "quote": { "type": ["string", "null"] } } }
+                    ]
+                  }
+                }
+              }
+            },
+            "checks": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["asks", "result"],
+                "properties": {
+                  "asks": { "type": "integer", "minimum": 0, "maximum": 2 },
+                  "result": { "enum": ["yes", "no", "unclear", null] }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -90,7 +149,7 @@
       "additionalProperties": false,
       "required": ["status", "value", "quotes", "probe_count"],
       "properties": {
-        "status": { "enum": ["covered", "assumed", "unknown", "not_applicable"] },
+        "status": { "enum": ["covered", "assumed", "unknown", "not_applicable", "declined"] },
         "value": { "type": ["string", "null"] },
         "quotes": { "type": "array", "items": { "$ref": "#/$defs/quote" } },
         "probe_count": { "type": "integer", "minimum": 0, "maximum": 1 },

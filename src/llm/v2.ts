@@ -1,0 +1,152 @@
+// Interview engine v2: what the model sees for each of its narrow jobs (HANDOFF.md, "Interview
+// engine v2", model contract). Each call is small and structured, and none of them lets the model
+// choose what to ask next, create an item, decide the interview is done, or score anything.
+
+import openingSchema from "../../schema/v2/opening.schema.json" with { type: "json" };
+import phraseSchema from "../../schema/v2/phrase.schema.json" with { type: "json" };
+import extractSchema from "../../schema/v2/extract.schema.json" with { type: "json" };
+import writeupSchema from "../../schema/v2/writeup.schema.json" with { type: "json" };
+import type { Framework } from "../lib/framework.ts";
+import type { TranscriptEntry } from "../lib/grounding.ts";
+import { factsFor, guide } from "../lib/guide.ts";
+import type { Item, Session } from "../lib/session.ts";
+import { entryOf } from "../engine/apply.ts";
+import type { Target } from "../engine/plan.ts";
+import type { TurnRequest } from "./types.ts";
+
+export { openingSchema, phraseSchema, extractSchema, writeupSchema };
+
+const STYLE = `You're a plain-spoken interviewer helping someone turn a problem into a build-ready spec. Never mention JSON, schemas, coverage areas, bands, gates or quadrants to the user.`;
+
+const QUOTES = `A quote is the user's exact words: a short, contiguous span copied character for character from one message they sent. Never paraphrase in a quote, never stitch two messages, never quote yourself. If you can't quote them, use null.`;
+
+const areaList = (fw: Framework, ids: string[]) => ids.map((id) => `- ${id}: ${fw.areas.get(id)?.must_capture ?? ""}`).join("\n");
+const userLines = (transcript: TranscriptEntry[]) => transcript.filter((t) => t.role === "user").map((t, i) => `${i + 1}. ${t.text}`).join("\n");
+
+/** classify_opening: first turn only. */
+export function openingRequest(fw: Framework, opening: string, areas: string[]): TurnRequest {
+  const types = Object.entries(fw.router.types).map(([k, t]) => `- ${k} (${t.label}). Signals: ${t.signals.join("; ")}`).join("\n");
+  const mods = Object.entries(fw.router.modifiers).map(([k, m]) => `- ${k} (${m.label}). Signals: ${m.signals.join("; ")}`).join("\n");
+  return {
+    system: [
+      STYLE,
+      "Classify the opening statement of an intake interview.",
+      `type: the one entry type that fits best:\n${types}`,
+      'confidence: "high" when one type clearly fits, "med" when it probably does, "low" only when two types fit about equally.',
+      "title: a short plain title for what they want (under eight words).",
+      "trigger_quote: the user's words that show the type.",
+      `modifiers: only when the user describes one, each with their words. Never for something they say isn't there ("no API" isn't an integration):\n${mods}`,
+      `also_answers: areas from this list the opening already answers in full, each with a short value and the user's words. Leave out anything partial or implied:\n${areaList(fw, areas)}`,
+      QUOTES,
+    ].join("\n\n"),
+    history: [{ role: "user", content: opening }],
+    context: "Return the classification.",
+    format: { name: "classify_opening", schema: openingSchema },
+  };
+}
+
+export interface PhraseInput {
+  target: Target;
+  item: Item;
+  transcript: TranscriptEntry[];
+  replies: string[];
+  /** For a probe: what they said the first time. */
+  partial: string | null;
+}
+
+/** phrase: one question for the area code chose. */
+export function phraseRequest(fw: Framework, p: PhraseInput): TurnRequest {
+  const area = fw.areas.get(p.target.area);
+  const purpose =
+    p.target.check === "manual_work"
+      ? `Ask whether ${fw.router.checks!.manual_work.must_capture.charAt(0).toLowerCase()}${fw.router.checks!.manual_work.must_capture.slice(1)}. One question.`
+      : p.target.purpose === "baseline"
+        ? `They've said how they'd judge success but gave no number for today. Ask what it costs now, in hours, errors or money ("What's it costing now, in hours, errors or chargebacks?").`
+        : p.target.kind === "probe"
+          ? `Their answer${p.partial ? ` ("${p.partial}")` : ""} was vague or partial. Ask once about the last time it actually happened: what exactly happened, who was involved.`
+          : `Find out: ${area?.must_capture}. An example phrasing: "${area?.probes[0]}". Adapt it to their situation and skip anything they've already told you.`;
+  const recent = p.transcript.slice(-3).map((t, i, a) => {
+    const reply = p.replies[p.transcript.length - a.length + i];
+    return `User: ${t.text}${reply ? `\nYou: ${reply}` : ""}`;
+  });
+  return {
+    system: [
+      STYLE,
+      "Write the next question of the interview. The app has already chosen what to ask about; ask about that and nothing else.",
+      "One question, under 30 words, in plain words. You may open with a few words acknowledging their last answer. Never stack two questions. When something went wrong, ask what about the setup made it easy to go wrong, not who did it.",
+    ].join("\n\n"),
+    history: [],
+    context: [`What they want: ${p.item.title}.`, `Ask about (${p.target.area}): ${purpose}`, "The conversation so far (most recent last):", ...recent].join("\n"),
+    format: { name: "phrase", schema: phraseSchema },
+  };
+}
+
+export interface ExtractInput {
+  question: string;
+  reply: string;
+  /** The area asked about, or "summary" for the playback. */
+  area: string;
+  /** What a check or confirmation asks: yes / no / unclear. Null for an ordinary question. */
+  check: string | null;
+  /** Other areas the reply might also answer. */
+  others: string[];
+}
+
+/** extract: how one reply answers the one question asked. */
+export function extractRequest(fw: Framework, x: ExtractInput): TurnRequest {
+  const area = fw.areas.get(x.area);
+  return {
+    system: [
+      STYLE,
+      "Classify the user's reply to the one question they were asked.",
+      [
+        'status: "answered" when the reply answers what the question asks; "partial" when it answers only some of it or vaguely ("usually", "I think"); "not_applicable" when they say it doesn\'t apply to them; "declined" when they won\'t or can\'t say ("I don\'t know" is partial if they add anything, otherwise declined); "off_topic" when the reply is about something else.',
+        "value: what they said, as one short plain sentence. Null if they said nothing usable.",
+        "quote: the user's words that carry the answer, from their reply.",
+        x.check ? `check: ${x.check}` : 'check: "none".',
+        "wrap_up: true only if they ask to stop, finish or wrap up.",
+        `also_answers: other areas from this list their reply clearly answers in full, each with its own value and quote from the reply. Never the area that was asked:\n${areaList(fw, x.others)}`,
+      ].join("\n"),
+      QUOTES,
+    ].join("\n\n"),
+    history: [],
+    context: [`The question (${x.area}${area ? `: ${area.must_capture}` : ""}): ${x.question}`, `The user's reply: ${x.reply}`].join("\n"),
+    format: { name: "extract", schema: extractSchema },
+  };
+}
+
+/** Check wording for extract's `check` field. */
+export const CHECK_TEXT = {
+  manual_work: '"yes" if they describe doing that work today (not only as a fallback if the new thing failed), "no" if they don\'t, "unclear" if you can\'t tell. Put their words in quote.',
+  existing_asset: '"yes" if something they have or could get already does all or part of this, "no" if nothing does, "unclear" if you can\'t tell.',
+  confirm: '"yes" if they agree, "no" if they say it\'s wrong, "unclear" otherwise.',
+  summary: '"yes" if they say the summary is right, "no" if they want changes, "unclear" otherwise. Put each change they give in also_answers, under the area it corrects.',
+};
+
+/** write-up: bands, prose, criteria and guardrails for one item, at the summary. */
+export function writeUpRequest(fw: Framework, session: Session, item: Item, transcript: TranscriptEntry[]): TurnRequest {
+  const g = guide(fw);
+  const bands = g.slice(g.indexOf("## Facts: pick a band"));
+  const areas = ["core", item.type, ...item.modifiers.map((m) => `mod.${m}`)].flatMap((m) => fw.modules[m]?.areas ?? []);
+  const answers = areas
+    .map((a) => [a.id, entryOf(session, item, a.id)] as const)
+    .filter(([, e]) => e?.updated_at)
+    .map(([id, e]) => `- ${id} (${e!.status}): ${e!.value ?? "nothing usable"}${e!.quotes.length ? ` | their words: ${e!.quotes.map((q) => `"${q}"`).join("; ")}` : ""}`);
+  return {
+    system: [
+      STYLE,
+      `Write up one item of an intake interview, from what the user already said and nothing else. Every field's item is "${item.id}".`,
+      `facts: a band for each of these facts: ${factsFor(item, fw).join(", ")}. Pick the band whose description matches what they said; between two, the lower one; "unknown" when they didn't say. evidence: the area IDs the band rests on (only areas listed as answered). A baseline (measurable_with_baseline) needs a number with a unit that they said.`,
+      "prose: one line each for problem_statement, current_state, mvp and out_of_scope, and mitigation if they described how a risk is handled. Plain words, close to theirs.",
+      "acceptance: at least one criterion and one error_case in Given/When/Then form, only from what they said, each citing answered areas as evidence. Don't invent thresholds.",
+      "guardrails: a kill_criterion and a fallback if they said them (what would make them switch it off; what they'd do if it stopped working), plus review_point and data_rule if they said them. Each cites answered areas. If they didn't say, leave it out.",
+      "open_questions: one for each area that matters and is still unknown: what to ask, who could answer it, what would settle it.",
+      "reflect_back_text: two or three plain sentences playing the item back in their words.",
+      QUOTES,
+      bands,
+    ].join("\n\n"),
+    history: [],
+    context: [`Item ${item.id}: ${item.title} (${item.type}${item.modifiers.length ? `, ${item.modifiers.join(", ")}` : ""})`, "Recorded answers:", ...answers, "Everything the user said:", userLines(transcript)].join("\n"),
+    format: { name: "write_up", schema: writeupSchema },
+  };
+}

@@ -25,16 +25,18 @@ function withoutRootMeta(schema: Json): Json {
 }
 
 /** Azure OpenAI strict json_schema: the schema minus its document-level meta keys. */
-export function azureTurnSchema(): Json {
-  return withoutRootMeta(transform(turnSchema, (n) => n));
+export function azureSchema(schema: Json): Json {
+  return withoutRootMeta(transform(schema, (n) => n));
 }
+export const azureTurnSchema = (): Json => azureSchema(turnSchema);
 
 /**
  * Claude structured outputs: the schema minus meta keys, with nullable type arrays such as
  * ["string", "null"] rewritten as anyOf, which Claude's documented schema subset supports.
  */
-export function claudeTurnSchema(): Json {
-  return withoutRootMeta(transform(turnSchema, (n) => {
+export const claudeTurnSchema = (): Json => claudeSchema(turnSchema);
+export function claudeSchema(schema: Json): Json {
+  return withoutRootMeta(transform(schema, (n) => {
     if (!Array.isArray(n.type)) return n;
     const { type, description, ...rest } = n;
     return {

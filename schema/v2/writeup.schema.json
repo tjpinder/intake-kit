@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tjpinder/intake-kit/schema/v2/writeup.schema.json",
+  "title": "Write-up (schema version 2, at the summary)",
+  "description": "Band picks, prose, acceptance criteria, guardrails and open questions for one item, from what the user already said. Code validates every piece; scores and gates are computed by code.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "facts",
+    "prose",
+    "acceptance",
+    "guardrails",
+    "open_questions",
+    "reflect_back_text"
+  ],
+  "properties": {
+    "facts": {
+      "type": "array",
+      "description": "Band picks for scoring criteria, AI overlay checks, adoption and gate facts. The model picks a band name; code maps it to a score via scoring.yaml.",
+      "items": {
+        "$ref": "#/$defs/fact"
+      }
+    },
+    "prose": {
+      "type": "array",
+      "description": "Prose the spec pack needs that isn't a single coverage answer. Captured into the session file before rendering.",
+      "items": {
+        "$ref": "#/$defs/prose"
+      }
+    },
+    "acceptance": {
+      "type": "array",
+      "description": "Acceptance criteria and error cases in Given/When/Then form. Each cites the coverage IDs it rests on; code attaches the user's quote when rendering.",
+      "items": {
+        "$ref": "#/$defs/acceptance"
+      }
+    },
+    "guardrails": {
+      "type": "array",
+      "description": "Guardrail statements drawn from what the user said about trust, data and risk. Each cites the coverage IDs it rests on.",
+      "items": {
+        "$ref": "#/$defs/guardrail"
+      }
+    },
+    "open_questions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/open_question"
+      }
+    },
+    "reflect_back_text": {
+      "type": "string",
+      "description": "A short plain-language playback of the item, for the record."
+    }
+  },
+  "$defs": {
+    "fact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item",
+        "fact",
+        "band",
+        "evidence",
+        "quote"
+      ],
+      "properties": {
+        "item": {
+          "type": "string"
+        },
+        "fact": {
+          "type": "string",
+          "enum": [
+            "rule_clarity",
+            "input_digital",
+            "input_structured",
+            "ways_done",
+            "stability",
+            "documentation",
+            "steps_apps",
+            "access",
+            "value",
+            "ai_applies",
+            "eval_ability",
+            "error_cost",
+            "human_review",
+            "simpler_option",
+            "fallback",
+            "sensitive_data",
+            "push",
+            "pull",
+            "anxiety",
+            "habit",
+            "existing_asset",
+            "decision_depends",
+            "broken_cause",
+            "workaround_permanent",
+            "success_metric"
+          ]
+        },
+        "band": {
+          "type": "string",
+          "description": "One of the band names scoring.yaml defines for this fact."
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Coverage IDs the band was derived from."
+        },
+        "quote": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The user's words behind the band, when there is one."
+        }
+      }
+    },
+    "prose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item",
+        "field",
+        "text"
+      ],
+      "properties": {
+        "item": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "field": {
+          "type": "string",
+          "enum": [
+            "problem_statement",
+            "current_state",
+            "mvp",
+            "out_of_scope",
+            "mitigation"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item",
+        "kind",
+        "given",
+        "when",
+        "then",
+        "evidence"
+      ],
+      "properties": {
+        "item": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "criterion",
+            "error_case"
+          ]
+        },
+        "given": {
+          "type": "string"
+        },
+        "when": {
+          "type": "string"
+        },
+        "then": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Coverage IDs with a recorded answer and quote."
+        }
+      }
+    },
+    "guardrail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item",
+        "kind",
+        "text",
+        "evidence"
+      ],
+      "properties": {
+        "item": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "kill_criterion",
+            "fallback",
+            "review_point",
+            "data_rule"
+          ]
+        },
+        "text": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "open_question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item",
+        "area",
+        "question",
+        "who_can_answer",
+        "artifact_needed"
+      ],
+      "properties": {
+        "item": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "area": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "who_can_answer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "artifact_needed": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

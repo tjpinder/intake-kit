@@ -62,6 +62,35 @@
           "properties": {
             "reclassify_min_signals": { "type": "integer", "minimum": 1 }
           }
+        },
+        "checks": {
+          "description": "Interview engine v2: the only questions that can create an item.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["manual_work", "existing_asset"],
+          "properties": {
+            "manual_work": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["applies_to", "must_capture", "spawns", "light_pass"],
+              "properties": {
+                "applies_to": { "type": "array", "items": { "$ref": "#/$defs/item_type" } },
+                "must_capture": { "type": "string", "minLength": 1 },
+                "spawns": { "$ref": "#/$defs/item_type" },
+                "light_pass": { "type": "array", "items": { "type": "string" } }
+              }
+            },
+            "existing_asset": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["areas", "spawns", "light_pass"],
+              "properties": {
+                "areas": { "type": "array", "items": { "type": "string" } },
+                "spawns": { "oneOf": [{ "$ref": "#/$defs/item_type" }, { "type": "null" }] },
+                "light_pass": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
         }
       }
     },
@@ -79,6 +108,7 @@
         "candidates": { "type": "string" },
         "adoption_forces": { "type": "array", "items": { "enum": ["push", "pull", "anxiety", "habit"] } },
         "spawns_items": { "type": "boolean" },
+        "anchor": { "description": "Interview engine v2 asks this area first for items of this type.", "type": "string" },
         "asks_core": {
           "description": "Shared core areas that are always asked for items of this type, though not critical for every type.",
           "type": "array",

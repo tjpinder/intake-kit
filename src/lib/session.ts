@@ -2,8 +2,9 @@
 // authority; these mirror it for the code that reads and writes it.
 
 import type { ItemType, Modifier } from "./framework.ts";
+import type { EngineState } from "../engine/types.ts";
 
-export type Status = "covered" | "assumed" | "unknown" | "not_applicable";
+export type Status = "covered" | "assumed" | "unknown" | "not_applicable" | "declined";
 export type Quadrant = "prioritize" | "review" | "defer";
 export type GateDecision = "go" | "gather_more" | "dont_build" | "fix_not_build";
 export type CheckResult = "pass" | "fail" | "unknown";
@@ -133,6 +134,8 @@ export interface Session {
      * before this existed don't have it and fall back to "anything recorded".
      */
     asked?: Record<string, string>;
+    /** Interview engine v2 state; code owns every field. Absent in v1 sessions. */
+    engine?: EngineState;
   };
   core: Record<"users" | "outcome" | "data" | "systems" | "constraints" | "trust", CoverageEntry>;
   items: Item[];

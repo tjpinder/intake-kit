@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tjpinder/intake-kit/schema/v2/phrase.schema.json",
+  "title": "Question phrasing (schema version 2)",
+  "description": "The question for the one area code chose. Nothing else.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "question"
+  ],
+  "properties": {
+    "question": {
+      "type": "string",
+      "description": "One short question, in plain words, for the target area only."
+    }
+  }
+}

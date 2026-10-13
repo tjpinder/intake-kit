@@ -35,6 +35,11 @@ export interface Router {
   types: Record<ItemType, { label: string; signals: string[]; low_confidence_probe: string; output: string; module: string }>;
   modifiers: Record<Modifier, { label: string; signals: string[]; module: string; effects?: Module["effects"] }>;
   rules: { reclassify_min_signals: number; [extra: string]: unknown };
+  /** Interview engine v2: the only questions that can create an item. */
+  checks?: {
+    manual_work: { applies_to: ItemType[]; must_capture: string; spawns: ItemType; light_pass: string[] };
+    existing_asset: { areas: string[]; spawns: ItemType | null; light_pass: string[] };
+  };
 }
 export interface Scoring {
   rules_version: string;
@@ -225,7 +230,13 @@ export function buildFramework(sources: FrameworkSources, options: BuildOptions 
     issues.push(`modules/core.yaml areas (${moduleCore.join(", ")}) must match the session schema's core (${coreIds.join(", ")})`);
   }
   for (const id of scoring.gates.go_requires_core) if (!areas.has(id)) issues.push(`scoring.yaml: go_requires_core names unknown area ${id}`);
+  const checks = router.checks;
+  for (const id of [...(checks?.manual_work.light_pass ?? []), ...(checks?.existing_asset.areas ?? []), ...(checks?.existing_asset.light_pass ?? [])]) {
+    if (!areas.has(id)) issues.push(`router.yaml: checks name unknown area ${id}`);
+  }
   for (const mod of Object.values(modules)) {
+    const anchor = mod.anchor as string | undefined;
+    if (anchor && !mod.areas.some((a) => a.id === anchor)) issues.push(`modules/${mod.module}.yaml: anchor ${anchor} isn't one of its areas`);
     for (const id of (mod.asks_core as string[] | undefined) ?? []) if (!coreIds.includes(id)) issues.push(`modules/${mod.module}.yaml: asks_core names unknown core area ${id}`);
   }
 

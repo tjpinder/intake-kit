@@ -5,6 +5,9 @@ methods: [ASQ SIPOC, Contextual Design (Beyer and Holtzblatt)]
 step_tags: [rule_based, judgment, data_entry, lookup, handoff]
 candidates: each automatable segment of the walkthrough becomes its own scored item
 
+# Interview engine v2 asks this area first.
+anchor: manual_process.walkthrough
+
 areas:
   - id: manual_process.walkthrough
     must_capture: The last time, step by step, with screens, what was typed and what was checked

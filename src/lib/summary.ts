@@ -141,6 +141,7 @@ const STATUS_NOTE: Record<CoverageEntry["status"], string> = {
   assumed: " (my reading; please check)",
   unknown: " (not known yet)",
   not_applicable: " (doesn't apply)",
+  declined: " (they preferred not to say)",
 };
 
 /** The summary as plain text, for the CLI and for the model's context. */

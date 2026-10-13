@@ -8,6 +8,9 @@ adoption_forces: [push, pull, anxiety, habit]
 # licence, what it mustn't do), and the first live test lost all of them.
 asks_core: [core.constraints]
 
+# Interview engine v2 asks this area first.
+anchor: known_idea.current
+
 areas:
   - id: known_idea.current
     must_capture: What happens today when this gets done, from the last real instance

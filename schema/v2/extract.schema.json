@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tjpinder/intake-kit/schema/v2/extract.schema.json",
+  "title": "Answer extraction (schema version 2)",
+  "description": "How the user's reply answers the one question asked. Code applies it; the model never chooses areas, creates items or decides readiness.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "value",
+    "quote",
+    "check",
+    "wrap_up",
+    "also_answers"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "answered",
+        "partial",
+        "not_applicable",
+        "declined",
+        "off_topic"
+      ]
+    },
+    "value": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "What they said, in a short plain sentence. Null unless answered or partial."
+    },
+    "quote": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "The user's exact words, copied from one message they sent. Null if there's nothing to quote."
+    },
+    "check": {
+      "type": "string",
+      "enum": [
+        "yes",
+        "no",
+        "unclear",
+        "none"
+      ],
+      "description": "Only for a check or confirmation question: yes, no or unclear. Otherwise none."
+    },
+    "wrap_up": {
+      "type": "boolean",
+      "description": "True only if the user asked to stop or wrap up."
+    },
+    "also_answers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/also_answer"
+      }
+    }
+  },
+  "$defs": {
+    "also_answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "area",
+        "value",
+        "quote"
+      ],
+      "properties": {
+        "area": {
+          "type": "string",
+          "description": "A coverage ID from the list given."
+        },
+        "value": {
+          "type": "string"
+        },
+        "quote": {
+          "type": "string",
+          "description": "The user's exact words, copied from one message they sent."
+        }
+      }
+    }
+  }
+}

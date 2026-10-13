@@ -7,6 +7,9 @@ adoption_forces: [push, pull, anxiety, habit]
 spawns_items: true
 self_serve_rule: items a user could handle with an off-the-shelf assistant go on the self-serve list, not the build backlog
 
+# Interview engine v2 asks this area first.
+anchor: exploratory.instances
+
 areas:
   - id: exploratory.zones
     must_capture: Repetitive work nobody values, waits on other teams' skills, places people get stuck

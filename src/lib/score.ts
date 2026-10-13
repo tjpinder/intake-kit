@@ -17,32 +17,40 @@ export function bandOf(item: Item, fact: string, fw: Framework): string {
   return band;
 }
 
+/** A number, in digits or words ("one" counts here: what makes it a measure is the unit after it). */
+const NUM = String.raw`(?:\d+(?:[.,]\d+)?|a dozen|dozens|hundreds|thousands|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|a hundred|a thousand|half an?)`;
+/** What a number has to be attached to: a unit of time, money or rate, or a countable thing. */
+const UNIT = String.raw`(?:%|percent|per cent|hours?|hrs?|minutes?|mins?|seconds?|secs?|days?|weeks?|months?|years?|shifts?|orders?|lines?|picks?|short picks|exceptions?|errors?|mistakes?|people|persons?|staff|users?|employees?|leads?|pickers?|items?|tickets?|invoices?|requests?|cases?|shipments?|units?|calls?|emails?|reports?|rows?|records?|processes|steps?|times|chargebacks?|dollars?|bucks|k|repos?|interviews?|applications?)`;
+const PERIOD = String.raw`(?:a|an|per|every|each)\s+(?:day|week|month|year|shift|morning|night|hour|run)`;
 /**
- * Digits, or a number written as a word ("four hours every Monday", "about a dozen"). Not "one"
- * or "once": "if no one looks at it" isn't a measure (persona 7).
+ * A number attached to a unit or quantity: "one hour", "50 orders", "20%", "$300", "3 people per
+ * week", "about 50 a day". Not "no one" and not a bare "three" (persona 7: "if no one looks at it"
+ * isn't a measure).
  */
-const NUMBER = /\d|\b(two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|dozen|half|twice|percent)\b/i;
+const MEASURE = new RegExp(String.raw`[$£€]\s?\d|(?<!\b(?:no|any|some|every)\s)\b${NUM}(?:\s+\w+)?\s*${UNIT}\b|\b${NUM}\s+${PERIOD}\b|\b(?:once|twice)\s+${PERIOD}\b|\d\s*%`, "i");
+
+export const hasNumber = (text: string): boolean => MEASURE.test(text);
+
+/** Every quote in the session the interviewer recorded (captured replies don't count). */
+export function sessionQuotes(session: Session): string[] {
+  const entries = [...Object.values(session.core), ...session.items.flatMap((i) => [...Object.values(i.core_overrides), ...Object.values(i.coverage)])];
+  return [...entries.filter((e) => !isCaptured(e)).flatMap((e) => e.quotes), ...session.items.flatMap((i) => Object.values(i.facts).flatMap((f) => f.quotes))];
+}
 
 /**
- * The band a fact may be scored on, and why it differs from the pick when it does. Two
- * deterministic guards, both from the first live test and persona 7:
+ * The band a fact may be scored on, and why it differs from the pick when it does:
  * - captured: every answer the band rests on was captured from a reply the interviewer didn't
- *   record. That's the user's words, but nobody judged what they answer, so the band is unknown.
- * - no_number: success_metric "measurable_with_baseline" needs a number in a quote it cites
- *   (the fact's own, or one on its evidence). Without one the band is vague: a model picked it on
- *   "hiring managers reference the repo", which measures nothing.
+ *   record; nobody judged what it answers, so the band is unknown.
+ * - no_number: success_metric "measurable_with_baseline" needs a number attached to a unit
+ *   somewhere in what the user said (any quote in the session, not only the cited ones; a
+ *   baseline often comes up while describing today's work). Without one the band is vague.
  */
-export const hasNumber = (text: string): boolean => NUMBER.test(text);
-
 export function bandCheck(session: Session, item: Item, fact: string): { band: string; reason: "captured" | "no_number" | null } {
   const f = item.facts[fact];
   if (!f) return { band: "unknown", reason: null };
   const answered = f.evidence.map((id) => coverageFor(session, item, id)).filter((e) => e?.updated_at);
   if (answered.length > 0 && answered.every(isCaptured)) return { band: "unknown", reason: f.band === "unknown" ? null : "captured" };
-  if (fact === "success_metric" && f.band === "measurable_with_baseline") {
-    const quotes = [...f.quotes, ...answered.filter((e) => !isCaptured(e)).flatMap((e) => e!.quotes)];
-    if (!quotes.some(hasNumber)) return { band: "vague", reason: "no_number" };
-  }
+  if (fact === "success_metric" && f.band === "measurable_with_baseline" && !sessionQuotes(session).some(hasNumber)) return { band: "vague", reason: "no_number" };
   return { band: f.band, reason: null };
 }
 

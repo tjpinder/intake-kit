@@ -2,7 +2,7 @@
 // deployment-scoped chat completions, api-key header, raw fetch, retry on 429/503 honouring
 // Retry-After. Added here: strict json_schema output and a request timeout.
 
-import { azureTurnSchema } from "./schema.ts";
+import { azureSchema, azureTurnSchema } from "./schema.ts";
 import { ProviderError, type Provider, type ProviderResult, type TurnRequest } from "./types.ts";
 
 export interface AzureConfig {
@@ -55,7 +55,7 @@ export function createAzureProvider(config: AzureConfig): Provider {
           ...request.history,
           { role: "system", content: request.context },
         ],
-        response_format: { type: "json_schema", json_schema: { name: "intake_turn", strict: true, schema } },
+        response_format: { type: "json_schema", json_schema: request.format ? { name: request.format.name, strict: true, schema: azureSchema(request.format.schema) } : { name: "intake_turn", strict: true, schema } },
         max_completion_tokens: config.maxCompletionTokens ?? 4000,
         temperature: config.temperature ?? 0.3,
       });

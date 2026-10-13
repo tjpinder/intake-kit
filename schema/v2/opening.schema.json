@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tjpinder/intake-kit/schema/v2/opening.schema.json",
+  "title": "Opening classification (schema version 2, first turn only)",
+  "description": "What the model returns for the user's opening statement. Code applies the negation rule, accepts the type or asks the one disambiguating probe, and records the areas the opening already answers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "type",
+    "confidence",
+    "title",
+    "trigger_quote",
+    "modifiers",
+    "also_answers"
+  ],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "broken",
+        "manual_process",
+        "known_idea",
+        "exploratory",
+        "data_report"
+      ]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": [
+        "high",
+        "med",
+        "low"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "description": "A short title for the item, in plain words."
+    },
+    "trigger_quote": {
+      "type": "string",
+      "description": "The user's exact words, copied from one message they sent."
+    },
+    "modifiers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "modifier",
+          "quote"
+        ],
+        "properties": {
+          "modifier": {
+            "type": "string",
+            "enum": [
+              "integration",
+              "compliance",
+              "migration"
+            ]
+          },
+          "quote": {
+            "type": "string",
+            "description": "The user's exact words, copied from one message they sent."
+          }
+        }
+      }
+    },
+    "also_answers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/also_answer"
+      }
+    }
+  },
+  "$defs": {
+    "also_answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "area",
+        "value",
+        "quote"
+      ],
+      "properties": {
+        "area": {
+          "type": "string",
+          "description": "A coverage ID from the list given."
+        },
+        "value": {
+          "type": "string"
+        },
+        "quote": {
+          "type": "string",
+          "description": "The user's exact words, copied from one message they sent."
+        }
+      }
+    }
+  }
+}

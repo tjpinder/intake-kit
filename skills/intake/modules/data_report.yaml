@@ -3,6 +3,9 @@ module: data_report
 applies_to: data_report
 methods: [decision-first metric definition]
 
+# Interview engine v2 asks this area first.
+anchor: data_report.decision
+
 areas:
   - id: data_report.decision
     must_capture: What the user will do differently when they see the number

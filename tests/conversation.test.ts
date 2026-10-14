@@ -90,7 +90,7 @@ for (const file of readdirSync("tests/fixtures/conversations").filter((f) => f.e
       const r = node("intake.mjs", ["render", "--dir", dir]);
       assert.equal(r.status, 0, r.stdout);
       const files = JSON.parse(r.stdout).files.map((f: { file: string }) => f.file).sort();
-      assert.deepEqual(files, ["ACCEPTANCE.md", "CLAUDE.md", "DECISIONS.md", "FIRST_PROMPT.md", "GUARDRAILS.md", "PROCESS_MAP.md", "SPEC.md"]);
+      assert.deepEqual(files, ["ACCEPTANCE.md", "CLAUDE.md", "DECISIONS.md", "FIRST_PROMPT.md", "GUARDRAILS.md", "PROCESS_MAP.md", "SOW_DRAFT.md", "SPEC.md"]);
       for (const file of ["SPEC.md", "ACCEPTANCE.md"]) {
         let section = "";
         for (const line of readFileSync(join(dir, file), "utf8").split("\n")) {

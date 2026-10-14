@@ -17416,8 +17416,65 @@ function scope(session) {
     "DISCOVERY_BRIEF.md": items.filter((i) => i.gate?.decision === "gather_more"),
     "DIAGNOSTIC_BRIEF.md": items.filter((i) => i.type === "broken"),
     "PROCESS_MAP.md": items.filter((i) => i.type === "manual_process"),
-    "BACKLOG.md": items.some((i) => i.type === "exploratory") ? items : []
+    "BACKLOG.md": items.some((i) => i.type === "exploratory") ? items : [],
+    // Definitions: rendered for every outcome once a term was found.
+    "DEFINITIONS.md": (session.terms ?? []).some((t) => t.status !== "not_a_term") ? items.filter((i) => !i.dropped) : [],
+    // A build SOW for Go items, a discovery SOW for Gather more; nothing else gets one.
+    "SOW_DRAFT.md": items.filter((i) => i.gate?.decision === "go" || i.gate?.decision === "gather_more")
   };
+}
+function sourceLabel(session, id) {
+  const s = id ? session.session.sources?.find((x) => x.id === id) : void 0;
+  if (!s) return null;
+  return s.kind === "notes" ? `notes from ${s.from}` : s.kind === "transcript" ? `a transcript with ${s.from}` : s.kind === "request" ? `the request from ${s.from}` : `a reply from ${s.from}`;
+}
+function assumptionLines(session, fw, items) {
+  const lines = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const i of items) {
+    for (const area of areasOf(i, fw)) {
+      const entry = coverageFor(session, i, area.id);
+      if (!entry) continue;
+      const shared = area.id.startsWith("core.") && !i.core_overrides[area.id.slice(5)];
+      const key = shared ? area.id : `${i.id}:${area.id}`;
+      if (seen.has(key)) continue;
+      const where = shared ? "" : ` (\`${i.id}\`)`;
+      if (entry.status === "assumed") {
+        seen.add(key);
+        lines.push(`- **${area.id}**${where}: ${entry.value} ("${entry.quotes[0]}"). Owner: _unassigned_`);
+        continue;
+      }
+      const kinds = entry.quotes.map((q) => session.session.sources?.find((s) => s.id === entry.quote_sources?.[q])?.kind);
+      if (entry.status === "covered" && kinds.length && kinds.every((k) => k === "notes")) {
+        seen.add(key);
+        lines.push(`- **${area.id}**${where}: ${entry.value} (from ${sourceLabel(session, entry.quote_sources?.[entry.quotes[0]])}, not the requester's own words). Owner: _unassigned_`);
+      }
+    }
+  }
+  const ids = new Set(items.map((i) => i.id));
+  for (const t of (session.terms ?? []).filter((x) => x.status === "confirmed" && (x.measurable === "no" || x.measurable === "partly") && x.items.some((id) => ids.has(id)))) {
+    lines.push(`- **"${t.term}"** can ${t.measurable === "no" ? "not" : "only partly"} be seen in the system's data, by the owner's definition. How it will be measured is still open. Owner: _unassigned_`);
+  }
+  return lines;
+}
+function termBlocks(session, items) {
+  const ids = new Set(items.map((i) => i.id));
+  const terms = (session.terms ?? []).filter((t) => t.status !== "not_a_term" && (!t.items.length || t.items.some((id) => ids.has(id))));
+  if (!terms.length) return NOTHING;
+  return terms.map((t) => {
+    const lines = [`### ${t.term} (${t.kind}): ${t.status === "confirmed" ? t.conflict ? "two definitions disagree" : "confirmed" : "unconfirmed"}`, ""];
+    if (t.status === "confirmed") {
+      lines.push(`> ${t.definition}`, "", `In the owner's words: "${t.quotes[0]}"${t.given_by ? `. Given by ${t.given_by}` : ""}${sourceLabel(session, t.source) ? `, in ${sourceLabel(session, t.source)}` : ""}.`);
+      if (t.conflict) lines.push("", `Also defined as: "${t.conflict.definition}" (${sourceLabel(session, t.conflict.source) ?? t.conflict.source}). Settle which is right before building.`);
+    } else {
+      lines.push("_The owner hasn't defined it yet. Don't interpret it: ask._", "", `Found in: "${t.found_in.quote}".`);
+    }
+    const measurable = { yes: "Yes", partly: "Partly", no: "No: it isn't in the system's data", unknown: "Not known yet" }[t.measurable];
+    lines.push("", `Can it be seen in the data? ${measurable}.`);
+    if (t.examples.length) lines.push("", "Known answers (each becomes an acceptance check):", ...t.examples.map((e) => `- ${e.case} \u2192 ${e.expected}`));
+    else if (t.kind === "metric") lines.push("", "_Recommended: one real example with its correct result, so the build can be checked against it._");
+    return lines.join("\n");
+  }).join("\n\n");
 }
 function sectionRenderers(session, fw, file, checks) {
   const fed = (section) => (items) => perItem(items, (i) => fedLines(session, i, fw, file, section));
@@ -17498,19 +17555,7 @@ function sectionRenderers(session, fw, file, checks) {
           return lines.length ? lines.join("\n") : "_None._";
         },
         assumptions: (items) => {
-          const lines = [];
-          const seen = /* @__PURE__ */ new Set();
-          for (const i of items) {
-            for (const area of areasOf(i, fw)) {
-              const entry = coverageFor(session, i, area.id);
-              if (entry?.status !== "assumed") continue;
-              const shared = area.id.startsWith("core.") && !i.core_overrides[area.id.slice(5)];
-              const key = shared ? area.id : `${i.id}:${area.id}`;
-              if (seen.has(key)) continue;
-              seen.add(key);
-              lines.push(`- **${area.id}**${shared ? "" : ` (\`${i.id}\`)`}: ${entry.value} ("${entry.quotes[0]}"). Owner: _unassigned_`);
-            }
-          }
+          const lines = assumptionLines(session, fw, items);
           return lines.length ? lines.join("\n") : "_None._";
         },
         adoption_risks: (items) => {
@@ -17558,6 +17603,49 @@ function sectionRenderers(session, fw, file, checks) {
         },
         self_serve: (items) => perItem(items.filter((i) => i.type === "exploratory"), (i) => fedLines(session, i, fw, file, "self_serve"))
       };
+    case "DEFINITIONS.md":
+      return { terms: (items) => termBlocks(session, items) };
+    case "SOW_DRAFT.md": {
+      const kind = (i) => i.gate?.decision === "go" ? "Build" : "Discovery";
+      const others = session.items.filter((i) => i.gate && i.gate.decision !== "go" && i.gate.decision !== "gather_more");
+      const coreLines = (area) => {
+        const e = session.core[area.slice(5)];
+        const c = citation(e, area);
+        return e && e.status !== "unknown" && e.value && c ? [`- ${e.value} ${c}`] : [];
+      };
+      return {
+        background: (items) => perItem(items, (i) => [...i.prose.problem_statement ? [`> ${i.prose.problem_statement}`, ""] : [], ...coreLines("core.outcome")]),
+        scope: (items) => perItem(items, (i) => i.gate?.decision === "go" ? [`**${kind(i)}.**${i.prose.mvp ? ` ${i.prose.mvp}` : ""}`, "", "Deliverable: what SPEC.md describes, meeting every check in ACCEPTANCE.md, within GUARDRAILS.md."] : [`**${kind(i)}.** Answer the open questions in DISCOVERY_BRIEF.md, then re-run the intake to a sign-off:`, "", ...openQuestionLines(session, i, fw, Object.keys(fw.sections)).length ? openQuestionLines(session, i, fw, Object.keys(fw.sections)) : [NOTHING]]),
+        out_of_scope: (items) => {
+          const lines = [...items.flatMap((i) => i.prose.out_of_scope ? [`- ${i.prose.out_of_scope}`] : []), ...others.map((o) => `- **${o.title}**: ${DECISION_LABEL[o.gate.decision]}. ${o.gate.reasons[0]}.${o.gate.revisit_trigger ? ` ${o.gate.revisit_trigger}.` : ""}`)];
+          return lines.length ? lines.join("\n") : NOTHING;
+        },
+        acceptance: (items) => perItem(items, (i) => i.gate?.decision === "go" ? [...acceptanceLines(session, i, "criterion"), ...acceptanceLines(session, i, "error_case")] : ["- [ ] Every open question answered in the owner's words, with who answered it.", "- [ ] Every term in DEFINITIONS.md confirmed by the owner."]),
+        assumptions: (items) => {
+          const l = assumptionLines(session, fw, items);
+          return l.length ? l.join("\n") : NOTHING;
+        },
+        dependencies: () => {
+          const l = ["core.systems", "core.data", "core.constraints", "core.users"].flatMap(coreLines);
+          return l.length ? l.join("\n") : NOTHING;
+        },
+        risks: (items) => {
+          const lines = items.flatMap((i) => [
+            ...i.scoring ? adoptionRisks(i.scoring, fw).map((force) => `- ${force} is ${i.scoring.adoption[force]}${items.length > 1 ? ` (\`${i.id}\`)` : ""}`) : [],
+            ...guardrailLines(session, i, "kill_criterion").map((l) => l.replace(/^- /, "- Stop if: ")),
+            ...guardrailLines(session, i, "fallback").map((l) => l.replace(/^- /, "- Fallback: ")),
+            ...i.facts.success_metric?.band && i.facts.success_metric.band !== "measurable_with_baseline" ? ["- Success isn't measurable against a baseline yet, so it has to be agreed before work starts."] : []
+          ]);
+          return lines.length ? lines.join("\n") : NOTHING;
+        },
+        success: (items) => perItem(items, (i) => i.facts.success_metric?.band === "measurable_with_baseline" ? coreLines("core.outcome") : ["_To be agreed: the intake has no measurable target against a baseline yet (listed under Risks)._"]),
+        change_control: (items) => [
+          ...items.flatMap((i) => i.gate?.revisit_trigger ? [`- ${i.title}: ${i.gate.revisit_trigger}.`] : []),
+          "- Any change to scope, definitions or acceptance goes back through the intake and is signed off again."
+        ].join("\n"),
+        commercial: () => ["- Price: [To be completed]", "- Timeline and milestones: [To be completed]", "- Payment terms: [To be completed]", "- Legal terms and signatures: [To be completed]"].join("\n")
+      };
+    }
     default:
       throw new RenderError(`no renderer for ${file}`);
   }

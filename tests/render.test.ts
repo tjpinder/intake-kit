@@ -96,7 +96,7 @@ describe("which files each gate produces", () => {
     const item = makeItem("item-1", { coverage: { "data_report.truth": { ...unknown(), updated_at: "2026-10-10T10:00:00Z" } } });
     const neverAsked = { status: "unknown" as const, value: null, quotes: [], probe_count: 0 };
     const out = render(gated([item], { core: { trust: neverAsked } }));
-    assert.deepEqual([...out.keys()].sort(), ["DECISIONS.md", "DISCOVERY_BRIEF.md"]);
+    assert.deepEqual([...out.keys()].sort(), ["DECISIONS.md", "DISCOVERY_BRIEF.md", "SOW_DRAFT.md"]);
     const brief = out.get("DISCOVERY_BRIEF.md")!;
     assert.match(brief, /Critical area core\.trust isn't covered/);
     assert.match(brief, /Not yet asked: Cost of a wrong output.*\[core\.trust\]/);
@@ -298,5 +298,61 @@ describe("Gather more: the brief always has open questions, and the card matches
         if (/who can answer/.test(blurb)) assert.ok(lines.every((l) => l.includes("Who can answer:")), blurb);
       }
     }
+  });
+});
+
+describe("SOW_DRAFT.md and DEFINITIONS.md (HANDOFF.md: SOW draft, Definitions)", () => {
+  const fwS = loadFramework(".");
+  const tplS = readTemplates(".");
+  const fixture = (): Session => {
+    const s: Session = parseYaml(readFileSync("tests/fixtures/session/pick-exception-scored.yaml", "utf8"));
+    for (const item of s.items) { item.scoring = null; item.gate = null; }
+    return s;
+  };
+  const section = (text: string, heading: string) => text.slice(text.indexOf(`## ${heading}`), text.indexOf("\n## ", text.indexOf(`## ${heading}`) + 3) >>> 0 || undefined);
+
+  test("a build SOW: every acceptance line is in ACCEPTANCE.md, and commercial terms are blanks with no numbers", () => {
+    const out = renderAll(scoreAndGate(fixture(), fwS).session, fwS, tplS);
+    const sow = out.get("SOW_DRAFT.md")!;
+    const acceptance = out.get("ACCEPTANCE.md")!;
+    for (const line of section(sow, "Acceptance").split("\n").filter((l) => l.startsWith("- [ ]"))) assert.ok(acceptance.includes(line), line);
+    const commercial = sow.slice(sow.indexOf("## Commercial terms"));
+    assert.doesNotMatch(commercial, /\d/);
+    assert.equal((commercial.match(/\[To be completed\]/g) ?? []).length, 4);
+  });
+
+  test("a discovery SOW lists exactly the brief's open questions", () => {
+    const s = fixture();
+    s.terms = [{ id: "term-1", term: "short pick", items: ["item-1"], found_in: { quote: "short picks", source: null }, status: "unconfirmed", kind: "metric", definition: null, quotes: [], given_by: null, source: null, measurable: "unknown", examples: [], starter: null }];
+    const out = renderAll(scoreAndGate(s, fwS).session, fwS, tplS);
+    const brief = out.get("DISCOVERY_BRIEF.md")!;
+    // Open-question lines end with the area or term they're about, like [core.trust] or [term-1].
+    const isQuestion = (l: string) => l.startsWith("- ") && /\[[a-z0-9_.-]+\]$/.test(l);
+    const briefQs = brief.split("\n").filter(isQuestion);
+    const sowQs = section(out.get("SOW_DRAFT.md")!, "Scope and deliverables").split("\n").filter(isQuestion);
+    assert.ok(briefQs.length > 0);
+    assert.deepEqual(sowQs, briefQs);
+  });
+
+  test("no SOW for a session with no Go or Gather more item", () => {
+    const out = render(gated([makeItem("item-1", { facts: { existing_asset: "covers" } })]));
+    assert.ok(!out.has("SOW_DRAFT.md"));
+  });
+
+  test("DEFINITIONS.md: the owner's words, who gave them, known answers, and unconfirmed terms marked as such", () => {
+    const s = fixture();
+    s.session.sources = [{ id: "src-1", kind: "request", from: "Ops", added_at: "2026-10-10T09:00:00.000Z", text: "short picks" }, { id: "src-2", kind: "notes", from: "Tom", added_at: "2026-10-10T09:00:00.000Z", text: "An over pick is extra units taken that never show on the transaction." }];
+    const base = { items: ["item-1"], found_in: { quote: "short picks", source: "src-1" }, given_by: null, source: null, starter: null, conflict: null };
+    s.terms = [
+      { ...base, id: "term-1", term: "over pick", status: "confirmed", kind: "metric", definition: "Extra units taken that aren't on the transaction", quotes: ["An over pick is extra units taken that never show on the transaction."], given_by: "Tom", source: "src-2", measurable: "no", examples: [{ case: "Ticket 20, 22 left the slot", expected: "2" }] },
+      { ...base, id: "term-2", term: "short pick", status: "unconfirmed", kind: "metric", definition: null, quotes: [], measurable: "unknown", examples: [] },
+    ];
+    const out = renderAll(scoreAndGate(s, fwS).session, fwS, tplS);
+    const defs = out.get("DEFINITIONS.md")!;
+    assert.match(defs, /### over pick \(metric\): confirmed/);
+    assert.match(defs, /Given by Tom, in notes from Tom\./);
+    assert.match(defs, /- Ticket 20, 22 left the slot → 2/);
+    assert.match(defs, /### short pick \(metric\): unconfirmed\n\n_The owner hasn't defined it yet\. Don't interpret it: ask\._/);
+    assert.match(out.get("DECISIONS.md")!, /"over pick"\*\* can not be seen in the system's data/);
   });
 });

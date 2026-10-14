@@ -113,6 +113,7 @@ describe("ingest", () => {
     assert.equal(out.session.items[1].spawned_from, "item-1");
     assert.equal(out.session.session.engine!.checks["item-1:kill_criteria"].value, "WMS disagreement for two weeks");
     assert.ok(out.session.core.trust.quotes.includes("If the counts disagreed with the WMS for two weeks we'd switch it off."));
+    assert.equal(out.session.core.trust.quote_sources?.["If the counts disagreed with the WMS for two weeks we'd switch it off."], "src-2");
     assert.deepEqual(out.session.session.engine!.checks["item-1:existing_asset"], { asks: 1, result: null });
     assert.equal(validateSession(out.session).ok, true, validateSession(out.session).errors.join("; "));
   });

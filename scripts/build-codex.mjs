@@ -4,6 +4,7 @@
 //   .agents/skills/intake/         $intake
 //   .agents/skills/intake-guardrails/   $intake-guardrails
 //   .agents/skills/intake-audit/   $intake-audit
+//   .agents/skills/intake-collect/ $intake-collect
 //
 // Codex skills read only `name` and `description` from frontmatter and have no documented
 // path substitution or `!` command injection, so each Claude skill is rewritten: paths point
@@ -24,12 +25,14 @@ const SKILLS = [
   { from: "intake", to: "intake" },
   { from: "guardrails", to: "intake-guardrails" },
   { from: "audit", to: "intake-audit" },
+  { from: "collect", to: "intake-collect" },
 ];
 
 const COMMANDS = [
   ["/intake-kit:intake", "$intake"],
   ["/intake-kit:guardrails", "$intake-guardrails"],
   ["/intake-kit:audit", "$intake-audit"],
+  ["/intake-kit:collect", "$intake-collect"],
 ];
 
 function replaceExactly(text, from, to, count, where) {
@@ -88,6 +91,17 @@ export function codexSkill(name, source, description) {
       1,
       "intake quotes",
     );
+  }
+
+  if (name === "intake-collect") {
+    body = replaceExactly(
+      body,
+      '!`node "${CLAUDE_PLUGIN_ROOT}/dist/intake.mjs" guide`',
+      'Before triage, run `node "' + KIT + '/dist/intake.mjs" guide` and keep its output in mind. It is the router, every coverage area and every allowed band.',
+      1,
+      "collect guide",
+    );
+    body = replaceExactly(body, 'intake.mjs" triage --request', 'intake.mjs" triage --provider codex --request', 1, "collect triage");
   }
 
   body = body.split("${CLAUDE_PLUGIN_ROOT}").join(KIT);

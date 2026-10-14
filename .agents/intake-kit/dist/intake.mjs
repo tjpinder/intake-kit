@@ -18030,7 +18030,7 @@ function triage(dir, o) {
   }
   const at = now();
   const fw = loadFramework(pluginRoot());
-  const session = startAsync(fw, { id: `${at.slice(0, 10)}-${randomBytes(2).toString("hex")}`, request: o.request.trim(), type: o.type, modifiers: o.modifiers, title: o.title, from: o.from ?? "the requester", provider: "claude", now: at });
+  const session = startAsync(fw, { id: `${at.slice(0, 10)}-${randomBytes(2).toString("hex")}`, request: o.request.trim(), type: o.type, modifiers: o.modifiers, title: o.title, from: o.from ?? "the requester", provider: o.provider, now: at });
   writeSession(dir, session);
   const files = writePacket(dir, session);
   return out(0, { result: "triaged", session_id: session.session.id, session_file: p.session, packet: files.email, agenda: files.agenda, readiness: readinessLines(findGaps(session, fw)) });
@@ -18187,7 +18187,8 @@ async function main() {
       process.stdout.write(guide(loadFramework(pluginRoot())));
       return;
     case "triage":
-      return triage(dir, { request: values.request, type: values.type, modifiers: values.modifier, from: values.from, title: values.title, new: values.new });
+      choice("provider", values.provider, ["claude", "codex"]);
+      return triage(dir, { request: values.request, type: values.type, modifiers: values.modifier, from: values.from, title: values.title, new: values.new, provider: values.provider });
     case "packet":
       choice("format", values.format, ["email", "agenda"]);
       return packetCommand(dir, values.format);

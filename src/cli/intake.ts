@@ -10,7 +10,7 @@
 //   guide                               the router, areas and bands, as markdown for the skill
 //
 // Async intake (HANDOFF.md, "Async intake mode"): the interviewer collects answers from someone else.
-//   triage --request <text> --type <type> [--modifier m]... [--from <who>] [--title <t>] [--new]
+//   triage --request <text> --type <type> [--modifier m]... [--from <who>] [--title <t>] [--provider claude|codex] [--new]
 //                                       start an async intake and write the question packet
 //   packet [--format email|agenda]      the question packet again
 //   ingest --file <path> --kind reply|notes|transcript --from <who>
@@ -370,7 +370,7 @@ function writePacket(dir: string, s: Session): { email: string; agenda: string }
   return { email, agenda };
 }
 
-function triage(dir: string, o: { request?: string; type?: string; modifiers: string[]; from?: string; title?: string; new: boolean }) {
+function triage(dir: string, o: { request?: string; type?: string; modifiers: string[]; from?: string; title?: string; new: boolean; provider: string }) {
   if (!o.request?.trim()) return out(4, { result: "bad_option", message: "--request is required: the request in one line, in the words it came in." });
   if (!o.type || !TYPES.includes(o.type as ItemType)) return out(4, { result: "bad_option", message: `--type must be one of ${TYPES.join(", ")}` });
   for (const m of o.modifiers) if (!MODIFIERS.includes(m as Modifier)) return out(4, { result: "bad_option", message: `--modifier must be one of ${MODIFIERS.join(", ")}` });
@@ -383,7 +383,7 @@ function triage(dir: string, o: { request?: string; type?: string; modifiers: st
   }
   const at = now();
   const fw = loadFramework(pluginRoot());
-  const session = startAsync(fw, { id: `${at.slice(0, 10)}-${randomBytes(2).toString("hex")}`, request: o.request.trim(), type: o.type as ItemType, modifiers: o.modifiers as Modifier[], title: o.title, from: o.from ?? "the requester", provider: "claude", now: at });
+  const session = startAsync(fw, { id: `${at.slice(0, 10)}-${randomBytes(2).toString("hex")}`, request: o.request.trim(), type: o.type as ItemType, modifiers: o.modifiers as Modifier[], title: o.title, from: o.from ?? "the requester", provider: o.provider as Session["session"]["provider"], now: at });
   writeSession(dir, session);
   const files = writePacket(dir, session);
   return out(0, { result: "triaged", session_id: session.session.id, session_file: p.session, packet: files.email, agenda: files.agenda, readiness: readinessLines(findGaps(session, fw)) });
@@ -547,7 +547,8 @@ async function main() {
       process.stdout.write(guide(loadFramework(pluginRoot())));
       return;
     case "triage":
-      return triage(dir, { request: values.request, type: values.type, modifiers: values.modifier as string[], from: values.from, title: values.title, new: values.new! });
+      choice("provider", values.provider!, ["claude", "codex"]);
+      return triage(dir, { request: values.request, type: values.type, modifiers: values.modifier as string[], from: values.from, title: values.title, new: values.new!, provider: values.provider! });
     case "packet":
       choice("format", values.format!, ["email", "agenda"]);
       return packetCommand(dir, values.format!);

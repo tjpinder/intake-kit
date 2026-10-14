@@ -160,7 +160,7 @@ describe("definitions (HANDOFF.md, Definitions)", () => {
 
   test("a definition in the owner's words confirms the term, with who gave it, whether it's measurable and the worked example", async () => {
     const def = { term: "Over pick", definition: "More units taken than the ticket says; not on the system transaction", quotes: ["An over pick is when the picker takes more units than the pick ticket says"], certain: true, measurable: "no", examples: [{ case: "Order 1043: ticket 20, 22 left the slot", expected: "2" }], conflict: false };
-    const out = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "over pick", quote: "over picks on the night shift", kind: "metric" }], [def])]), fw, session: triaged(), source: { kind: "notes", from: "Dana", text: TEXT }, now: LATER });
+    const out = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "over pick", quote: "over picks on the night shift", kind: "metric" }], [def])]), fw, session: triaged(), source: { kind: "reply", from: "Dana", text: TEXT }, now: LATER });
     const [t] = out.session.terms!;
     assert.equal(t.status, "confirmed");
     assert.equal(t.given_by, "Dana");
@@ -200,12 +200,12 @@ describe("ingest fixes after the real-model smoke test", () => {
   test("a later source that settles part of a term updates that term, keeping the earlier words", async () => {
     const first = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "short pick", quote: "A short pick", kind: "metric" }], [shortPick({})])]), fw, session: triaged(), source: { kind: "reply", from: "Sam", text: SRC }, now: LATER });
     const notes = "wrong-location scans: YES count them as short picks";
-    const out = await runIngest({ provider: scripted([ingestOut([], [], [], [shortPick({ definition: "Confirmed quantity below the task quantity, including wrong-location scans", quotes: ["wrong-location scans: YES count them as short picks"] })])]), fw, session: first.session, source: { kind: "notes", from: "Tom", text: notes }, now: LATER });
+    const out = await runIngest({ provider: scripted([ingestOut([], [], [], [shortPick({ definition: "Confirmed quantity below the task quantity, including wrong-location scans", quotes: ["wrong-location scans: YES count them as short picks"] })])]), fw, session: first.session, source: { kind: "reply", from: "Priya", text: notes }, now: LATER });
     assert.equal(out.session.terms!.length, 1);
     const t = out.session.terms![0];
     assert.equal(t.definition, "Confirmed quantity below the task quantity, including wrong-location scans");
     assert.deepEqual(t.quotes, ["A short pick is when the confirmed quantity is less than the task quantity.", "wrong-location scans: YES count them as short picks"]);
-    assert.equal(t.given_by, "Tom");
+    assert.equal(t.given_by, "Priya");
   });
 
   test("the prompt says added detail isn't a conflict, partial coverage is a yes, and part of a term updates that term", async () => {
@@ -220,7 +220,7 @@ describe("ingest fixes after the real-model smoke test", () => {
 
 describe("ingest fixes after the second smoke test", () => {
   test("an answer filed under the type instead of the item ID still lands on the one item it belongs to", async () => {
-    const out = await runIngest({ provider: scripted([ingestOut([{ item: "data_report", area: "data_report.delivery", status: "answered", value: "By 6am", quotes: ["wants report by 6am"], conflict: false }])]), fw, session: triaged(), source: { kind: "notes", from: "Tom", text: "- wants report by 6am, not 7" }, now: LATER });
+    const out = await runIngest({ provider: scripted([ingestOut([{ item: "data_report", area: "data_report.delivery", status: "answered", value: "By 6am", quotes: ["wants report by 6am"], conflict: false }])]), fw, session: triaged(), source: { kind: "reply", from: "Priya", text: "- wants report by 6am, not 7" }, now: LATER });
     assert.equal(out.session.items[0].coverage["data_report.delivery"].status, "covered");
   });
 
@@ -230,5 +230,54 @@ describe("ingest fixes after the second smoke test", () => {
     await runIngest({ provider, fw, session: first.session, source: { kind: "notes", from: "Tom", text: "wrong-location scans count" }, now: LATER });
     assert.match(provider.requests[0].context, /- short pick: drafted as "Below the task quantity; maybe wrong-location scans", not yet certain/);
     assert.match(provider.requests[0].context, /must be the complete definition/);
+  });
+});
+
+describe("source rule: notes are the interviewer's paraphrase, never the stakeholder's confirmation", () => {
+  const NOTES = "- grain: per picker per shift per day\n- short pick = confirmed qty below task qty, wrong-location scans count";
+  const noteOut = ingestOut(
+    [{ item: "item-1", area: "data_report.grain", status: "answered", value: "Per picker, per shift, per day", quotes: ["per picker per shift per day"], conflict: false }],
+    [], [{ term: "short pick", quote: "short pick", kind: "metric" }],
+    [{ term: "short pick", definition: "Confirmed quantity below task quantity, wrong-location scans included", quotes: ["short pick = confirmed qty below task qty, wrong-location scans count"], certain: true, measurable: "yes", examples: [], conflict: false }],
+  );
+
+  test("an answer from notes alone stays assumed, and the follow-up asks the stakeholder to confirm it", async () => {
+    const out = await runIngest({ provider: scripted([noteOut]), fw, session: triaged(), source: { kind: "notes", from: "Tom", text: NOTES }, now: LATER });
+    assert.equal(out.session.items[0].coverage["data_report.grain"].status, "assumed");
+    const gap = findGaps(out.session, fw).gaps.find((g) => g.target === "data_report.grain")!;
+    assert.equal(gap.kind, "confirm");
+    assert.match(gap.question, /^Our notes say: "Per picker, per shift, per day". Is that right?/);
+  });
+
+  test("a definition from notes alone is a draft: the term stays unconfirmed and blocks Go until the owner confirms it", async () => {
+    const out = await runIngest({ provider: scripted([noteOut]), fw, session: triaged(), source: { kind: "notes", from: "Tom", text: NOTES }, now: LATER });
+    const t = out.session.terms![0];
+    assert.equal(t.status, "unconfirmed");
+    assert.equal(t.draft!.definition, "Confirmed quantity below task quantity, wrong-location scans included");
+    assert.match(findGaps(out.session, fw).gaps.find((g) => g.kind === "term")!.question, /^Our notes define "short pick" as/);
+  });
+
+  test("the stakeholder's own words then confirm both", async () => {
+    const first = await runIngest({ provider: scripted([noteOut]), fw, session: triaged(), source: { kind: "notes", from: "Tom", text: NOTES }, now: LATER });
+    const reply = "Yes: per picker, per shift, per day. A short pick is a confirmed quantity below the task quantity, and wrong-location scans count.";
+    const out = await runIngest({ provider: scripted([ingestOut(
+      [{ item: "item-1", area: "data_report.grain", status: "answered", value: "Per picker, per shift, per day", quotes: ["per picker, per shift, per day"], conflict: false }], [], [],
+      [{ term: "short pick", definition: "Confirmed quantity below the task quantity; wrong-location scans count", quotes: ["A short pick is a confirmed quantity below the task quantity, and wrong-location scans count."], certain: true, measurable: "yes", examples: [], conflict: false }],
+    )]), fw, session: first.session, source: { kind: "reply", from: "Sam", text: reply }, now: LATER });
+    assert.equal(out.session.items[0].coverage["data_report.grain"].status, "covered");
+    const t = out.session.terms![0];
+    assert.equal(t.status, "confirmed");
+    assert.equal(t.given_by, "Sam");
+    assert.equal(t.draft ?? null, null);
+    assert.ok(!findGaps(out.session, fw).gaps.some((g) => g.target === "data_report.grain" || g.kind === "term"));
+  });
+
+  test("notes never change a definition the owner confirmed: a different one is only proposed", async () => {
+    const owner = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "short pick", quote: "short pick", kind: "metric" }], [{ term: "short pick", definition: "Confirmed below task", quotes: ["A short pick is confirmed below task."], certain: true, measurable: "yes", examples: [], conflict: false }])]), fw, session: triaged(), source: { kind: "reply", from: "Sam", text: "A short pick is confirmed below task." }, now: LATER });
+    const out = await runIngest({ provider: scripted([noteOut]), fw, session: owner.session, source: { kind: "notes", from: "Tom", text: NOTES }, now: LATER });
+    const t = out.session.terms![0];
+    assert.equal(t.status, "confirmed");
+    assert.equal(t.definition, "Confirmed below task");
+    assert.equal(t.draft!.definition, "Confirmed quantity below task quantity, wrong-location scans included");
   });
 });

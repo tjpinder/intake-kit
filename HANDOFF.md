@@ -555,7 +555,7 @@ Found by the second v2 gate on commit 89cde19, which missed the ship bar (4 of 6
   - The discovery SOW lists exactly the brief's open questions.
   - No SOW renders for a session with no Go or Gather more items.
 
-**Whose words count.** Every quote records its source. The summary and the spec pack show where each answer came from: the user's reply, a transcript, or the interviewer's notes. An answer from the interviewer's notes counts as answered, the same as one from the user's reply. It stays labelled as from notes in the summary and in DECISIONS.md, so a reader can see it's second-hand.
+**Whose words count.** Every quote records its source. The summary and the spec pack show where each answer came from: the user's reply, a transcript, or the interviewer's notes. **Source rule (Tom, Oct 14; replaces "notes count as answered").** The interviewer's notes, and their corrections, are a paraphrase. An answer resting only on notes stays assumed, and a definition from notes stays a draft, until the stakeholder confirms it in their own words in a reply or a transcript. The follow-up packet asks the stakeholder to confirm each one ("Our notes say: … Is that right?"). Notes never change a definition the owner confirmed; a different one is only proposed. The summary, DECISIONS.md and DEFINITIONS.md show which source each answer came from.
 
 **Model contract.** One new strict-mode call:
 - `ingest(source_text, areas with must_capture, checks)` returns `answers[]`: area, status, value and quotes.
@@ -603,7 +603,7 @@ The follow-up packet must contain every gap and nothing already answered.
 Fixes from the Oct 14 live test that apply to both modes still go first: re-render must regenerate acceptance criteria and guardrails rather than append, and the designated checks must run for known ideas.
 
 **Decided (Tom, Oct 14)**
-- Answers from the interviewer's notes count as answered, labelled as from notes.
+- Source rule: answers and definitions from the interviewer's notes (or corrections) stay assumed or draft until the stakeholder confirms them. This replaces the earlier "notes count as answered".
 - The interviewer signs off on the summary; the end user doesn't confirm it in the tool.
 - "If you know" questions are included in the packet by default.
 - At sign-off the spec pack includes a SOW draft (build or discovery), with commercial and legal terms left as marked blanks.

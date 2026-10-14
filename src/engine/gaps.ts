@@ -71,12 +71,29 @@ export function findGaps(session: Session, fw: Framework): GapReport {
         open.push(`${area}: only partly answered`);
         continue;
       }
+      const notesOnly = e.status === "assumed" && e.quotes.length > 0 && e.quotes.every((q) => session.session.sources?.find((x) => x.id === e.quote_sources?.[q])?.kind === "notes");
+      if (notesOnly) {
+        gaps.push({ kind: "confirm", item: item.id, target: area, question: `Our notes say: "${e.value}". Is that right? Please say it in your own words.` });
+        open.push(`${area}: from notes only, needs the stakeholder to confirm`);
+        continue;
+      }
       if (e.status === "assumed" && critical.has(area)) {
         gaps.push({ kind: "confirm", item: item.id, target: area, question: `We have: "${e.quotes.at(-1) ?? e.value}". Is that right?` });
         open.push(`${area}: needs confirming`);
         continue;
       }
       answered++;
+    }
+    // Source rule: an optional area answered only in the interviewer's notes also goes back to the
+    // stakeholder to confirm.
+    const optional = ["core", item.type, ...item.modifiers.map((m) => `mod.${m}`)].flatMap((m) => fw.modules[m]?.areas.map((x) => x.id) ?? []).filter((id) => !queue.includes(id));
+    for (const area of [...new Set(optional)]) {
+      if (item.spawned_from && area.startsWith("core.")) continue;
+      const e = entryOf(session, item, area);
+      if (e?.status === "assumed" && e.quotes.length && e.quotes.every((q) => session.session.sources?.find((x) => x.id === e.quote_sources?.[q])?.kind === "notes")) {
+        gaps.push({ kind: "confirm", item: item.id, target: area, question: `Our notes say: "${e.value}". Is that right? Please say it in your own words.` });
+        open.push(`${area}: from notes only, needs the stakeholder to confirm`);
+      }
     }
     // A baseline needs a number with a unit somewhere in what they said (the live engine's cost probe).
     if (!item.spawned_from) {
@@ -102,11 +119,13 @@ export function findGaps(session: Session, fw: Framework): GapReport {
   }
 
   for (const t of (session.terms ?? []).filter((x) => x.status !== "not_a_term")) {
-    if (t.status === "unconfirmed" && t.draft) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `You described "${t.term}" as "${t.draft.definition}", but weren't sure about all of it. What exactly counts, and what doesn't?` });
+    const draftFromNotes = t.draft && session.session.sources?.find((x) => x.id === t.draft!.source)?.kind === "notes";
+    if (t.draft && draftFromNotes) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `Our notes define "${t.term}" as "${t.draft.definition}". Is that right? Please say what counts and what doesn't, in your own words.` });
+    else if (t.status === "unconfirmed" && t.draft) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `You described "${t.term}" as "${t.draft.definition}", but weren't sure about all of it. What exactly counts, and what doesn't?` });
     else if (t.status === "unconfirmed") gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `In your own words, what counts as "${t.term}", and what doesn't? Give one real example and the right ${t.kind === "metric" ? "count" : "result"}.` });
     else if (t.conflict) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `"${t.term}" was defined two ways: "${t.definition}" and "${t.conflict.definition}". Which is right?` });
     else continue;
-    for (const r of readiness.filter((x) => t.items.includes(x.item))) r.open.push(`"${t.term}": ${t.status === "unconfirmed" ? "no confirmed definition" : "two definitions disagree"}`);
+    for (const r of readiness.filter((x) => t.items.includes(x.item))) r.open.push(`"${t.term}": ${draftFromNotes ? "defined in notes only, needs the owner to confirm" : t.status === "unconfirmed" ? "no confirmed definition" : "two definitions disagree"}`);
   }
   return { gaps, readiness };
 }

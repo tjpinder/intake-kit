@@ -16959,6 +16959,7 @@ function applyIngest(session, source, r, fw, now2) {
   const transcript = [{ role: "user", text: source.text, at: source.added_at }];
   const engine = session.session.engine;
   const asked = session.session.asked ?? (session.session.asked = {});
+  const fromNotes = source.kind === "notes";
   for (const a of r.answers) {
     const live = session.items.filter((i) => !i.dropped);
     const fits = live.filter((i) => areaFits(i, a.area, fw));
@@ -16989,7 +16990,7 @@ function applyIngest(session, source, r, fw, now2) {
     asked[key] ??= now2;
     const open = stateOf(engine, key).conflict;
     if (open && a.status === "answered") {
-      setEntry(session, item, a.area, { status: "covered", value: a.value ?? quotes[0], quotes: [.../* @__PURE__ */ new Set([...prev?.quotes ?? [], open.quote, ...quotes])], probe_count: prev?.probe_count ?? 0, updated_at: now2, quote_sources: { ...sources(quotes), [open.quote]: open.source, ...Object.fromEntries(quotes.map((q) => [q, source.id])) } });
+      setEntry(session, item, a.area, { status: fromNotes ? "assumed" : "covered", value: a.value ?? quotes[0], quotes: [.../* @__PURE__ */ new Set([...prev?.quotes ?? [], open.quote, ...quotes])], probe_count: prev?.probe_count ?? 0, updated_at: now2, quote_sources: { ...sources(quotes), [open.quote]: open.source, ...Object.fromEntries(quotes.map((q) => [q, source.id])) } });
       engine.areas[key] = { ...stateOf(engine, key), conflict: null, partial: null };
       events.push(`${key}: disagreement settled`);
       continue;
@@ -17000,7 +17001,16 @@ function applyIngest(session, source, r, fw, now2) {
       continue;
     }
     const allQuotes = [.../* @__PURE__ */ new Set([...prev?.quotes ?? [], ...quotes])];
-    if (a.status === "answered") {
+    if (a.status === "answered" && fromNotes) {
+      if (known && prev.status === "covered") {
+        setEntry(session, item, a.area, { ...prev, quotes: allQuotes, updated_at: now2, quote_sources: sources(quotes) });
+        events.push(`${key}: notes agree with a covered answer; kept as it was`);
+      } else {
+        setEntry(session, item, a.area, { status: "assumed", value: a.value ?? quotes[0], quotes: allQuotes, probe_count: prev?.probe_count ?? 0, updated_at: now2, quote_sources: sources(quotes) });
+        engine.areas[key] = { ...stateOf(engine, key), partial: null };
+        events.push(`${key}: from notes only, assumed until the stakeholder confirms`);
+      }
+    } else if (a.status === "answered") {
       const value = known && prev.status === "covered" ? prev.value : a.value ?? quotes[0];
       setEntry(session, item, a.area, { status: "covered", value, quotes: allQuotes, probe_count: prev?.probe_count ?? 0, updated_at: now2, quote_sources: sources(quotes) });
       engine.areas[key] = { ...stateOf(engine, key), partial: null };
@@ -17078,7 +17088,12 @@ function applyTerms(session, source, r, transcript) {
       events.push(`definition of "${t.term}": conflicts with the recorded one; kept both for the follow-up`);
       continue;
     }
-    if (!d.certain) {
+    if (source.kind === "notes") {
+      if (t.status !== "confirmed" || d.definition.trim() !== t.definition) {
+        t.draft = { definition: d.definition.trim(), quote: quotes[0], source: source.id };
+        events.push(`definition of "${t.term}": from notes only, kept as a draft for the owner to confirm`);
+      }
+    } else if (!d.certain) {
       if (t.status !== "confirmed") {
         t.draft = { definition: d.definition.trim(), quote: quotes[0], source: source.id };
         events.push(`definition of "${t.term}": hedged, kept as a draft for the follow-up`);
@@ -17089,6 +17104,7 @@ function applyTerms(session, source, r, transcript) {
         Object.assign(t, { definition: d.definition.trim(), given_by: source.from, source: source.id });
         events.push(`definition of "${t.term}": updated`);
       }
+      t.draft = null;
     } else {
       Object.assign(t, { status: "confirmed", definition: d.definition.trim(), quotes, given_by: source.from, source: source.id, draft: null });
       events.push(`definition of "${t.term}": confirmed`);
@@ -17168,12 +17184,27 @@ function findGaps(session, fw) {
         open.push(`${area}: only partly answered`);
         continue;
       }
+      const notesOnly = e.status === "assumed" && e.quotes.length > 0 && e.quotes.every((q) => session.session.sources?.find((x) => x.id === e.quote_sources?.[q])?.kind === "notes");
+      if (notesOnly) {
+        gaps.push({ kind: "confirm", item: item.id, target: area, question: `Our notes say: "${e.value}". Is that right? Please say it in your own words.` });
+        open.push(`${area}: from notes only, needs the stakeholder to confirm`);
+        continue;
+      }
       if (e.status === "assumed" && critical.has(area)) {
         gaps.push({ kind: "confirm", item: item.id, target: area, question: `We have: "${e.quotes.at(-1) ?? e.value}". Is that right?` });
         open.push(`${area}: needs confirming`);
         continue;
       }
       answered++;
+    }
+    const optional = ["core", item.type, ...item.modifiers.map((m) => `mod.${m}`)].flatMap((m) => fw.modules[m]?.areas.map((x) => x.id) ?? []).filter((id) => !queue.includes(id));
+    for (const area of [...new Set(optional)]) {
+      if (item.spawned_from && area.startsWith("core.")) continue;
+      const e = entryOf(session, item, area);
+      if (e?.status === "assumed" && e.quotes.length && e.quotes.every((q) => session.session.sources?.find((x) => x.id === e.quote_sources?.[q])?.kind === "notes")) {
+        gaps.push({ kind: "confirm", item: item.id, target: area, question: `Our notes say: "${e.value}". Is that right? Please say it in your own words.` });
+        open.push(`${area}: from notes only, needs the stakeholder to confirm`);
+      }
     }
     if (!item.spawned_from) {
       const outcome = entryOf(session, item, "core.outcome");
@@ -17203,11 +17234,13 @@ function findGaps(session, fw) {
     readiness.push({ item: item.id, title: item.title, required: queue.length, answered, open });
   }
   for (const t of (session.terms ?? []).filter((x) => x.status !== "not_a_term")) {
-    if (t.status === "unconfirmed" && t.draft) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `You described "${t.term}" as "${t.draft.definition}", but weren't sure about all of it. What exactly counts, and what doesn't?` });
+    const draftFromNotes = t.draft && session.session.sources?.find((x) => x.id === t.draft.source)?.kind === "notes";
+    if (t.draft && draftFromNotes) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `Our notes define "${t.term}" as "${t.draft.definition}". Is that right? Please say what counts and what doesn't, in your own words.` });
+    else if (t.status === "unconfirmed" && t.draft) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `You described "${t.term}" as "${t.draft.definition}", but weren't sure about all of it. What exactly counts, and what doesn't?` });
     else if (t.status === "unconfirmed") gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `In your own words, what counts as "${t.term}", and what doesn't? Give one real example and the right ${t.kind === "metric" ? "count" : "result"}.` });
     else if (t.conflict) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `"${t.term}" was defined two ways: "${t.definition}" and "${t.conflict.definition}". Which is right?` });
     else continue;
-    for (const r of readiness.filter((x) => t.items.includes(x.item))) r.open.push(`"${t.term}": ${t.status === "unconfirmed" ? "no confirmed definition" : "two definitions disagree"}`);
+    for (const r of readiness.filter((x) => t.items.includes(x.item))) r.open.push(`"${t.term}": ${draftFromNotes ? "defined in notes only, needs the owner to confirm" : t.status === "unconfirmed" ? "no confirmed definition" : "two definitions disagree"}`);
   }
   return { gaps, readiness };
 }
@@ -17272,14 +17305,14 @@ function correct(original, fw, c) {
     const item = s.items.find((i) => i.id === (c.item ?? "item-1") && !i.dropped);
     if (!item || !areaFits(item, c.area, fw)) throw new AsyncError(`${c.area} isn't an area of ${c.item ?? "item-1"}`);
     const prev = entryOf(s, item, c.area);
-    setEntry(s, item, c.area, { status: "covered", value: text, quotes: [text], probe_count: prev?.probe_count ?? 0, updated_at: c.now, quote_sources: { [text]: id } });
+    setEntry(s, item, c.area, { status: "assumed", value: text, quotes: [text], probe_count: prev?.probe_count ?? 0, updated_at: c.now, quote_sources: { [text]: id } });
     const key = areaKey(item, c.area);
     s.session.engine.areas[key] = { ...stateOf(s.session.engine, key), conflict: null, partial: null };
     (s.session.asked ??= {})[key] ??= c.now;
   } else {
     const t = (s.terms ?? []).find((x) => x.term.toLowerCase() === c.term.trim().toLowerCase());
     if (!t) throw new AsyncError(`no term "${c.term}"`);
-    Object.assign(t, { status: "confirmed", definition: text, quotes: [text], given_by: c.by, source: id, conflict: null });
+    t.draft = { definition: text, quote: text, source: id };
   }
   const rb = s.session.reflect_back;
   if (rb) s.session.reflect_back = { ...rb, corrections: [...rb.corrections, `${c.area ?? `term "${c.term}"`}: ${text}`] };

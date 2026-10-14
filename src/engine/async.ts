@@ -58,7 +58,8 @@ export async function runAsyncSummary(input: { provider: Provider; fw: Framework
 
 /**
  * The interviewer corrects one area, or one term's definition, in their own words. It's recorded
- * as their notes (a source) and the summary has to be written up again.
+ * as their notes (a source), so by the source rule it stays assumed (a definition, a draft) until
+ * the stakeholder confirms it; the summary has to be written up again.
  */
 export function correct(original: Session, fw: Framework, c: { item?: string; area?: string; term?: string; text: string; by: string; now: string }): Session {
   const s: Session = structuredClone(original);
@@ -74,14 +75,16 @@ export function correct(original: Session, fw: Framework, c: { item?: string; ar
     const item = s.items.find((i) => i.id === (c.item ?? "item-1") && !i.dropped);
     if (!item || !areaFits(item, c.area, fw)) throw new AsyncError(`${c.area} isn't an area of ${c.item ?? "item-1"}`);
     const prev = entryOf(s, item, c.area);
-    setEntry(s, item, c.area, { status: "covered", value: text, quotes: [text], probe_count: prev?.probe_count ?? 0, updated_at: c.now, quote_sources: { [text]: id } });
+    // Source rule: the interviewer's correction is their notes, so it stays assumed until the stakeholder confirms it.
+    setEntry(s, item, c.area, { status: "assumed", value: text, quotes: [text], probe_count: prev?.probe_count ?? 0, updated_at: c.now, quote_sources: { [text]: id } });
     const key = areaKey(item, c.area);
     s.session.engine!.areas[key] = { ...stateOf(s.session.engine!, key), conflict: null, partial: null };
     (s.session.asked ??= {})[key] ??= c.now;
   } else {
     const t = (s.terms ?? []).find((x) => x.term.toLowerCase() === c.term!.trim().toLowerCase());
     if (!t) throw new AsyncError(`no term "${c.term}"`);
-    Object.assign(t, { status: "confirmed", definition: text, quotes: [text], given_by: c.by, source: id, conflict: null });
+    // Source rule: a definition from the interviewer is a draft until the owner confirms it.
+    t.draft = { definition: text, quote: text, source: id };
   }
   const rb = s.session.reflect_back;
   if (rb) s.session.reflect_back = { ...rb, corrections: [...rb.corrections, `${c.area ?? `term "${c.term}"`}: ${text}`] };

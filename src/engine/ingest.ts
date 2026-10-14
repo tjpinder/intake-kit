@@ -102,6 +102,7 @@ export function applyIngest(session: Session, source: Source, r: IngestResult, f
   const engine = session.session.engine!;
   const asked = session.session.asked ?? (session.session.asked = {});
 
+  const fromNotes = source.kind === "notes";
   for (const a of r.answers) {
     // The item named, or, if the model named something else (the type, say), the one live item the
     // area belongs to: each area belongs to one item's type (smoke test: "data_report" for "item-1").
@@ -127,7 +128,7 @@ export function applyIngest(session: Session, source: Source, r: IngestResult, f
     // A follow-up answer on an area with two disagreeing answers settles it.
     const open = stateOf(engine, key).conflict;
     if (open && a.status === "answered") {
-      setEntry(session, item, a.area, { status: "covered", value: a.value ?? quotes[0], quotes: [...new Set([...(prev?.quotes ?? []), open.quote, ...quotes])], probe_count: prev?.probe_count ?? 0, updated_at: now, quote_sources: { ...sources(quotes), [open.quote]: open.source, ...Object.fromEntries(quotes.map((q) => [q, source.id])) } });
+      setEntry(session, item, a.area, { status: fromNotes ? "assumed" : "covered", value: a.value ?? quotes[0], quotes: [...new Set([...(prev?.quotes ?? []), open.quote, ...quotes])], probe_count: prev?.probe_count ?? 0, updated_at: now, quote_sources: { ...sources(quotes), [open.quote]: open.source, ...Object.fromEntries(quotes.map((q) => [q, source.id])) } });
       engine.areas[key] = { ...stateOf(engine, key), conflict: null, partial: null };
       events.push(`${key}: disagreement settled`);
       continue;
@@ -139,7 +140,18 @@ export function applyIngest(session: Session, source: Source, r: IngestResult, f
       continue;
     }
     const allQuotes = [...new Set([...(prev?.quotes ?? []), ...quotes])];
-    if (a.status === "answered") {
+    if (a.status === "answered" && fromNotes) {
+      // Source rule: notes are the interviewer's paraphrase. They never make an area covered; the
+      // answer stays assumed until the stakeholder's own words confirm it (a covered one keeps them).
+      if (known && prev!.status === "covered") {
+        setEntry(session, item, a.area, { ...prev!, quotes: allQuotes, updated_at: now, quote_sources: sources(quotes) });
+        events.push(`${key}: notes agree with a covered answer; kept as it was`);
+      } else {
+        setEntry(session, item, a.area, { status: "assumed", value: a.value ?? quotes[0], quotes: allQuotes, probe_count: prev?.probe_count ?? 0, updated_at: now, quote_sources: sources(quotes) });
+        engine.areas[key] = { ...stateOf(engine, key), partial: null };
+        events.push(`${key}: from notes only, assumed until the stakeholder confirms`);
+      }
+    } else if (a.status === "answered") {
       const value = known && prev!.status === "covered" ? prev!.value! : (a.value ?? quotes[0]);
       setEntry(session, item, a.area, { status: "covered", value, quotes: allQuotes, probe_count: prev?.probe_count ?? 0, updated_at: now, quote_sources: sources(quotes) });
       engine.areas[key] = { ...stateOf(engine, key), partial: null };
@@ -223,7 +235,14 @@ export function applyTerms(session: Session, source: Source, r: Pick<IngestResul
       events.push(`definition of "${t.term}": conflicts with the recorded one; kept both for the follow-up`);
       continue;
     }
-    if (!d.certain) {
+    if (source.kind === "notes") {
+      // Source rule: a definition in the interviewer's notes is a draft for the owner to confirm,
+      // whether the term is new or already confirmed (then it's a proposed update).
+      if (t.status !== "confirmed" || d.definition.trim() !== t.definition) {
+        t.draft = { definition: d.definition.trim(), quote: quotes[0], source: source.id };
+        events.push(`definition of "${t.term}": from notes only, kept as a draft for the owner to confirm`);
+      }
+    } else if (!d.certain) {
       // A hedged definition never confirms a term; a confirmed one keeps its definition.
       if (t.status !== "confirmed") {
         t.draft = { definition: d.definition.trim(), quote: quotes[0], source: source.id };
@@ -236,6 +255,7 @@ export function applyTerms(session: Session, source: Source, r: Pick<IngestResul
         Object.assign(t, { definition: d.definition.trim(), given_by: source.from, source: source.id });
         events.push(`definition of "${t.term}": updated`);
       }
+      t.draft = null;
     } else {
       Object.assign(t, { status: "confirmed", definition: d.definition.trim(), quotes, given_by: source.from, source: source.id, draft: null });
       events.push(`definition of "${t.term}": confirmed`);

@@ -1,4 +1,4 @@
-// The four small fixes before the demo freeze (docs/evals/2026-10-14-findings.md, §9 #1 #2 #3 #7),
+// The four small fixes before the feature freeze (docs/evals/2026-10-14-findings.md, §9 #1 #2 #3 #7),
 // and the packet wording change.
 
 import { test, describe } from "node:test";

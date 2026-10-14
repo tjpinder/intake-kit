@@ -1,6 +1,6 @@
 # How we tested it
 
-intake-kit claims it turns a vague request into a build-ready spec without making anything up. This page shows the evidence: what failed, what we changed, and the numbers, each tied to a commit. All test data is synthetic: the personas, the demo sources and every recorded model answer.
+intake-kit claims it turns a vague request into a build-ready spec without making anything up. This page shows the evidence: what failed, what we changed, and the numbers, each tied to a commit. All test data is synthetic: the personas, the worked example's sources and every recorded model answer.
 
 ## The rules every run is held to
 
@@ -47,7 +47,7 @@ The tuning personas were 1 (ops supervisor, a report) and 7 (an enablement kit),
 | Second, after one fix round | `89cde19` | **4 of 6** | 0 | Persona 1: one "yes" confirmed every Don't-build question; a report's decision contradicted |
 | Second, extract on mini only | `89cde19` | 5 of 6 | 0 | Measurement only, at about three-quarters of the cost |
 
-The second gate missed the 5-of-6 bar, so we took the spec's fallback: the Claude Code plugin became the primary demo, and the web app stayed sample-only.
+The second gate missed the 5-of-6 bar, so we took the spec's fallback: the Claude Code plugin became the primary way to use it, and the web app stayed sample-only.
 
 ## 4. A second live test, then a different way to collect answers
 
@@ -93,9 +93,9 @@ Ingest stays on gpt-4.1: mini missed the anchor area for a report.
 
 Reports: [async-report-p7.md](async-report-p7.md), [persona-report-heldout.md](persona-report-heldout.md). Full findings for that round: [2026-10-14-findings.md](2026-10-14-findings.md).
 
-## 7. The recorded demo
+## 7. The recorded worked example
 
-[`examples/async-demo`](../../examples/async-demo/) is one async intake, recorded once on gpt-4.1 (commit `d9144fe`) and replayed through the plugin's CLI with no model. It covers:
+[`examples/async-example`](../../examples/async-example/) is one async intake, recorded once on gpt-4.1 (commit `d9144fe`) and replayed through the plugin's CLI with no model. It covers:
 - the 6am vs 7am conflict and how it's settled
 - the kit refusing to guess "short pick" until the owner defines it
 - the final Go and Don't-build gates

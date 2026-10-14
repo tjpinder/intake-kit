@@ -8,7 +8,7 @@ It never fills a gap itself. Every answer is quoted in the stakeholder's own wor
 
 ## What it looks like
 
-From [the recorded demo](examples/async-demo/walkthrough.md) (synthetic sources, replayed with no model calls):
+From [a recorded worked example](examples/async-example/walkthrough.md) (synthetic sources, replayed with no model calls):
 
 **1. Paste Sam's email.** Eight of nine required questions answered, and one business term flagged:
 
@@ -38,7 +38,7 @@ Daily short-pick report: Gather more
 
 **4. Paste Sam's round-2 reply.** 6am is settled, "short pick" is defined in his words, and the report reaches **Go**. The Monday spreadsheet it replaces is **Don't build**, a decision you confirm on its own at sign-off.
 
-The spec pack: `SPEC.md`, `ACCEPTANCE.md`, `GUARDRAILS.md`, `DECISIONS.md`, `DEFINITIONS.md` (every business term, defined by the owner), `SOW_DRAFT.md` (scope, assumptions and acceptance; pricing and legal terms left blank), plus `CLAUDE.md` and `FIRST_PROMPT.md` to start the build. See [the full output](examples/async-demo/output/final/).
+The spec pack: `SPEC.md`, `ACCEPTANCE.md`, `GUARDRAILS.md`, `DECISIONS.md`, `DEFINITIONS.md` (every business term, defined by the owner), `SOW_DRAFT.md` (scope, assumptions and acceptance; pricing and legal terms left blank), plus `CLAUDE.md` and `FIRST_PROMPT.md` to start the build. See [the full output](examples/async-example/output/final/).
 
 ## How it works
 
@@ -105,7 +105,7 @@ npm test
 npm run typecheck
 claude plugin validate .
 claude --plugin-dir .   # load the plugin from this checkout for one session
-node scripts/replay-async-demo.mjs   # replay the recorded demo, no model calls
+node scripts/replay-async-example.mjs   # replay the recorded worked example, no model calls
 ```
 
 ## License

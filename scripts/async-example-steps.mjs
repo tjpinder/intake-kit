@@ -1,13 +1,13 @@
-// The async demo (examples/async-demo): one intake, run through the plugin's CLI exactly as
-// /intake-kit:collect runs it. scripts/record-async-demo.mjs records the model's answer to every call
-// once; scripts/replay-async-demo.mjs replays them with no model. Sources are synthetic.
+// The async worked example (examples/async-example): one intake, run through the plugin's CLI exactly as
+// /intake-kit:collect runs it. scripts/record-async-example.mjs records the model's answer to every call
+// once; scripts/replay-async-example.mjs replays them with no model. Sources are synthetic.
 //
 // The main path: triage, Sam's email, Tom's notes from a call with Priya (the 6am vs 7am conflict;
 // "short pick" defined only in notes), Sam's round-2 reply (settles 6am, defines "short pick" in his
 // words), then summary, sign-off and render. The "early" branch signs off straight after the notes,
 // to show the kit refusing to guess what "short pick" means.
 
-export const DEMO = "examples/async-demo";
+export const EXAMPLE = "examples/async-example";
 export const FIXED = { INTAKE_KIT_NOW: "2026-10-14T09:00:00.000Z", INTAKE_KIT_SESSION_ID: "2026-10-14-de70" };
 
 export const STEPS = [

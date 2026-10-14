@@ -1,15 +1,15 @@
-// The async demo replays exactly: the recorded model answers, fed back through the plugin's CLI,
-// reproduce the committed walkthrough, packet and both spec packs (examples/async-demo).
+// The async worked example replays exactly: the recorded model answers, fed back through the plugin's CLI,
+// reproduce the committed walkthrough, packet and both spec packs (examples/async-example).
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { replay, walkthrough } from "../scripts/replay-async-demo.mjs";
+import { replay, walkthrough } from "../scripts/replay-async-example.mjs";
 
-const DIR = "examples/async-demo";
+const DIR = "examples/async-example";
 
-describe("async demo replay", () => {
+describe("async worked example replay", () => {
   const r = replay();
 
   test("the walkthrough and packet match what's committed", () => {
@@ -25,7 +25,7 @@ describe("async demo replay", () => {
     }
   });
 
-  test("the two demo moments: the 6am conflict, and the refusal to guess \"short pick\"", () => {
+  test("the two moments it shows: the 6am conflict, and the refusal to guess \"short pick\"", () => {
     const text = readFileSync(join(DIR, "walkthrough.md"), "utf8");
     assert.match(text, /7am[^\n]*6am[^\n]*Which is right\?/);
     const early = r.results.find((x) => x.step.id === "early-05-signoff")!.body.gates[0];
@@ -37,7 +37,7 @@ describe("async demo replay", () => {
     assert.match(r.early["DEFINITIONS.md"], /### short pick \(metric\): unconfirmed\n\n_The owner hasn't defined it yet\. Don't interpret it: ask\._/);
   });
 
-  test("the demo's sources and recorded answers are synthetic and in the repo", () => {
+  test("the example's sources and recorded answers are synthetic and in the repo", () => {
     assert.deepEqual(readdirSync(join(DIR, "sources")).sort(), ["1-reply-sam.txt", "2-notes-tom.txt", "3-reply-sam-round2.txt"]);
     assert.match(readFileSync(join(DIR, "recorded", "meta.json"), "utf8"), /synthetic/);
   });

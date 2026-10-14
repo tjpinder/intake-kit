@@ -9,7 +9,7 @@ Oct 10, 2026 · @Tom
 - **Production:** sample-only. `LIVE_INTAKE_NOTE` is set, so live intakes are paused and the offline sample still plays. It stays paused until v2 meets the ship bar.
 - **Code:** the hotfix for the pause is on `main` (1631b89). The fix branch `fix/live-test-2026-10-13` (44de692) is unmerged and predates the hotfix.
 - **Separation:** the kit has no dependency on, and no reference to, any outside guardrail framework. The guardrails file is `GUARDRAILS.md`.
-- **Next (Oct 14):** v2 missed its gate and the fallback was taken: the plugin is the primary demo. A live test on the enablement kit led to **Async intake mode** (collect, ingest, follow up), which becomes the default for running an intake on someone else's behalf. Live chat stays for self-intake.
+- **Next (Oct 14):** v2 missed its gate and the fallback was taken: the plugin is the primary way to use it. A live test on the enablement kit led to **Async intake mode** (collect, ingest, follow up), which becomes the default for running an intake on someone else's behalf. Live chat stays for self-intake.
 
 ## Purpose
 
@@ -18,7 +18,7 @@ Build an open, installable Claude Code plugin that turns a plain-language intake
 It serves two audiences with one codebase:
 
 - **Tom, daily:** run `/intake` at the start of any build (PRAPI, JobOps, anything next) and get a spec, acceptance criteria and guardrails instead of a blank CLAUDE.md.
-- **Hiring managers, in interviews:** a live demo of AI-enablement and forward-deployed work. Someone describes a messy problem, the intake turns it into a spec, and the guardrails show how the build stays honest.
+- **Hiring managers, in interviews:** a worked example of AI-enablement and forward-deployed work. Someone describes a messy problem, the intake turns it into a spec, and the guardrails show how the build stays honest.
 
 * **LinkedIn and the public:** positioned as an FDE / AI-enablement / workflow-automation kit. The headline is "turn a vague ops request into a build-ready spec in 30 minutes." The guardrails are generated from what the user said, so they're specific to each problem.
 
@@ -34,7 +34,7 @@ The kit is self-contained: no runtime, package or CLI dependency on any outside 
 - The intake skill: router, type modules, scoring and gates
 - Spec pack templates and the rendering step
 - Light guardrail hooks (reminders); CI stays the hard gate
-- One worked example, a README and a demo script
+- One worked example and a README
 - Optional web UI, no fixed timeline: chat on the left, live coverage sidebar on the right, review screen with gates and a spec pack download. Hosted on Azure Static Web Apps or Cloudflare Pages, with a small function proxying the API key. Supports two providers behind one adapter interface: Claude API and Azure OpenAI, chosen by config. Each adapter maps the same turn contract (structured coverage updates as JSON) to its provider's structured-output feature. Prompts live in one place. Both providers run the same eval transcripts before release. Bring-your-own-key covers both (Azure needs endpoint, deployment name, key and API version). Scoring and gates stay deterministic code, identical across providers. Same router, module and scoring YAML as the plugin. Hard monthly spend cap, rate and session limits, bring-your-own-key option, nothing stored server-side.
 - Works in Claude Code and OpenAI Codex from one source. The intake is written as a standard `SKILL.md` skill, which both tools load: packaged as a Claude Code plugin, and mirrored to `.agents/skills/` with an `AGENTS.md` for Codex. Claude Code hooks are optional extras; the CI workflow is the guardrail gate for both.
 
@@ -70,7 +70,7 @@ intake-kit/
 ├── examples/enablement-kit/
 ├── schema/                # session + turn JSON Schemas
 ├── tests/                 # unit, golden, grounding, persona evals
-├── docs/                  # framework site (GitHub Pages) + DEMO_SCRIPT.md
+├── docs/                  # framework site (GitHub Pages) and the eval reports
 ├── README.md
 └── LICENSE                # MIT
 ```
@@ -375,7 +375,7 @@ The worked example is a real intake, not a staged one: Tom's own next project, t
 
 1. `intake-answers.yaml`: the session as the engine recorded it, including any `unknown` answers.
 2. `spec-pack/`: the rendered files, unedited.
-3. `audit-report.md`: the real `/audit` output once the first enablement piece is built. If the audit is clean, say so. Never stage a finding to make the demo look better.
+3. `audit-report.md`: the real `/audit` output once the first enablement piece is built. If the audit is clean, say so. Never stage a finding to make the example look better.
 4. A short note on what the gates decided and what happened next.
 
 Whatever the gates decide is the example. A Gather more or Don't build outcome is as valid as Go, and is reported as it came out.
@@ -391,7 +391,7 @@ One canonical framework page, four posts, and PRAPI working the inbound side. No
 1. The framework: why AI projects in ops fail at the ask, and the five entry types.
 2. "Don't build" is an outcome: fix-not-build and existing-report cases.
 3. The scoring: RPA criteria plus the AI overlay, and why low rule clarity flips a process from skip to AI candidate.
-4. The demo: the enablement kit's intake end to end, with the video.
+4. The worked example: an async intake end to end (paste a reply and notes, see the conflicts, the round-2 packet and the gates).
 
 **PRAPI, inbound briefs**
 
@@ -462,7 +462,7 @@ None of these returns the next target, item creation, readiness, scores or gates
 2. Build v2 behind the existing tests. Add unit tests for every step above, especially the Apply rules and Spawn.
 3. Run one gate round on the tuning personas (1 and 7, three runs each), then the held-out personas (2–6 once each, plus a second run of persona 6), on gpt-4.1. Also measure `extract` on gpt-4.1-mini: as a narrow classifier it may be reliable enough to cut cost.
 4. If it passes: merge, deploy, then set the Azure model settings, in that order.
-5. **Fallback** if it misses after one fix round: ship the Claude Code plugin as the primary demo, keep the web UI in sample-only mode, and move on to the Week 2 proof pieces. Either way, the kit ships.
+5. **Fallback** if it misses after one fix round: ship the Claude Code plugin as the primary way to use it, keep the web UI in sample-only mode, and move on to the Week 2 proof pieces. Either way, the kit ships.
 
 ## Build decisions: interview engine v2 (Oct 14, 2026)
 
@@ -491,28 +491,19 @@ How v2 was built. Where these conflict with an earlier section, these win; the v
 
 ## Known issues (Oct 14, 2026, not fixed)
 
-Found by the second v2 gate on commit 89cde19, which missed the ship bar (4 of 6 runs matched ground truth on gpt-4.1). The web app stays in sample-only mode and the plugin is the primary demo, per the fallback above.
+Found by the second v2 gate on commit 89cde19, which missed the ship bar (4 of 6 runs matched ground truth on gpt-4.1). The web app stays in sample-only mode and the plugin is the primary way to use it, per the fallback above.
 
 - **One yes confirms every Don't-build question.** The summary asks about each definitive Don't-build reason, but one "Yes, that's right" confirms all of them. In persona 1 the user was agreeing that the Monday sheet would go away, and that also confirmed "No decision depends on it" for the report. Fix: confirm each reason separately, and apply only the ones confirmed.
 - **decision_depends can contradict an answered decision area.** The write-up picked `decision_depends: no` for a report whose decision ("who to pull for retraining") was answered and covered. Fix: check the band against that area, and treat a contradiction as missing (Gather more), never as Don't build.
 - **Misfiled summary corrections in live mode (deferred, Oct 14).** The live summary extracts free-text corrections, and they can land on the wrong area (the enablement live test filed "documentation" under core.data and "value" under core.outcome), and a note capped by the round limit was never applied. Deferred by the feature freeze. When it's fixed, use per-line corrections the way async does (`correct` on one area or term), not free-text extraction.
 - **Persona 5: one exploratory item, not three (known limitation, deferred).** The existing-asset check records its answer but creates no item (`spawns: null`), so an exploratory intake ends with one item where the card expects three or more. The eval report marks this as a known limitation, not a pass. The design (a follow-on type for existing assets) is deferred.
-- **Value paraphrases can add a detail (logged Oct 14, not tuned: freeze).** Recording the async demo, the model's one-line values said "ready by 6am **Monday**" though Sam said it's daily (it blended in "every Monday morning"). Quotes are always exact; only the paraphrased values and write-up prose drift. The prompt now says never to add a detail, which didn't stop it. Revisit after the demo: for example, show the quote next to the value in the summary.
+- **Value paraphrases can add a detail (logged Oct 14, not tuned: freeze).** Recording the async worked example, the model's one-line values said "ready by 6am **Monday**" though Sam said it's daily (it blended in "every Monday morning"). Quotes are always exact; only the paraphrased values and write-up prose drift. The prompt now says never to add a detail, which didn't stop it. Revisit after the demo: for example, show the quote next to the value in the summary.
 - **Before live reopens:** rerun the full held-out set (personas 2–6) on the commit being deployed.
 - **Lead for cost work.** With only `extract` routed to gpt-4.1-mini (phrasing, classification and write-up on gpt-4.1), the same gate on the same commit matched 5 of 6 runs, at about three-quarters of the cost. That's worth measuring further before the next gate.
 
 ## Feature freeze (Oct 14, 2026)
 
-No new features until the demo ships. The order is:
-
-1. Small fixes
-2. Persona 7 async rerun
-3. Merge to main (live stays paused)
-4. Recorded demo sources and replay
-5. README
-6. DEMO_SCRIPT
-
-The demo must give airtime to the 6am conflict and to the kit refusing to guess "short pick".
+No new features until Tom lifts the freeze. Done, in order: small fixes, the persona 7 async rerun, the merge to main (live stays paused), the recorded worked example and its replay (`examples/async-example`, showing the 6am conflict and the kit refusing to guess "short pick"), and the README. A demo script was written and then dropped (Oct 14): no demo or video is planned.
 
 ## Async intake mode: collect, ingest, follow up (Oct 14, 2026)
 
@@ -765,7 +756,7 @@ Each run scores: right type routed, type shift caught, items found, correct gate
 Two weeks, then stop. Add features only when real use shows a gap.
 
 1. **Week 1, the tool:** plugin skeleton, `router, module and scoring YAML`, `/intake`, spec pack rendering, `/`guardrails, /`audit`. Then use it on Tom's next real build.
-2. **Week 2, the proof:** the worked example, README, the GitHub Pages docs site, and `docs/DEMO_SCRIPT.md` (a 10-minute live flow plus a recorded fallback). Record a 60–90 second screen capture of the intake producing a spec, for the LinkedIn launch post.
+2. **Week 2, the proof:** the worked example, README and the GitHub Pages docs site. (A demo script and screen capture were dropped on Oct 14: no demo is planned.)
 
 **Acceptance criteria**
 

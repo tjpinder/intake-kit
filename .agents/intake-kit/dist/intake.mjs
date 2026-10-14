@@ -17046,6 +17046,9 @@ function applyIngest(session, source, r, fw, now2) {
     const out2 = applyCheck(session, { item: item.id, area, kind: "check", check: c.check, question: "packet" }, { status: "answered", value: c.value, quote: c.quote, check: c.result, wrap_up: false, also_answers: [] }, ctx);
     Object.assign(session, out2.session);
     events.push(...out2.events);
+    const q = c.check === "kill_criteria" ? grounded(c.quote, transcript) : null;
+    const e = q ? entryOf(session, item, area) : void 0;
+    if (q && e?.quotes.includes(q)) setEntry(session, item, area, { ...e, quote_sources: { ...e.quote_sources ?? {}, [q]: source.id } });
   }
   events.push(...applyTerms(session, source, r, transcript));
   return events;

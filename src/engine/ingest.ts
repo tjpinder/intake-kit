@@ -191,6 +191,10 @@ export function applyIngest(session: Session, source: Source, r: IngestResult, f
     const out = applyCheck(session, { item: item.id, area, kind: "check", check: c.check, question: "packet" }, { status: "answered", value: c.value, quote: c.quote, check: c.result, wrap_up: false, also_answers: [] }, ctx);
     Object.assign(session, out.session);
     events.push(...out.events);
+    // The kill-criteria answer joins its area's quotes: record which source it came from.
+    const q = c.check === "kill_criteria" ? grounded(c.quote, transcript) : null;
+    const e = q ? entryOf(session, item, area) : undefined;
+    if (q && e?.quotes.includes(q)) setEntry(session, item, area, { ...e, quote_sources: { ...(e.quote_sources ?? {}), [q]: source.id } });
   }
   events.push(...applyTerms(session, source, r, transcript));
   return events;

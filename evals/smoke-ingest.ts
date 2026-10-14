@@ -13,6 +13,7 @@ import { runIngest, startAsync } from "../src/engine/ingest.ts";
 import { findGaps } from "../src/engine/gaps.ts";
 import { entryOf } from "../src/engine/apply.ts";
 import { areaKey } from "../src/engine/plan.ts";
+import { runAsyncSummary, signOff } from "../src/engine/async.ts";
 import type { Session } from "../src/lib/session.ts";
 
 const dirty = execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], { encoding: "utf8" }).trim();
@@ -89,9 +90,22 @@ async function run(label: string, deployment: string, model: string) {
       open_gaps: findGaps(s, fw).gaps.length,
     });
   }
+  // Which source backs each answer, after all three sources.
+  const item = s.items[0];
+  const kindOf = (id: string | undefined) => s.session.sources?.find((x) => x.id === id)?.kind ?? "?";
+  const provenance = Object.fromEntries([...Object.keys(s.core).map((k) => `core.${k}`), ...Object.keys(item.coverage)].map((id) => {
+    const e = entryOf(s, item, id);
+    return [id, e ? `${e.status} from ${[...new Set(e.quotes.map((q) => kindOf(e.quote_sources?.[q])))].join("+") || "-"}` : "unknown"];
+  }));
+  const termSources = (s.terms ?? []).map((t) => ({ term: t.term, status: t.status, confirmed_by: t.status === "confirmed" ? kindOf(t.source ?? undefined) : null, draft_from: t.draft ? kindOf(t.draft.source) : null }));
+  // Summary and sign-off with no Don't-build reason confirmed, then the gates for every item.
+  const sum = await runAsyncSummary({ provider, fw, session: s, now: new Date().toISOString() });
+  spent += sum.calls.reduce((n, c) => n + costUSD(model, c.usage), 0);
+  const signed = signOff(sum.session, fw, { confirm: [], by: "smoke test" });
+  const gates = signed.items.map((i) => ({ item: i.id, type: i.type, decision: i.gate!.decision, reasons: i.gate!.reasons, existing_asset: i.facts.existing_asset?.band ?? "unknown", decision_depends: i.facts.decision_depends?.band ?? "unknown", success_metric: i.facts.success_metric?.band ?? "unknown" }));
   const afterReply = record[0].covered as string[];
   const recall = EXPECT_AFTER_REPLY.filter((id) => afterReply.includes(id));
-  return { label, model, deployment, spentUSD: Number(spent.toFixed(4)), recall_after_reply: `${recall.length}/${EXPECT_AFTER_REPLY.length}`, missing_after_reply: EXPECT_AFTER_REPLY.filter((id) => !afterReply.includes(id)), steps: record, conflict_key: areaKey(s.items[0], "data_report.delivery") };
+  return { label, model, deployment, spentUSD: Number(spent.toFixed(4)), recall_after_reply: `${recall.length}/${EXPECT_AFTER_REPLY.length}`, missing_after_reply: EXPECT_AFTER_REPLY.filter((id) => !afterReply.includes(id)), steps: record, provenance, termSources, confirmAsked: sum.confirm, gates, conflict_key: areaKey(s.items[0], "data_report.delivery") };
 }
 
 const runs = [];

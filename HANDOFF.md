@@ -9,7 +9,7 @@ Oct 10, 2026 · @Tom
 - **Production:** sample-only. `LIVE_INTAKE_NOTE` is set, so live intakes are paused and the offline sample still plays. It stays paused until v2 meets the ship bar.
 - **Code:** the hotfix for the pause is on `main` (1631b89). The fix branch `fix/live-test-2026-10-13` (44de692) is unmerged and predates the hotfix.
 - **Separation:** the kit has no dependency on, and no reference to, any outside guardrail framework. The guardrails file is `GUARDRAILS.md`.
-- **Next:** build v2, gate on personas 1 and 7, check held-out personas 2–6, then deploy. If it misses after one fix round, ship the Claude Code plugin as the demo and move on to the proof pieces.
+- **Next (Oct 14):** v2 missed its gate and the fallback was taken: the plugin is the primary demo. A live test on the enablement kit led to **Async intake mode** (collect, ingest, follow up), which becomes the default for running an intake on someone else's behalf. Live chat stays for self-intake.
 
 ## Purpose
 
@@ -485,6 +485,91 @@ Found by the second v2 gate on commit 89cde19, which missed the ship bar (4 of 6
 - **One yes confirms every Don't-build question.** The summary asks about each definitive Don't-build reason, but one "Yes, that's right" confirms all of them. In persona 1 the user was agreeing that the Monday sheet would go away, and that also confirmed "No decision depends on it" for the report. Fix: confirm each reason separately, and apply only the ones confirmed.
 - **decision_depends can contradict an answered decision area.** The write-up picked `decision_depends: no` for a report whose decision ("who to pull for retraining") was answered and covered. Fix: check the band against that area, and treat a contradiction as missing (Gather more), never as Don't build.
 - **Lead for cost work.** With only `extract` routed to gpt-4.1-mini (phrasing, classification and write-up on gpt-4.1), the same gate on the same commit matched 5 of 6 runs, at about three-quarters of the cost. That's worth measuring further before the next gate.
+
+## Async intake mode: collect, ingest, follow up (Oct 14, 2026)
+
+**Why.** In a real engagement, the person running the intake (an FDE, an analyst, Tom) usually isn't the person who knows the answers. A live chat relayed one question at a time puts the interviewer in the middle of every turn: ask the user, wait, type their answer back in. It's slow, and the record ends up in the interviewer's words, not the user's. It also leans on the part that keeps failing. Most v2 failures were conversational: phrasing drift, summary loops and misfiled corrections. Reading a block of text and saying which areas it answers, with quotes, is classification, which models do reliably. And the questions already exist in the module YAML; the kit just never showed them up front.
+
+**What changes.** Async becomes the default way to run an intake for someone else. Live chat stays, for the case where the person who knows is the one typing. Async reuses the v2 engine almost entirely: required areas, queue order, the Apply rules, spawn, write-up, summary, scoring, gates and templates. Only the way answers arrive is new.
+
+**The flow**
+
+1. **Triage (interviewer, about 2 minutes).** Enter the one-line request and answer the type question: "Do you already have something specific in mind to build, or are you looking for where to start?" The interviewer can also pick the type and any modifiers directly. `classify_opening` may suggest them, but the interviewer's choice wins.
+2. **Question packet (code, no model call).** Code generates the questions for that type: the item's required areas in the engine's queue order (anchor area, core, module, then modifiers). Each question has:
+   - one plain question
+   - one line on why it matters
+   - a short example of a good answer
+
+   The manual-work and existing-asset checks are included word for word. Areas that help but aren't required go in an "if you know" section at the end. The packet should fit on one page, about 10 to 14 questions. It comes in two formats: text ready to paste into an email, and a meeting agenda with space for notes.
+3. **Ingest (interviewer pastes).** The interviewer pastes whatever comes back: the user's email reply, their own meeting notes, or a call transcript. Each paste is a **source**, with a kind (`reply`, `notes` or `transcript`), who it's from, and when it was added.
+   - A new model call, `ingest`, reads the whole source against every area of the item and returns each area it answers, with a status, a value and verbatim quotes, plus the check results.
+   - Long sources are split into chunks, and code merges the results.
+   - Code applies the same rules as live Apply. Every quote must appear in that source, or it's dropped. `answered` with a grounded quote is covered. `partial` is flagged for follow-up (no live probe). `not_applicable` and `declined` are recorded and never asked again.
+   - A yes on the manual-work check, with a grounded quote, spawns the follow-on item, as in live mode.
+   - **A later source never silently overwrites an earlier one.** Every quote is kept. If two sources disagree, the area is marked contradicted and goes into the follow-up packet.
+4. **Gaps and follow-up (code).** After each ingest, code lists what's still open:
+   - required areas that are unknown, partial or contradicted
+   - critical areas resting on an assumption
+   - critical facts that would be unknown or vague at the gate (decision, success baseline, value, from `gap_questions`)
+   - the light pass for any spawned item
+
+   The follow-up packet asks only those, phrased by code. A partial answer is quoted back: "You mentioned about 50 a day. Is that every day, or only on peak days?" The interviewer sends it or works through it on a call, pastes the reply, and repeats. A readiness line shows how many required areas are answered and what still stands between each item and Go. There's no turn budget: the interviewer decides when to stop.
+5. **Summary and gate.** The interviewer opens the summary whenever they're ready. It's the same code-rendered summary.
+   - Corrections are made per area, by editing that area's line, never as free text, so a correction can't land on the wrong area.
+   - Each definitive Don't-build reason gets its own confirm, so one yes can't confirm them all.
+   - The interviewer can also send the summary to the user. Their reply is ingested as one more source.
+   - Confirming scores and gates, then renders the spec pack, as now.
+
+**Whose words count.** Every quote records its source. The summary and the spec pack show where each answer came from: the user's reply, a transcript, or the interviewer's notes. Notes are second-hand. A critical area that rests only on notes is listed on the summary for the interviewer to confirm, and stays labelled as from notes in DECISIONS.md.
+
+**Model contract.** One new strict-mode call:
+- `ingest(source_text, areas with must_capture, checks)` returns `answers[]`: area, status, value and quotes.
+- It also returns the check results.
+- It never returns gates, scores, the next question or new items. The rest of the contract is unchanged.
+
+Async uses `ingest` and `write_up` only; `phrase` and `extract` stay for live mode.
+
+**Session file.**
+- `session.channel`: `live` or `async`.
+- `session.sources[]`: id, kind, from, added_at and the text, which grounding needs.
+- Each coverage entry records the source of each quote.
+- The session schema version goes to 2. Version 1 files still load as live sessions.
+- Source texts stay in `intake-answers.yaml`; the spec pack carries only the quotes.
+
+**Where it runs**
+- **Web:** five screens: triage, packet (copy, or download as markdown), ingest (paste, plus the kind and who it's from), gaps (with the readiness line and the follow-up packet), then summary and review.
+- **Plugin:** `intake.mjs` gets `triage`, `packet`, `ingest <file>`, `gaps`, `followup` and `summary`. The skill walks the interviewer through them.
+
+**Testing and ship bar.** The same non-negotiables apply:
+- zero ungrounded quotes
+- the summary always renders
+- gates match ground truth in at least 5 of 6 runs, tied to a commit
+
+Each persona is tested three ways:
+- answering the whole packet in one email
+- as terse meeting notes
+- as a messy call transcript
+
+There are also two new measures:
+- **Ingest recall:** areas the persona's text answers that get filled.
+- **Ingest precision:** no area filled from a quote that doesn't answer it.
+
+The follow-up packet must contain every gap and nothing already answered.
+
+**Build order**
+1. Packet fields (`ask`, `why`, `example`) on every area that can be required, plus the packet generator. Code only, with a test that every required area has them.
+2. The `ingest` call, sources in the session file, and the Apply and contradiction rules.
+3. Gaps and the follow-up packet.
+4. Web screens and plugin commands.
+5. Persona evals in async: packet reply, notes and transcript.
+6. Re-run the worked example (the enablement kit) in async mode.
+
+Fixes from the Oct 14 live test that apply to both modes still go first: re-render must regenerate acceptance criteria and guardrails rather than append, and the designated checks must run for known ideas.
+
+**Open decisions (Tom)**
+- Does an answer from the interviewer's notes count as covered, or as assumed until confirmed? Drafted above as covered, labelled, with critical-only confirmation.
+- Who confirms the summary by default: the interviewer, or the end user, by sending it to them?
+- The packet length cap, and whether "if you know" questions are included by default.
 
 ## Build decisions
 

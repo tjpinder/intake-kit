@@ -22,7 +22,7 @@ const commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { encoding:
 const env = process.env;
 if (!env.AZURE_OPENAI_ENDPOINT || !env.AZURE_OPENAI_API_KEY) { console.error("Set AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY first."); process.exit(2); }
 const model = env.AZURE_OPENAI_MODEL || "gpt-4.1";
-const provider = createAzureProvider({ endpoint: env.AZURE_OPENAI_ENDPOINT, apiKey: env.AZURE_OPENAI_API_KEY, deployment: env.AZURE_OPENAI_DEPLOYMENT || "intake-kit-eval-gpt41", model, maxCompletionTokens: 8000 });
+const provider = createAzureProvider({ endpoint: env.AZURE_OPENAI_ENDPOINT, apiKey: env.AZURE_OPENAI_API_KEY, deployment: env.AZURE_OPENAI_DEPLOYMENT || "intake-kit-eval-gpt41", model, maxCompletionTokens: 8000, timeoutMs: 180_000 });
 
 const out = join(DEMO, "recorded");
 rmSync(out, { recursive: true, force: true });

@@ -167,6 +167,7 @@
         "term",
         "definition",
         "quotes",
+        "certain",
         "measurable",
         "examples",
         "conflict"
@@ -185,6 +186,10 @@
             "type": "string"
           },
           "description": "Exact spans from the document that give the definition."
+        },
+        "certain": {
+          "type": "boolean",
+          "description": "False if the document hedges any part of the definition (\"I think\", \"not sure\", \"might\", \"check with\")."
         },
         "measurable": {
           "type": "string",

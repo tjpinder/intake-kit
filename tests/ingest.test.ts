@@ -7,6 +7,7 @@ import { loadFramework } from "../src/lib/framework-fs.ts";
 import { validateSession } from "../src/lib/schemas.ts";
 import type { Session } from "../src/lib/session.ts";
 import { chunks, runIngest, sourceTranscript, startAsync } from "../src/engine/ingest.ts";
+import { findGaps } from "../src/engine/gaps.ts";
 import type { Provider, TurnRequest } from "../src/llm/types.ts";
 
 const fw = loadFramework(".");
@@ -158,7 +159,7 @@ describe("definitions (HANDOFF.md, Definitions)", () => {
   });
 
   test("a definition in the owner's words confirms the term, with who gave it, whether it's measurable and the worked example", async () => {
-    const def = { term: "Over pick", definition: "More units taken than the ticket says; not on the system transaction", quotes: ["An over pick is when the picker takes more units than the pick ticket says"], measurable: "no", examples: [{ case: "Order 1043: ticket 20, 22 left the slot", expected: "2" }], conflict: false };
+    const def = { term: "Over pick", definition: "More units taken than the ticket says; not on the system transaction", quotes: ["An over pick is when the picker takes more units than the pick ticket says"], certain: true, measurable: "no", examples: [{ case: "Order 1043: ticket 20, 22 left the slot", expected: "2" }], conflict: false };
     const out = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "over pick", quote: "over picks on the night shift", kind: "metric" }], [def])]), fw, session: triaged(), source: { kind: "notes", from: "Dana", text: TEXT }, now: LATER });
     const [t] = out.session.terms!;
     assert.equal(t.status, "confirmed");
@@ -170,7 +171,7 @@ describe("definitions (HANDOFF.md, Definitions)", () => {
   });
 
   test("a definition with no words from the source isn't recorded; a later disagreeing one is kept as a conflict", async () => {
-    const def = (definition: string, quote: string, conflict = false) => ({ term: "over pick", definition, quotes: [quote], measurable: "unknown", examples: [], conflict });
+    const def = (definition: string, quote: string, conflict = false) => ({ term: "over pick", definition, quotes: [quote], certain: true, measurable: "unknown", examples: [], conflict });
     const none = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "over pick", quote: "over picks on the night shift", kind: "metric" }], [def("Anything extra", "words not in it")])]), fw, session: triaged(), source: { kind: "reply", from: "x", text: TEXT }, now: LATER });
     assert.equal(none.session.terms![0].status, "unconfirmed");
 
@@ -179,5 +180,40 @@ describe("definitions (HANDOFF.md, Definitions)", () => {
     const t = second.session.terms![0];
     assert.equal(t.definition, "Not on the transaction");
     assert.deepEqual(t.conflict, { definition: "Picked qty above ticket qty in the WMS", quote: "confirmed quantity is above the task quantity", source: "src-3" });
+  });
+});
+
+describe("ingest fixes after the real-model smoke test", () => {
+  const SRC = "A short pick is when the confirmed quantity is less than the task quantity. I think wrong-location scans count too, but check with Priya.";
+  const shortPick = (over: Record<string, unknown>) => ({ term: "short pick", definition: "Confirmed quantity below the task quantity", quotes: ["A short pick is when the confirmed quantity is less than the task quantity."], certain: true, measurable: "yes", examples: [], conflict: false, ...over });
+
+  test("a hedged definition doesn't confirm the term: it's kept as a draft and quoted back in the follow-up", async () => {
+    const out = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "short pick", quote: "A short pick", kind: "metric" }], [shortPick({ certain: false, definition: "Below the task quantity; maybe wrong-location scans too" })])]), fw, session: triaged(), source: { kind: "reply", from: "Sam", text: SRC }, now: LATER });
+    const t = out.session.terms![0];
+    assert.equal(t.status, "unconfirmed");
+    assert.equal(t.draft!.definition, "Below the task quantity; maybe wrong-location scans too");
+    const q = findGaps(out.session, fw).gaps.find((g) => g.kind === "term")!.question;
+    assert.match(q, /^You described "short pick" as "Below the task quantity; maybe wrong-location scans too", but weren't sure/);
+    assert.equal(validateSession(out.session).ok, true, validateSession(out.session).errors.join("; "));
+  });
+
+  test("a later source that settles part of a term updates that term, keeping the earlier words", async () => {
+    const first = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "short pick", quote: "A short pick", kind: "metric" }], [shortPick({})])]), fw, session: triaged(), source: { kind: "reply", from: "Sam", text: SRC }, now: LATER });
+    const notes = "wrong-location scans: YES count them as short picks";
+    const out = await runIngest({ provider: scripted([ingestOut([], [], [], [shortPick({ definition: "Confirmed quantity below the task quantity, including wrong-location scans", quotes: ["wrong-location scans: YES count them as short picks"] })])]), fw, session: first.session, source: { kind: "notes", from: "Tom", text: notes }, now: LATER });
+    assert.equal(out.session.terms!.length, 1);
+    const t = out.session.terms![0];
+    assert.equal(t.definition, "Confirmed quantity below the task quantity, including wrong-location scans");
+    assert.deepEqual(t.quotes, ["A short pick is when the confirmed quantity is less than the task quantity.", "wrong-location scans: YES count them as short picks"]);
+    assert.equal(t.given_by, "Tom");
+  });
+
+  test("the prompt says added detail isn't a conflict, partial coverage is a yes, and part of a term updates that term", async () => {
+    const provider = scripted([ingestOut([])]);
+    await runIngest({ provider, fw, session: triaged(), source: { kind: "reply", from: "x", text: SRC }, now: LATER });
+    const sys = provider.requests[0].system;
+    assert.match(sys, /"per picker" then "per picker, per shift, per day" is conflict false/);
+    assert.match(sys, /never make a separate term out of part of one/);
+    assert.match(provider.requests[0].context, /"yes" even if it only does part/);
   });
 });

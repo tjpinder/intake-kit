@@ -165,7 +165,7 @@ export interface IngestInput {
 
 const INGEST_CHECKS: Record<"manual_work" | "existing_asset" | "kill_criteria", string> = {
   manual_work: 'manual_work: is any part of this done by hand today (not only as a fallback if the new thing failed)? "yes", "no", or "unclear".',
-  existing_asset: 'existing_asset: does anything they have, or could get, already do all or part of this? "yes", "no", or "unclear".',
+  existing_asset: 'existing_asset: does anything they have, or could get, already do all or part of this? "yes" even if it only does part (only totals, only some of the data, the right data in the wrong view); "no" only if nothing does any of it; "unclear" if it doesn\'t say.',
   kill_criteria: 'kill_criteria: did they say what would make them stop it or switch it off? "yes" with the condition in value, "no" if they said nothing would, "unclear" otherwise.',
 };
 
@@ -197,11 +197,11 @@ export function ingestRequest(fw: Framework, session: Session, x: IngestInput): 
         'status: "answered" when it answers what the area needs; "partial" when it answers only some of it, or vaguely ("usually", "I think", no example); "not_applicable" when it says the area doesn\'t apply; "declined" when it says they don\'t know or won\'t say.',
         "value: what the document says, as one short plain sentence. Null if nothing usable.",
         "quotes: one or more exact spans copied character for character from the document that carry the answer. Never paraphrase, never join two places into one quote.",
-        "conflict: true only if the answer disagrees with what is recorded so far for that area (shown after \"recorded so far\"). Adding detail isn't a conflict.",
+        "conflict: true only if the answer contradicts what is recorded so far for that area (shown after \"recorded so far\"): both can't be true at once, like \"by 7am\" and \"by 6am\". Adding detail, narrowing it down, or saying the same thing another way is never a conflict: \"per picker\" then \"per picker, per shift, per day\" is conflict false.",
         "item: the item the area is listed under. A shared core area belongs to the first item listed.",
         "checks: one entry for each check listed under an item, with the document's words in quote (null if none).",
         "terms: business terms the document uses whose meaning is local to this business or could be read more than one way (over pick, fill rate, on-time, exception), each with the words where it appears. Not generic words, and not terms already listed below.",
-        "definitions: for any term (listed below or new), a definition the document gives: what counts and what doesn't, in its words, with quotes; whether it says the thing can be seen in the system's data; any worked example with the right result. conflict: true only if it disagrees with a definition already recorded.",
+        "definitions: for any term (listed below or new), a definition the document gives: what counts and what doesn't, in its words, with quotes; whether it says the thing can be seen in the system's data; any worked example with the right result. certain: false if the document hedges any part of it (\"I think\", \"not sure\", \"check with\"). If the document settles or adds to part of a term already listed (\"wrong-location scans do count\"), return a definition for that same term, using its listed name, with the full updated definition and conflict false; never make a separate term out of part of one. conflict: true only if it contradicts a definition already recorded.",
       ].join("\n"),
       "Only use what the document says. Don't infer or fill gaps.",
     ].join("\n\n"),

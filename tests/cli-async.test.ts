@@ -105,7 +105,7 @@ describe("async intake through the CLI", () => {
     // The owner's definition comes back in a follow-up reply.
     const defFile = join(dir, "def.txt");
     writeFileSync(defFile, "A short pick is a pick confirmed with fewer units than the task asked for. Order 88 asked for 5 and 4 were confirmed, so 1 short pick.");
-    answer(dir, "ingest", [{ answers: [], checks: [], terms: [], definitions: [{ term: "short pick", definition: "Fewer units confirmed than the task asked for", quotes: ["A short pick is a pick confirmed with fewer units than the task asked for."], measurable: "yes", examples: [{ case: "Order 88: task 5, confirmed 4", expected: "1" }], conflict: false }] }]);
+    answer(dir, "ingest", [{ answers: [], checks: [], terms: [], definitions: [{ term: "short pick", definition: "Fewer units confirmed than the task asked for", quotes: ["A short pick is a pick confirmed with fewer units than the task asked for."], certain: true, measurable: "yes", examples: [{ case: "Order 88: task 5, confirmed 4", expected: "1" }], conflict: false }] }]);
     assert.equal(intake(dir, "ingest", "--file", defFile, "--kind", "reply", "--from", "Ops supervisor").status, 0);
     assert.equal(session(dir).terms[0].status, "confirmed");
 

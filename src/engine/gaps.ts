@@ -102,7 +102,8 @@ export function findGaps(session: Session, fw: Framework): GapReport {
   }
 
   for (const t of (session.terms ?? []).filter((x) => x.status !== "not_a_term")) {
-    if (t.status === "unconfirmed") gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `In your own words, what counts as "${t.term}", and what doesn't? Give one real example and the right ${t.kind === "metric" ? "count" : "result"}.` });
+    if (t.status === "unconfirmed" && t.draft) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `You described "${t.term}" as "${t.draft.definition}", but weren't sure about all of it. What exactly counts, and what doesn't?` });
+    else if (t.status === "unconfirmed") gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `In your own words, what counts as "${t.term}", and what doesn't? Give one real example and the right ${t.kind === "metric" ? "count" : "result"}.` });
     else if (t.conflict) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `"${t.term}" was defined two ways: "${t.definition}" and "${t.conflict.definition}". Which is right?` });
     else continue;
     for (const r of readiness.filter((x) => t.items.includes(x.item))) r.open.push(`"${t.term}": ${t.status === "unconfirmed" ? "no confirmed definition" : "two definitions disagree"}`);

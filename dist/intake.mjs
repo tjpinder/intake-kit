@@ -14312,7 +14312,7 @@ function validate75(data, { instancePath = "", parentData, parentDataProperty, r
   return errors === 0;
 }
 validate75.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema34 = { "type": "object", "additionalProperties": false, "required": ["term", "definition", "quotes", "measurable", "examples", "conflict"], "properties": { "term": { "type": "string" }, "definition": { "type": "string", "description": "What counts and what doesn't, as the document says it, in one or two plain sentences." }, "quotes": { "type": "array", "items": { "type": "string" }, "description": "Exact spans from the document that give the definition." }, "measurable": { "type": "string", "enum": ["yes", "partly", "no", "unknown"], "description": "Whether the document says it can be seen in the system's data." }, "examples": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["case", "expected"], "properties": { "case": { "type": "string" }, "expected": { "type": "string" } } }, "description": "Worked examples the document gives, each with the right result." }, "conflict": { "type": "boolean", "description": "True only if it disagrees with the definition already recorded." } } };
+var schema34 = { "type": "object", "additionalProperties": false, "required": ["term", "definition", "quotes", "certain", "measurable", "examples", "conflict"], "properties": { "term": { "type": "string" }, "definition": { "type": "string", "description": "What counts and what doesn't, as the document says it, in one or two plain sentences." }, "quotes": { "type": "array", "items": { "type": "string" }, "description": "Exact spans from the document that give the definition." }, "certain": { "type": "boolean", "description": 'False if the document hedges any part of the definition ("I think", "not sure", "might", "check with").' }, "measurable": { "type": "string", "enum": ["yes", "partly", "no", "unknown"], "description": "Whether the document says it can be seen in the system's data." }, "examples": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["case", "expected"], "properties": { "case": { "type": "string" }, "expected": { "type": "string" } } }, "description": "Worked examples the document gives, each with the right result." }, "conflict": { "type": "boolean", "description": "True only if it disagrees with the definition already recorded." } } };
 function validate77(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   let vErrors = null;
   let errors = 0;
@@ -14351,8 +14351,8 @@ function validate77(data, { instancePath = "", parentData, parentDataProperty, r
       }
       errors++;
     }
-    if (data.measurable === void 0) {
-      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "measurable" }, message: "must have required property 'measurable'" };
+    if (data.certain === void 0) {
+      const err3 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "certain" }, message: "must have required property 'certain'" };
       if (vErrors === null) {
         vErrors = [err3];
       } else {
@@ -14360,8 +14360,8 @@ function validate77(data, { instancePath = "", parentData, parentDataProperty, r
       }
       errors++;
     }
-    if (data.examples === void 0) {
-      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "examples" }, message: "must have required property 'examples'" };
+    if (data.measurable === void 0) {
+      const err4 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "measurable" }, message: "must have required property 'measurable'" };
       if (vErrors === null) {
         vErrors = [err4];
       } else {
@@ -14369,8 +14369,8 @@ function validate77(data, { instancePath = "", parentData, parentDataProperty, r
       }
       errors++;
     }
-    if (data.conflict === void 0) {
-      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "conflict" }, message: "must have required property 'conflict'" };
+    if (data.examples === void 0) {
+      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "examples" }, message: "must have required property 'examples'" };
       if (vErrors === null) {
         vErrors = [err5];
       } else {
@@ -14378,20 +14378,18 @@ function validate77(data, { instancePath = "", parentData, parentDataProperty, r
       }
       errors++;
     }
-    for (const key0 in data) {
-      if (!(key0 === "term" || key0 === "definition" || key0 === "quotes" || key0 === "measurable" || key0 === "examples" || key0 === "conflict")) {
-        const err6 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err6];
-        } else {
-          vErrors.push(err6);
-        }
-        errors++;
+    if (data.conflict === void 0) {
+      const err6 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "conflict" }, message: "must have required property 'conflict'" };
+      if (vErrors === null) {
+        vErrors = [err6];
+      } else {
+        vErrors.push(err6);
       }
+      errors++;
     }
-    if (data.term !== void 0) {
-      if (typeof data.term !== "string") {
-        const err7 = { instancePath: instancePath + "/term", schemaPath: "#/properties/term/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+    for (const key0 in data) {
+      if (!(key0 === "term" || key0 === "definition" || key0 === "quotes" || key0 === "certain" || key0 === "measurable" || key0 === "examples" || key0 === "conflict")) {
+        const err7 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
           vErrors = [err7];
         } else {
@@ -14400,13 +14398,24 @@ function validate77(data, { instancePath = "", parentData, parentDataProperty, r
         errors++;
       }
     }
-    if (data.definition !== void 0) {
-      if (typeof data.definition !== "string") {
-        const err8 = { instancePath: instancePath + "/definition", schemaPath: "#/properties/definition/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+    if (data.term !== void 0) {
+      if (typeof data.term !== "string") {
+        const err8 = { instancePath: instancePath + "/term", schemaPath: "#/properties/term/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         if (vErrors === null) {
           vErrors = [err8];
         } else {
           vErrors.push(err8);
+        }
+        errors++;
+      }
+    }
+    if (data.definition !== void 0) {
+      if (typeof data.definition !== "string") {
+        const err9 = { instancePath: instancePath + "/definition", schemaPath: "#/properties/definition/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err9];
+        } else {
+          vErrors.push(err9);
         }
         errors++;
       }
@@ -14417,29 +14426,17 @@ function validate77(data, { instancePath = "", parentData, parentDataProperty, r
         const len0 = data2.length;
         for (let i0 = 0; i0 < len0; i0++) {
           if (typeof data2[i0] !== "string") {
-            const err9 = { instancePath: instancePath + "/quotes/" + i0, schemaPath: "#/properties/quotes/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            const err10 = { instancePath: instancePath + "/quotes/" + i0, schemaPath: "#/properties/quotes/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
             if (vErrors === null) {
-              vErrors = [err9];
+              vErrors = [err10];
             } else {
-              vErrors.push(err9);
+              vErrors.push(err10);
             }
             errors++;
           }
         }
       } else {
-        const err10 = { instancePath: instancePath + "/quotes", schemaPath: "#/properties/quotes/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        if (vErrors === null) {
-          vErrors = [err10];
-        } else {
-          vErrors.push(err10);
-        }
-        errors++;
-      }
-    }
-    if (data.measurable !== void 0) {
-      let data4 = data.measurable;
-      if (typeof data4 !== "string") {
-        const err11 = { instancePath: instancePath + "/measurable", schemaPath: "#/properties/measurable/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        const err11 = { instancePath: instancePath + "/quotes", schemaPath: "#/properties/quotes/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
           vErrors = [err11];
         } else {
@@ -14447,8 +14444,10 @@ function validate77(data, { instancePath = "", parentData, parentDataProperty, r
         }
         errors++;
       }
-      if (!(data4 === "yes" || data4 === "partly" || data4 === "no" || data4 === "unknown")) {
-        const err12 = { instancePath: instancePath + "/measurable", schemaPath: "#/properties/measurable/enum", keyword: "enum", params: { allowedValues: schema34.properties.measurable.enum }, message: "must be equal to one of the allowed values" };
+    }
+    if (data.certain !== void 0) {
+      if (typeof data.certain !== "boolean") {
+        const err12 = { instancePath: instancePath + "/certain", schemaPath: "#/properties/certain/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
         if (vErrors === null) {
           vErrors = [err12];
         } else {
@@ -14457,56 +14456,55 @@ function validate77(data, { instancePath = "", parentData, parentDataProperty, r
         errors++;
       }
     }
+    if (data.measurable !== void 0) {
+      let data5 = data.measurable;
+      if (typeof data5 !== "string") {
+        const err13 = { instancePath: instancePath + "/measurable", schemaPath: "#/properties/measurable/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (vErrors === null) {
+          vErrors = [err13];
+        } else {
+          vErrors.push(err13);
+        }
+        errors++;
+      }
+      if (!(data5 === "yes" || data5 === "partly" || data5 === "no" || data5 === "unknown")) {
+        const err14 = { instancePath: instancePath + "/measurable", schemaPath: "#/properties/measurable/enum", keyword: "enum", params: { allowedValues: schema34.properties.measurable.enum }, message: "must be equal to one of the allowed values" };
+        if (vErrors === null) {
+          vErrors = [err14];
+        } else {
+          vErrors.push(err14);
+        }
+        errors++;
+      }
+    }
     if (data.examples !== void 0) {
-      let data5 = data.examples;
-      if (Array.isArray(data5)) {
-        const len1 = data5.length;
+      let data6 = data.examples;
+      if (Array.isArray(data6)) {
+        const len1 = data6.length;
         for (let i1 = 0; i1 < len1; i1++) {
-          let data6 = data5[i1];
-          if (data6 && typeof data6 == "object" && !Array.isArray(data6)) {
-            if (data6.case === void 0) {
-              const err13 = { instancePath: instancePath + "/examples/" + i1, schemaPath: "#/properties/examples/items/required", keyword: "required", params: { missingProperty: "case" }, message: "must have required property 'case'" };
+          let data7 = data6[i1];
+          if (data7 && typeof data7 == "object" && !Array.isArray(data7)) {
+            if (data7.case === void 0) {
+              const err15 = { instancePath: instancePath + "/examples/" + i1, schemaPath: "#/properties/examples/items/required", keyword: "required", params: { missingProperty: "case" }, message: "must have required property 'case'" };
               if (vErrors === null) {
-                vErrors = [err13];
+                vErrors = [err15];
               } else {
-                vErrors.push(err13);
+                vErrors.push(err15);
               }
               errors++;
             }
-            if (data6.expected === void 0) {
-              const err14 = { instancePath: instancePath + "/examples/" + i1, schemaPath: "#/properties/examples/items/required", keyword: "required", params: { missingProperty: "expected" }, message: "must have required property 'expected'" };
+            if (data7.expected === void 0) {
+              const err16 = { instancePath: instancePath + "/examples/" + i1, schemaPath: "#/properties/examples/items/required", keyword: "required", params: { missingProperty: "expected" }, message: "must have required property 'expected'" };
               if (vErrors === null) {
-                vErrors = [err14];
+                vErrors = [err16];
               } else {
-                vErrors.push(err14);
+                vErrors.push(err16);
               }
               errors++;
             }
-            for (const key1 in data6) {
+            for (const key1 in data7) {
               if (!(key1 === "case" || key1 === "expected")) {
-                const err15 = { instancePath: instancePath + "/examples/" + i1, schemaPath: "#/properties/examples/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
-                if (vErrors === null) {
-                  vErrors = [err15];
-                } else {
-                  vErrors.push(err15);
-                }
-                errors++;
-              }
-            }
-            if (data6.case !== void 0) {
-              if (typeof data6.case !== "string") {
-                const err16 = { instancePath: instancePath + "/examples/" + i1 + "/case", schemaPath: "#/properties/examples/items/properties/case/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err16];
-                } else {
-                  vErrors.push(err16);
-                }
-                errors++;
-              }
-            }
-            if (data6.expected !== void 0) {
-              if (typeof data6.expected !== "string") {
-                const err17 = { instancePath: instancePath + "/examples/" + i1 + "/expected", schemaPath: "#/properties/examples/items/properties/expected/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                const err17 = { instancePath: instancePath + "/examples/" + i1, schemaPath: "#/properties/examples/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
                   vErrors = [err17];
                 } else {
@@ -14515,43 +14513,65 @@ function validate77(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
+            if (data7.case !== void 0) {
+              if (typeof data7.case !== "string") {
+                const err18 = { instancePath: instancePath + "/examples/" + i1 + "/case", schemaPath: "#/properties/examples/items/properties/case/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err18];
+                } else {
+                  vErrors.push(err18);
+                }
+                errors++;
+              }
+            }
+            if (data7.expected !== void 0) {
+              if (typeof data7.expected !== "string") {
+                const err19 = { instancePath: instancePath + "/examples/" + i1 + "/expected", schemaPath: "#/properties/examples/items/properties/expected/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err19];
+                } else {
+                  vErrors.push(err19);
+                }
+                errors++;
+              }
+            }
           } else {
-            const err18 = { instancePath: instancePath + "/examples/" + i1, schemaPath: "#/properties/examples/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            const err20 = { instancePath: instancePath + "/examples/" + i1, schemaPath: "#/properties/examples/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             if (vErrors === null) {
-              vErrors = [err18];
+              vErrors = [err20];
             } else {
-              vErrors.push(err18);
+              vErrors.push(err20);
             }
             errors++;
           }
         }
       } else {
-        const err19 = { instancePath: instancePath + "/examples", schemaPath: "#/properties/examples/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        const err21 = { instancePath: instancePath + "/examples", schemaPath: "#/properties/examples/type", keyword: "type", params: { type: "array" }, message: "must be array" };
         if (vErrors === null) {
-          vErrors = [err19];
+          vErrors = [err21];
         } else {
-          vErrors.push(err19);
+          vErrors.push(err21);
         }
         errors++;
       }
     }
     if (data.conflict !== void 0) {
       if (typeof data.conflict !== "boolean") {
-        const err20 = { instancePath: instancePath + "/conflict", schemaPath: "#/properties/conflict/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+        const err22 = { instancePath: instancePath + "/conflict", schemaPath: "#/properties/conflict/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
         if (vErrors === null) {
-          vErrors = [err20];
+          vErrors = [err22];
         } else {
-          vErrors.push(err20);
+          vErrors.push(err22);
         }
         errors++;
       }
     }
   } else {
-    const err21 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err23 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err21];
+      vErrors = [err23];
     } else {
-      vErrors.push(err21);
+      vErrors.push(err23);
     }
     errors++;
   }
@@ -15368,6 +15388,7 @@ var ingest_schema_default = {
         "term",
         "definition",
         "quotes",
+        "certain",
         "measurable",
         "examples",
         "conflict"
@@ -15386,6 +15407,10 @@ var ingest_schema_default = {
             type: "string"
           },
           description: "Exact spans from the document that give the definition."
+        },
+        certain: {
+          type: "boolean",
+          description: 'False if the document hedges any part of the definition ("I think", "not sure", "might", "check with").'
         },
         measurable: {
           type: "string",
@@ -16303,7 +16328,7 @@ function writeUpRequest(fw, session, item, transcript) {
 }
 var INGEST_CHECKS = {
   manual_work: 'manual_work: is any part of this done by hand today (not only as a fallback if the new thing failed)? "yes", "no", or "unclear".',
-  existing_asset: 'existing_asset: does anything they have, or could get, already do all or part of this? "yes", "no", or "unclear".',
+  existing_asset: `existing_asset: does anything they have, or could get, already do all or part of this? "yes" even if it only does part (only totals, only some of the data, the right data in the wrong view); "no" only if nothing does any of it; "unclear" if it doesn't say.`,
   kill_criteria: 'kill_criteria: did they say what would make them stop it or switch it off? "yes" with the condition in value, "no" if they said nothing would, "unclear" otherwise.'
 };
 var termLines = (session) => {
@@ -16332,11 +16357,11 @@ function ingestRequest(fw, session, x) {
         `status: "answered" when it answers what the area needs; "partial" when it answers only some of it, or vaguely ("usually", "I think", no example); "not_applicable" when it says the area doesn't apply; "declined" when it says they don't know or won't say.`,
         "value: what the document says, as one short plain sentence. Null if nothing usable.",
         "quotes: one or more exact spans copied character for character from the document that carry the answer. Never paraphrase, never join two places into one quote.",
-        `conflict: true only if the answer disagrees with what is recorded so far for that area (shown after "recorded so far"). Adding detail isn't a conflict.`,
+        `conflict: true only if the answer contradicts what is recorded so far for that area (shown after "recorded so far"): both can't be true at once, like "by 7am" and "by 6am". Adding detail, narrowing it down, or saying the same thing another way is never a conflict: "per picker" then "per picker, per shift, per day" is conflict false.`,
         "item: the item the area is listed under. A shared core area belongs to the first item listed.",
         "checks: one entry for each check listed under an item, with the document's words in quote (null if none).",
         "terms: business terms the document uses whose meaning is local to this business or could be read more than one way (over pick, fill rate, on-time, exception), each with the words where it appears. Not generic words, and not terms already listed below.",
-        "definitions: for any term (listed below or new), a definition the document gives: what counts and what doesn't, in its words, with quotes; whether it says the thing can be seen in the system's data; any worked example with the right result. conflict: true only if it disagrees with a definition already recorded."
+        `definitions: for any term (listed below or new), a definition the document gives: what counts and what doesn't, in its words, with quotes; whether it says the thing can be seen in the system's data; any worked example with the right result. certain: false if the document hedges any part of it ("I think", "not sure", "check with"). If the document settles or adds to part of a term already listed ("wrong-location scans do count"), return a definition for that same term, using its listed name, with the full updated definition and conflict false; never make a separate term out of part of one. conflict: true only if it contradicts a definition already recorded.`
       ].join("\n"),
       "Only use what the document says. Don't infer or fill gaps."
     ].join("\n\n"),
@@ -17051,10 +17076,19 @@ function applyTerms(session, source, r, transcript) {
       events.push(`definition of "${t.term}": conflicts with the recorded one; kept both for the follow-up`);
       continue;
     }
-    if (t.status === "confirmed") {
+    if (!d.certain) {
+      if (t.status !== "confirmed") {
+        t.draft = { definition: d.definition.trim(), quote: quotes[0], source: source.id };
+        events.push(`definition of "${t.term}": hedged, kept as a draft for the follow-up`);
+      }
+    } else if (t.status === "confirmed") {
       t.quotes = [.../* @__PURE__ */ new Set([...t.quotes, ...quotes])];
+      if (d.definition.trim() !== t.definition) {
+        Object.assign(t, { definition: d.definition.trim(), given_by: source.from, source: source.id });
+        events.push(`definition of "${t.term}": updated`);
+      }
     } else {
-      Object.assign(t, { status: "confirmed", definition: d.definition.trim(), quotes, given_by: source.from, source: source.id });
+      Object.assign(t, { status: "confirmed", definition: d.definition.trim(), quotes, given_by: source.from, source: source.id, draft: null });
       events.push(`definition of "${t.term}": confirmed`);
     }
     if (d.measurable !== "unknown") t.measurable = d.measurable;
@@ -17167,7 +17201,8 @@ function findGaps(session, fw) {
     readiness.push({ item: item.id, title: item.title, required: queue.length, answered, open });
   }
   for (const t of (session.terms ?? []).filter((x) => x.status !== "not_a_term")) {
-    if (t.status === "unconfirmed") gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `In your own words, what counts as "${t.term}", and what doesn't? Give one real example and the right ${t.kind === "metric" ? "count" : "result"}.` });
+    if (t.status === "unconfirmed" && t.draft) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `You described "${t.term}" as "${t.draft.definition}", but weren't sure about all of it. What exactly counts, and what doesn't?` });
+    else if (t.status === "unconfirmed") gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `In your own words, what counts as "${t.term}", and what doesn't? Give one real example and the right ${t.kind === "metric" ? "count" : "result"}.` });
     else if (t.conflict) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `"${t.term}" was defined two ways: "${t.definition}" and "${t.conflict.definition}". Which is right?` });
     else continue;
     for (const r of readiness.filter((x) => t.items.includes(x.item))) r.open.push(`"${t.term}": ${t.status === "unconfirmed" ? "no confirmed definition" : "two definitions disagree"}`);
@@ -17468,6 +17503,7 @@ function termBlocks(session, items) {
       if (t.conflict) lines.push("", `Also defined as: "${t.conflict.definition}" (${sourceLabel(session, t.conflict.source) ?? t.conflict.source}). Settle which is right before building.`);
     } else {
       lines.push("_The owner hasn't defined it yet. Don't interpret it: ask._", "", `Found in: "${t.found_in.quote}".`);
+      if (t.draft) lines.push("", `Draft, not yet certain: "${t.draft.definition}" (${sourceLabel(session, t.draft.source) ?? t.draft.source}).`);
     }
     const measurable = { yes: "Yes", partly: "Partly", no: "No: it isn't in the system's data", unknown: "Not known yet" }[t.measurable];
     lines.push("", `Can it be seen in the data? ${measurable}.`);

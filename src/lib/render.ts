@@ -204,6 +204,7 @@ function termBlocks(session: Session, items: Item[]): string {
       if (t.conflict) lines.push("", `Also defined as: "${t.conflict.definition}" (${sourceLabel(session, t.conflict.source) ?? t.conflict.source}). Settle which is right before building.`);
     } else {
       lines.push("_The owner hasn't defined it yet. Don't interpret it: ask._", "", `Found in: "${t.found_in.quote}".`);
+      if (t.draft) lines.push("", `Draft, not yet certain: "${t.draft.definition}" (${sourceLabel(session, t.draft.source) ?? t.draft.source}).`);
     }
     const measurable = { yes: "Yes", partly: "Partly", no: "No: it isn't in the system's data", unknown: "Not known yet" }[t.measurable];
     lines.push("", `Can it be seen in the data? ${measurable}.`);

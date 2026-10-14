@@ -200,6 +200,10 @@
           "type": "array",
           "items": { "type": "object", "additionalProperties": false, "required": ["case", "expected"], "properties": { "case": { "type": "string", "minLength": 1 }, "expected": { "type": "string", "minLength": 1 } } }
         },
+        "draft": {
+          "description": "A definition the owner gave but hedged (\"I think\", \"not sure\"). The term stays unconfirmed; the follow-up quotes the draft back.",
+          "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["definition", "quote", "source"], "properties": { "definition": { "type": "string" }, "quote": { "type": "string" }, "source": { "type": "string" } } }]
+        },
         "conflict": {
           "description": "A later source defined it differently; kept for the follow-up to settle.",
           "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["definition", "quote", "source"], "properties": { "definition": { "type": "string" }, "quote": { "type": "string" }, "source": { "type": "string" } } }]

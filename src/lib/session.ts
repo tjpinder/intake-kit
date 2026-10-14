@@ -130,6 +130,8 @@ export interface Term {
   measurable: "yes" | "partly" | "no" | "unknown";
   examples: Array<{ case: string; expected: string }>;
   conflict?: { definition: string; quote: string; source: string } | null;
+  /** A hedged definition: the term stays unconfirmed, and the follow-up quotes this back. */
+  draft?: { definition: string; quote: string; source: string } | null;
   starter: "accepted" | "edited" | null;
 }
 

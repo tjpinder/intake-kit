@@ -90,7 +90,7 @@ function readTargets(session: Session, fw: Framework) {
 
 interface IngestResult {
   terms: Array<{ term: string; quote: string; kind: "metric" | "rule" | "label" }>;
-  definitions: Array<{ term: string; definition: string; quotes: string[]; measurable: "yes" | "partly" | "no" | "unknown"; examples: Array<{ case: string; expected: string }>; conflict: boolean }>;
+  definitions: Array<{ term: string; definition: string; quotes: string[]; certain: boolean; measurable: "yes" | "partly" | "no" | "unknown"; examples: Array<{ case: string; expected: string }>; conflict: boolean }>;
   answers: Array<{ item: string; area: string; status: "answered" | "partial" | "not_applicable" | "declined"; value: string | null; quotes: string[]; conflict: boolean }>;
   checks: Array<{ item: string; check: CheckName; result: "yes" | "no" | "unclear"; value: string | null; quote: string | null }>;
 }
@@ -219,10 +219,21 @@ export function applyTerms(session: Session, source: Source, r: Pick<IngestResul
       events.push(`definition of "${t.term}": conflicts with the recorded one; kept both for the follow-up`);
       continue;
     }
-    if (t.status === "confirmed") {
+    if (!d.certain) {
+      // A hedged definition never confirms a term; a confirmed one keeps its definition.
+      if (t.status !== "confirmed") {
+        t.draft = { definition: d.definition.trim(), quote: quotes[0], source: source.id };
+        events.push(`definition of "${t.term}": hedged, kept as a draft for the follow-up`);
+      }
+    } else if (t.status === "confirmed") {
+      // A later source that settles or adds to the definition updates it; earlier words are kept.
       t.quotes = [...new Set([...t.quotes, ...quotes])];
+      if (d.definition.trim() !== t.definition) {
+        Object.assign(t, { definition: d.definition.trim(), given_by: source.from, source: source.id });
+        events.push(`definition of "${t.term}": updated`);
+      }
     } else {
-      Object.assign(t, { status: "confirmed", definition: d.definition.trim(), quotes, given_by: source.from, source: source.id });
+      Object.assign(t, { status: "confirmed", definition: d.definition.trim(), quotes, given_by: source.from, source: source.id, draft: null });
       events.push(`definition of "${t.term}": confirmed`);
     }
     if (d.measurable !== "unknown") t.measurable = d.measurable;

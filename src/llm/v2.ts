@@ -172,7 +172,7 @@ const INGEST_CHECKS: Record<"manual_work" | "existing_asset" | "kill_criteria", 
 const termLines = (session: Session): string[] => {
   const terms = (session.terms ?? []).filter((t) => t.status !== "not_a_term");
   if (!terms.length) return [];
-  return ["Terms so far:", ...terms.map((t) => `- ${t.term}: ${t.status === "confirmed" ? `defined as "${t.definition}"` : "not yet defined"}`), ""];
+  return ["Terms so far:", ...terms.map((t) => `- ${t.term}: ${t.status === "confirmed" ? `defined as "${t.definition}"${t.conflict ? ` and also as "${t.conflict.definition}" (a definition here settles which is right; conflict false)` : ""}` : "not yet defined"}`), ""];
 };
 
 /** ingest (async intake): which areas one pasted source answers, with quotes from it. */
@@ -181,7 +181,8 @@ export function ingestRequest(fw: Framework, session: Session, x: IngestInput): 
     const item = session.items.find((i) => i.id === it.id)!;
     const areas = it.areas.map((id) => {
       const e = entryOf(session, item, id);
-      const known = e && e.status !== "unknown" && e.value ? ` | recorded so far: ${e.value}` : "";
+      const conflict = session.session.engine?.areas[id.startsWith("core.") ? id : `${item.id}:${id}`]?.conflict;
+      const known = e && e.status !== "unknown" && e.value ? ` | recorded so far: ${e.value}${conflict ? ` | another source said: ${conflict.value ?? conflict.quote} (an answer here settles which is right; conflict false)` : ""}` : "";
       return `- ${id}: ${fw.areas.get(id)?.must_capture ?? ""}${known}`;
     });
     const checks = it.checks.map((c) => `- ${INGEST_CHECKS[c]}`);

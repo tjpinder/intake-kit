@@ -120,6 +120,14 @@ export function applyIngest(session: Session, source: Source, r: IngestResult, f
     }
     if (!quotes.length) { events.push(`${key}: no quote from the source, not recorded`); continue; }
     asked[key] ??= now;
+    // A follow-up answer on an area with two disagreeing answers settles it.
+    const open = stateOf(engine, key).conflict;
+    if (open && a.status === "answered") {
+      setEntry(session, item, a.area, { status: "covered", value: a.value ?? quotes[0], quotes: [...new Set([...(prev?.quotes ?? []), open.quote, ...quotes])], probe_count: prev?.probe_count ?? 0, updated_at: now, quote_sources: { ...sources(quotes), [open.quote]: open.source, ...Object.fromEntries(quotes.map((q) => [q, source.id])) } });
+      engine.areas[key] = { ...stateOf(engine, key), conflict: null, partial: null };
+      events.push(`${key}: disagreement settled`);
+      continue;
+    }
     if (known && a.conflict) {
       // Never overwrite: keep what's recorded and flag the disagreement for the follow-up.
       engine.areas[key] = { ...stateOf(engine, key), conflict: { value: a.value, quote: quotes[0], source: source.id } };
@@ -200,6 +208,12 @@ export function applyTerms(session: Session, source: Source, r: Pick<IngestResul
     const quotes = [...new Set(d.quotes.map((q) => grounded(q, transcript)).filter((q): q is string => !!q))];
     if (!quotes.length || !d.definition.trim()) { events.push(`definition of "${d.term}": no words from the source, not recorded`); continue; }
     const t = find(d.term) ?? add(d.term, quotes[0], "label");
+    if (t.status === "confirmed" && t.conflict && !d.conflict) {
+      // A follow-up definition settles two that disagreed.
+      Object.assign(t, { definition: d.definition.trim(), quotes: [...new Set([...t.quotes, ...quotes])], given_by: source.from, source: source.id, conflict: null });
+      events.push(`definition of "${t.term}": disagreement settled`);
+      continue;
+    }
     if (t.status === "confirmed" && d.conflict) {
       t.conflict = { definition: d.definition.trim(), quote: quotes[0], source: source.id };
       events.push(`definition of "${t.term}": conflicts with the recorded one; kept both for the follow-up`);

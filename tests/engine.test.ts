@@ -345,6 +345,38 @@ describe("the turn loop", () => {
     assert.equal(validateSession(confirmed.session).ok, true, validateSession(confirmed.session).errors.join("; "));
     assert.ok(renderAll(confirmed.session, fw, readTemplates("."), null).size > 0, "the spec pack renders");
   });
+
+  test("a re-write after a correction regenerates criteria, guardrails and open questions, never appends (enablement live test)", async () => {
+    const full = {
+      ...writeUp,
+      acceptance: [{ item: "item-1", kind: "criterion", given: "the report exists", when: "a lead opens it", then: "they see who to retrain", evidence: ["data_report.decision"] }],
+      guardrails: [{ item: "item-1", kind: "fallback", text: "Build it by hand in Excel", evidence: ["data_report.decision"] }],
+      open_questions: [{ item: "item-1", area: "core.trust", question: "Who catches a wrong number?", who_can_answer: null, artifact_needed: null }],
+    };
+    let s = started();
+    s.session.engine!.pending = ask("data_report.decision");
+    s = (await runEngineTurn({ provider: scripted({ extract: [x({ wrap_up: true })], write_up: [full] }), fw, session: s, transcript: T.slice(0, 2), replies: ["q?"], now: () => NOW })).session;
+    const first = structuredClone(s.items[0]);
+    assert.ok(first.acceptance.length && first.guardrails.length, "the write-up kept something to compare");
+    let cur = s;
+    // Each round's write-up words things differently, as a real model does.
+    const reworded = (n: number) => ({
+      ...full,
+      acceptance: full.acceptance.map((c) => ({ ...c, then: `${c.then} (round ${n})` })),
+      guardrails: full.guardrails.map((g) => ({ ...g, text: `${g.text} (round ${n})` })),
+    });
+    for (let round = 0; round < 2; round++) {
+      cur = (await runEngineTurn({
+        provider: scripted({ extract: [x({ check: "no", also_answers: [{ area: "core.outcome", value: "Four hours a week", quote: "about four hours every Monday morning" }] })], write_up: [reworded(round + 1)] }),
+        fw, session: cur, transcript: T, replies: ["q?", SUMMARY_REPLY], now: () => NOW,
+      })).session;
+    }
+    const item = cur.items[0];
+    assert.equal(item.acceptance.length, first.acceptance.length);
+    assert.equal(item.guardrails.length, first.guardrails.length);
+    assert.ok(item.acceptance.every((c) => c.then.endsWith("(round 2)")), "only the latest write-up's criteria remain");
+    assert.equal(new Set(item.open_questions.map((q) => q.area + q.question)).size, item.open_questions.length, "no duplicate open questions");
+  });
 });
 
 void scoreAndGate;

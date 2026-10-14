@@ -15200,6 +15200,9 @@ function applyWriteUp(session, itemId, w, fw, transcript) {
     item.facts[f.fact] = { band: f.band, evidence, quotes: quote ? [quote] : [] };
   }
   for (const p of w.prose) if (p.text.trim()) item.prose[p.field] = p.text.trim();
+  item.acceptance = [];
+  item.guardrails = [];
+  item.open_questions = [];
   for (const a of w.acceptance) {
     const evidence = a.evidence.filter(answered);
     if (!evidence.length || ![a.given, a.when, a.then].every((s) => s.trim())) {
@@ -15227,13 +15230,15 @@ function enterSummary(original, fw, now2) {
   for (const item of session.items.filter((i) => !i.dropped)) {
     for (const area of queueFor(item, fw)) {
       const e = entryOf(session, item, area);
-      if (e?.updated_at) continue;
+      if (e?.updated_at && e.status !== "unknown") continue;
       const def = fw.areas.get(area);
-      const entry = { status: "unknown", value: null, quotes: [], probe_count: 0, updated_at: now2 };
-      if (area.startsWith("core.")) {
-        if (item.spawned_from) item.core_overrides[area.slice(5)] = entry;
-        else session.core[area.slice(5)] = entry;
-      } else item.coverage[area] = entry;
+      if (!e?.updated_at) {
+        const entry = { status: "unknown", value: null, quotes: [], probe_count: 0, updated_at: now2 };
+        if (area.startsWith("core.")) {
+          if (item.spawned_from) item.core_overrides[area.slice(5)] = entry;
+          else session.core[area.slice(5)] = entry;
+        } else item.coverage[area] = entry;
+      }
       if (!item.open_questions.some((o) => o.area === area)) item.open_questions.push({ area, question: `${def.must_capture.charAt(0).toUpperCase()}${def.must_capture.slice(1)}?`, who_can_answer: null, artifact_needed: null });
     }
   }

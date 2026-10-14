@@ -96,7 +96,7 @@ async function run(label: string, deployment: string, model: string) {
 
 const runs = [];
 runs.push(await run("gpt-4.1", env.AZURE_OPENAI_DEPLOYMENT || "intake-kit-eval-gpt41", env.AZURE_OPENAI_MODEL || "gpt-4.1"));
-runs.push(await run("gpt-4.1-mini", "intake-kit-turn", "gpt-4.1-mini"));
+if (!process.argv.includes("--no-mini")) runs.push(await run("gpt-4.1-mini", "intake-kit-turn", "gpt-4.1-mini"));
 mkdirSync("evals/results", { recursive: true });
 const file = `evals/results/smoke-ingest-${new Date().toISOString().replace(/[:.]/g, "-")}-${commit}.json`;
 writeFileSync(file, JSON.stringify({ commit, runs }, null, 2));

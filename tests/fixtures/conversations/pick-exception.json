@@ -276,6 +276,28 @@
         {
           "call": "phrase",
           "output": {
+            "question": "Walk me through the last time you built the Monday sheet, step by step."
+          }
+        }
+      ]
+    },
+    {
+      "user": "I export last week's pick confirmations from the WMS, paste them into the Excel template, filter out cancelled lines, then count exceptions per picker with a pivot table.",
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "answered",
+            "value": "Export from the WMS, paste into the template, filter cancelled lines, pivot by picker",
+            "quote": "I export last week's pick confirmations from the WMS, paste them into the Excel template",
+            "check": "none",
+            "wrap_up": false,
+            "also_answers": []
+          }
+        },
+        {
+          "call": "phrase",
+          "output": {
             "question": "Roughly how long does the Monday sheet take, and how often do you do it?"
           }
         }

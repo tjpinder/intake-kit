@@ -16065,6 +16065,16 @@ function nextTarget(session, fw, transcript) {
   return null;
 }
 
+// src/lib/title.ts
+function shortTitle(text, max = 60) {
+  const first = text.trim().split(/(?<=[.!?;:])\s|\n/)[0].replace(/[.!?;:,]+$/, "").trim();
+  if (first.length <= max) return first;
+  const cut = first.slice(0, max + 1);
+  const at = cut.lastIndexOf(" ");
+  const words = (at > max / 2 ? cut.slice(0, at) : first.slice(0, max)).replace(/[\s,;:-]+$/, "");
+  return `${words.replace(/\s+(and|or|but|so|to|of|for|in|on|with|the|a|an|by|from)$/i, "")}\u2026`;
+}
+
 // src/engine/apply.ts
 function grounded(quote, transcript) {
   return quote && quote.trim() && findQuote(quote, transcript) ? quote : null;
@@ -16196,7 +16206,7 @@ function applyCheck(original, pending, x, ctx) {
   const spawns = check2?.spawns;
   if (result === "yes" && spawns && primary) {
     const id = `item-${session.items.reduce((n, i) => Math.max(n, Number(i.id.slice(5)) || 0), 0) + 1}`;
-    const title = (x.value?.trim() || "Manual work done today").slice(0, 80);
+    const title = shortTitle(x.value?.trim() || "Manual work done today");
     session.items.push({
       id,
       title,
@@ -16360,7 +16370,7 @@ function ingestRequest(fw, session, x) {
         `conflict: true only if the answer contradicts what is recorded so far for that area (shown after "recorded so far"): both can't be true at once, like "by 7am" and "by 6am". Adding detail, narrowing it down, or saying the same thing another way is never a conflict: "per picker" then "per picker, per shift, per day" is conflict false.`,
         'item: the exact item ID the area is listed under, like "item-1" (never the type). A shared core area belongs to the first item listed.',
         "checks: one entry for each check listed under an item, with the document's words in quote (null if none).",
-        "terms: business terms the document uses whose meaning is local to this business or could be read more than one way (over pick, fill rate, on-time, exception), each with the words where it appears. Not generic words, and not terms already listed below.",
+        "terms: business terms the document uses whose meaning is local to this business or could be read more than one way, so two people could count or judge them differently (over pick, fill rate, on-time, exception, active user), each with the words where it appears. Not the name of something being built or already in use (a script, a template, a report, a tool, a program), not job titles or system names, not generic words, and not terms already listed below.",
         `definitions: for any term (listed below or new), a definition the document gives: what counts and what doesn't, in its words, with quotes; whether it says the thing can be seen in the system's data; any worked example with the right result. certain: false if the document hedges any part of it ("I think", "not sure", "check with"). If the document settles or adds to part of a term already listed ("wrong-location scans do count"), return a definition for that same term, using its listed name, with the full updated definition and conflict false; never make a separate term out of part of one. conflict: true only if it contradicts a definition already recorded.`
       ].join("\n"),
       "Only use what the document says. Don't infer or fill gaps."
@@ -16623,6 +16633,15 @@ function applyWriteUp(session, itemId, w, fw, transcript) {
     const evidence = f.evidence.filter((id) => fw.areas.has(id));
     const quote = f.quote && findQuote(f.quote, transcript) ? f.quote : null;
     item.facts[f.fact] = { band: f.band, evidence, quotes: quote ? [quote] : [] };
+  }
+  const existing = session.session.engine?.checks[`${item.id}:existing_asset`]?.result;
+  const band = item.facts.existing_asset?.band;
+  if (existing === "yes" && band !== "covers" && band !== "partial") {
+    item.facts.existing_asset = { band: "partial", evidence: item.facts.existing_asset?.evidence ?? [], quotes: item.facts.existing_asset?.quotes ?? [] };
+    dropped.push(`fact existing_asset: "${band ?? "unset"}" contradicts the check's yes; set to partial`);
+  } else if (existing === "no" && (band === "covers" || band === "partial")) {
+    item.facts.existing_asset = { band: "none", evidence: item.facts.existing_asset.evidence, quotes: item.facts.existing_asset.quotes };
+    dropped.push(`fact existing_asset: "${band}" contradicts the check's no; set to none`);
   }
   for (const p of w.prose) if (p.text.trim()) item.prose[p.field] = p.text.trim();
   item.acceptance = [];
@@ -16901,7 +16920,7 @@ function startAsync(fw, t) {
     core: { users: unknown(), outcome: unknown(), data: unknown(), systems: unknown(), constraints: unknown(), trust: unknown() },
     items: [{
       id: "item-1",
-      title: (t.title ?? t.request).trim().slice(0, 80),
+      title: shortTitle(t.title ?? t.request),
       type: t.type,
       confidence: "high",
       trigger_quote: t.request,
@@ -17253,7 +17272,7 @@ function readinessLines(r) {
 function followUpEmail(session, r) {
   if (!r.gaps.length) return "";
   const request = session.session.sources?.find((s) => s.kind === "request")?.text ?? session.items[0]?.title ?? "";
-  const lines = [`# A few follow-up questions about: ${request}`, "", "Thanks for your answers. These are the only things still open. Rough answers and real examples help most.", ""];
+  const lines = [`# A few follow-up questions about: ${request}`, "", "Thanks for your answers. These are the only things still open. If you don't know, say so. That's a useful answer.", ""];
   r.gaps.forEach((g, i) => lines.push(`${i + 1}. ${g.question}`, ""));
   return lines.join("\n").trimEnd() + "\n";
 }
@@ -17359,7 +17378,7 @@ function buildPacket(fw, input) {
   return { request: input.request, type: input.type, modifiers, questions, if_you_know };
 }
 var INTRO = [
-  `Please answer what you can, in your own words. Rough numbers are better than none, and "I don't know" is a fine answer.`,
+  "Please answer what you can, in your own words. If you don't know, say so. That's a useful answer.",
   "Real examples help most: the last time it happened, what you saw, who was involved."
 ];
 function packetEmail(p) {

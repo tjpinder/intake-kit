@@ -97,7 +97,11 @@ const steps = [
   },
   {
     user: "If the numbers disagreed with the WMS two weeks running, I'd switch it off and go back to the sheet.",
-    model: [extract(ans("Counts disagreeing with the WMS two weeks running", "If the numbers disagreed with the WMS two weeks running, I'd switch it off", { check: "yes" })), phrase("Roughly how long does the Monday sheet take, and how often do you do it?")],
+    model: [extract(ans("Counts disagreeing with the WMS two weeks running", "If the numbers disagreed with the WMS two weeks running, I'd switch it off", { check: "yes" })), phrase("Walk me through the last time you built the Monday sheet, step by step.")],
+  },
+  {
+    user: "I export last week's pick confirmations from the WMS, paste them into the Excel template, filter out cancelled lines, then count exceptions per picker with a pivot table.",
+    model: [extract(ans("Export from the WMS, paste into the template, filter cancelled lines, pivot by picker", "I export last week's pick confirmations from the WMS, paste them into the Excel template")), phrase("Roughly how long does the Monday sheet take, and how often do you do it?")],
   },
   {
     user: "About four hours, once a week, every Monday morning.",

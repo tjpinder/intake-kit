@@ -26,7 +26,7 @@ areas:
     packet:
       ask: "How would you know this worked? What's it costing today, in hours, errors or money, and what would good look like?"
       why: "A number for today and a target are what turn \"better\" into something you can check."
-      example: "It takes about four hours every Monday. Success is under 30 minutes, with the same counts."
+      example: "Today the leads guess who needs help. It would be working if they knew before the shift started, and the counts matched the WMS."
     probes:
       - "How do you know today whether it went well?"
       - "What number would tell you this worked?"

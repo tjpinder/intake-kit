@@ -279,7 +279,7 @@ describe("Spawn", () => {
 
   test("a follow-on item gets only its light pass, after the primary", () => {
     const s = applyCheck(asked(started(), 1), check(), x({ check: "yes", value: "Monday sheet", quote: "I build it in Excel every Monday by hand" }), ctx).session;
-    assert.deepEqual(queueFor(s.items[1], fw), ["core.users", "core.outcome", "manual_process.volume"]);
+    assert.deepEqual(queueFor(s.items[1], fw), ["manual_process.walkthrough", "core.users", "core.outcome", "manual_process.volume"]);
   });
 
   test("only the two checks can create an item: an ordinary answer never does", () => {

@@ -70,7 +70,9 @@ checks:
     applies_to: [data_report, known_idea, broken]
     must_capture: Whether the manual work they mentioned happens today (not only as a fallback if the new thing failed), when it last happened, and whether the new thing would replace it
     spawns: manual_process
-    light_pass: [core.users, core.outcome, manual_process.volume]
+    # The walkthrough is the manual-process item's critical anchor: a gate reason can't rest on an
+    # area that was never asked (spawned items cited it while their follow-up never asked it).
+    light_pass: [manual_process.walkthrough, core.users, core.outcome, manual_process.volume]
   existing_asset:
     # Rides on the module's existing-asset question. It records the answer; it creates no item
     # until a follow-on type for existing assets is decided (spawns: null).

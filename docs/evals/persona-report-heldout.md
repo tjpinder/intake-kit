@@ -22,3 +22,6 @@ Rates are across runs. Completed means the user confirmed the reflect-back withi
 
 - Claude as interviewer: no ANTHROPIC_API_KEY was set, so the parity comparison covers Azure OpenAI only.
 
+## Known limitations (not passes)
+
+- **where-could-ai-help** (persona 5): the gate matched, but the intake ended with **1 exploratory item where the card expects at least 3**. The existing-asset check records its answer and creates no item (`spawns: null`), so exploratory intakes can't produce the per-example items. This is a known limitation, not a pass; the design is deferred (HANDOFF.md, Known issues).

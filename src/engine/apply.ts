@@ -6,6 +6,7 @@ import type { Framework, ItemType } from "../lib/framework.ts";
 import { findQuote, type TranscriptEntry } from "../lib/grounding.ts";
 import type { CoverageEntry, Item, Session } from "../lib/session.ts";
 import { areaKey, stateOf } from "./plan.ts";
+import { shortTitle } from "../lib/title.ts";
 import type { AreaState, Extraction, Pending } from "./types.ts";
 
 export interface ApplyContext {
@@ -175,7 +176,7 @@ export function applyCheck(original: Session, pending: Pending, x: Extraction, c
   const spawns: ItemType | null | undefined = check?.spawns;
   if (result === "yes" && spawns && primary) {
     const id = `item-${session.items.reduce((n, i) => Math.max(n, Number(i.id.slice(5)) || 0), 0) + 1}`;
-    const title = (x.value?.trim() || "Manual work done today").slice(0, 80);
+    const title = shortTitle(x.value?.trim() || "Manual work done today");
     session.items.push({
       id, title, type: spawns, confidence: "med", trigger_quote: quote!, modifiers: [],
       spawned_from: primary.id,

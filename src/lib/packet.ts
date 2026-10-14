@@ -57,7 +57,7 @@ export function buildPacket(fw: Framework, input: PacketInput): Packet {
 }
 
 const INTRO = [
-  "Please answer what you can, in your own words. Rough numbers are better than none, and \"I don't know\" is a fine answer.",
+  "Please answer what you can, in your own words. If you don't know, say so. That's a useful answer.",
   "Real examples help most: the last time it happened, what you saw, who was involved.",
 ];
 

@@ -495,7 +495,23 @@ Found by the second v2 gate on commit 89cde19, which missed the ship bar (4 of 6
 
 - **One yes confirms every Don't-build question.** The summary asks about each definitive Don't-build reason, but one "Yes, that's right" confirms all of them. In persona 1 the user was agreeing that the Monday sheet would go away, and that also confirmed "No decision depends on it" for the report. Fix: confirm each reason separately, and apply only the ones confirmed.
 - **decision_depends can contradict an answered decision area.** The write-up picked `decision_depends: no` for a report whose decision ("who to pull for retraining") was answered and covered. Fix: check the band against that area, and treat a contradiction as missing (Gather more), never as Don't build.
+- **Misfiled summary corrections in live mode (deferred, Oct 14).** The live summary extracts free-text corrections, and they can land on the wrong area (the enablement live test filed "documentation" under core.data and "value" under core.outcome), and a note capped by the round limit was never applied. Deferred by the feature freeze. When it's fixed, use per-line corrections the way async does (`correct` on one area or term), not free-text extraction.
+- **Persona 5: one exploratory item, not three (known limitation, deferred).** The existing-asset check records its answer but creates no item (`spawns: null`), so an exploratory intake ends with one item where the card expects three or more. The eval report marks this as a known limitation, not a pass. The design (a follow-on type for existing assets) is deferred.
+- **Before live reopens:** rerun the full held-out set (personas 2–6) on the commit being deployed.
 - **Lead for cost work.** With only `extract` routed to gpt-4.1-mini (phrasing, classification and write-up on gpt-4.1), the same gate on the same commit matched 5 of 6 runs, at about three-quarters of the cost. That's worth measuring further before the next gate.
+
+## Feature freeze (Oct 14, 2026)
+
+No new features until the demo ships. The order is:
+
+1. Small fixes
+2. Persona 7 async rerun
+3. Merge to main (live stays paused)
+4. Recorded demo sources and replay
+5. README
+6. DEMO_SCRIPT
+
+The demo must give airtime to the 6am conflict and to the kit refusing to guess "short pick".
 
 ## Async intake mode: collect, ingest, follow up (Oct 14, 2026)
 

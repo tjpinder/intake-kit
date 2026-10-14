@@ -139,7 +139,7 @@ export function readinessLines(r: GapReport): string[] {
 export function followUpEmail(session: Session, r: GapReport): string {
   if (!r.gaps.length) return "";
   const request = session.session.sources?.find((s) => s.kind === "request")?.text ?? session.items[0]?.title ?? "";
-  const lines = [`# A few follow-up questions about: ${request}`, "", "Thanks for your answers. These are the only things still open. Rough answers and real examples help most.", ""];
+  const lines = [`# A few follow-up questions about: ${request}`, "", "Thanks for your answers. These are the only things still open. If you don't know, say so. That's a useful answer.", ""];
   r.gaps.forEach((g, i) => lines.push(`${i + 1}. ${g.question}`, ""));
   return lines.join("\n").trimEnd() + "\n";
 }

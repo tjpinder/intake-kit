@@ -34,6 +34,17 @@ export function applyWriteUp(session: Session, itemId: string, w: WriteUp, fw: F
     const quote = f.quote && findQuote(f.quote, transcript) ? f.quote : null;
     item.facts[f.fact] = { band: f.band, evidence, quotes: quote ? [quote] : [] };
   }
+  // The existing-asset band can't contradict its check: a yes is at least partial (covers only if
+  // the write-up says so); a no is none (smoke test: the check said yes, the write-up said none).
+  const existing = session.session.engine?.checks[`${item.id}:existing_asset`]?.result;
+  const band = item.facts.existing_asset?.band;
+  if (existing === "yes" && band !== "covers" && band !== "partial") {
+    item.facts.existing_asset = { band: "partial", evidence: item.facts.existing_asset?.evidence ?? [], quotes: item.facts.existing_asset?.quotes ?? [] };
+    dropped.push(`fact existing_asset: "${band ?? "unset"}" contradicts the check's yes; set to partial`);
+  } else if (existing === "no" && (band === "covers" || band === "partial")) {
+    item.facts.existing_asset = { band: "none", evidence: item.facts.existing_asset!.evidence, quotes: item.facts.existing_asset!.quotes };
+    dropped.push(`fact existing_asset: "${band}" contradicts the check's no; set to none`);
+  }
   for (const p of w.prose) if (p.text.trim()) item.prose[p.field] = p.text.trim();
   // Each write-up replaces the last one's criteria, guardrails and open questions: a re-write after
   // a correction regenerates them (enablement live test: three summary rounds left six criteria

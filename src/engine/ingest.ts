@@ -14,6 +14,7 @@ import { applyCheck, areaFits, entryOf, grounded, setEntry, type ApplyContext } 
 import { areaKey, stateOf } from "./plan.ts";
 import type { EngineCall } from "./turn.ts";
 import { newEngine } from "./types.ts";
+import { shortTitle } from "../lib/title.ts";
 
 /** Sources longer than this are read in chunks, split on paragraph breaks. */
 export const CHUNK_CHARS = 12000;
@@ -44,7 +45,7 @@ export function startAsync(fw: Framework, t: TriageInput): Session {
     },
     core: { users: unknown(), outcome: unknown(), data: unknown(), systems: unknown(), constraints: unknown(), trust: unknown() },
     items: [{
-      id: "item-1", title: (t.title ?? t.request).trim().slice(0, 80), type: t.type, confidence: "high", trigger_quote: t.request, modifiers: t.modifiers ?? [],
+      id: "item-1", title: shortTitle(t.title ?? t.request), type: t.type, confidence: "high", trigger_quote: t.request, modifiers: t.modifiers ?? [],
       spawned_from: null, superseded_by: null,
       type_history: [{ from: null, to: t.type, reason: "triage", quote: t.request, at: t.now }],
       core_overrides: {}, coverage: {}, facts: {}, prose: {}, acceptance: [], guardrails: [], scoring: null, gate: null, open_questions: [],

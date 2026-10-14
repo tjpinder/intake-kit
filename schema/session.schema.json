@@ -7,7 +7,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "framework_version", "session", "core", "items"],
   "properties": {
-    "schema_version": { "const": 1 },
+    "schema_version": { "enum": [1, 2], "description": "2 adds async intake (channel, sources, quote_sources). Version 1 files load as live sessions." },
     "framework_version": { "$ref": "#/$defs/semver", "description": "Version of the router, module and scoring YAML used." },
     "session": {
       "type": "object",
@@ -17,6 +17,26 @@
         "id": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}-[0-9a-f]{4,}$" },
         "started_at": { "type": "string", "format": "date-time" },
         "mode": { "enum": ["stakeholder", "builder"] },
+        "channel": {
+          "enum": ["live", "async"],
+          "description": "live: the user answers in a chat, one question at a time. async: an interviewer pastes sources (replies, notes, transcripts) that are read against every area. Absent means live."
+        },
+        "sources": {
+          "description": "Async intake: every pasted source, kept whole because quotes are checked against it.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "kind", "from", "added_at", "text"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^src-\\d+$" },
+              "kind": { "enum": ["request", "reply", "notes", "transcript"] },
+              "from": { "type": "string", "minLength": 1 },
+              "added_at": { "type": "string", "format": "date-time" },
+              "text": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
         "provider": { "enum": ["claude", "azure-openai", "openai", "codex"] },
         "grounding": {
           "enum": ["transcript", "unverified"],
@@ -63,7 +83,7 @@
           "required": ["version", "phase", "turns", "pending", "areas", "checks", "disambiguated"],
           "properties": {
             "version": { "const": 2 },
-            "phase": { "enum": ["opening", "interview", "summary", "confirmed"] },
+            "phase": { "enum": ["opening", "interview", "collecting", "summary", "confirmed"] },
             "turns": { "type": "integer", "minimum": 0 },
             "disambiguated": { "type": "boolean" },
             "summary_rounds": { "type": "integer", "minimum": 0 },
@@ -91,6 +111,13 @@
                 "additionalProperties": false,
                 "required": ["probed", "confirm", "partial"],
                 "properties": {
+                  "conflict": {
+                    "description": "Async intake: a later source disagreed with what was recorded. Settled by a follow-up.",
+                    "oneOf": [
+                      { "type": "null" },
+                      { "type": "object", "additionalProperties": false, "required": ["value", "quote", "source"], "properties": { "value": { "type": ["string", "null"] }, "quote": { "type": "string" }, "source": { "type": "string" } } }
+                    ]
+                  },
                   "probed": { "type": "boolean" },
                   "confirm": { "enum": ["none", "asked", "done"] },
                   "partial": {
@@ -157,6 +184,11 @@
         "quotes": { "type": "array", "items": { "$ref": "#/$defs/quote" } },
         "probe_count": { "type": "integer", "minimum": 0, "maximum": 1 },
         "updated_at": { "type": "string", "format": "date-time" },
+        "quote_sources": {
+          "description": "Async intake: the source each quote came from, keyed by the quote.",
+          "type": "object",
+          "additionalProperties": { "type": "string", "pattern": "^src-\\d+$" }
+        },
         "source": {
           "enum": ["captured"],
           "description": "captured: the user's reply stored word for word because the interviewer didn't record the answer to its own question. Shown for confirmation, never used as scoring evidence."

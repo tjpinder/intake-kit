@@ -20,6 +20,8 @@ export interface CoverageEntry {
    * the answer to its own question. Shown to the user to confirm, never used as scoring evidence.
    */
   source?: "captured";
+  /** Async intake: the source each quote came from, keyed by the quote. */
+  quote_sources?: Record<string, string>;
 }
 
 export const isCaptured = (e: CoverageEntry | undefined): boolean => e?.source === "captured";
@@ -111,13 +113,26 @@ export interface Item {
   open_questions: Array<{ area: string; question: string; who_can_answer: string | null; artifact_needed: string | null }>;
 }
 
+/** Async intake: one pasted source. */
+export interface Source {
+  id: string;
+  kind: "request" | "reply" | "notes" | "transcript";
+  from: string;
+  added_at: string;
+  text: string;
+}
+
 export interface Session {
-  schema_version: 1;
+  schema_version: 1 | 2;
   framework_version: string;
   session: {
     id: string;
     started_at: string;
     mode: "stakeholder" | "builder";
+    /** live: one question at a time in a chat. async: pasted sources read against every area. Absent means live. */
+    channel?: "live" | "async";
+    /** Async intake: every pasted source, kept whole for grounding. */
+    sources?: Source[];
     provider: "claude" | "azure-openai" | "openai" | "codex";
     grounding: "transcript" | "unverified";
     reflect_back: { text: string; confirmed: boolean; corrections: string[]; proposed_at?: string } | null;

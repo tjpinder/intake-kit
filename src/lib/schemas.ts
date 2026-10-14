@@ -3,7 +3,7 @@
 
 import type { ErrorObject, ValidateFunction } from "ajv";
 import { validateSession as validateSessionFn } from "./generated/session-validator.js";
-import { validateOpening as validateOpeningFn, validatePhrase as validatePhraseFn, validateExtract as validateExtractFn, validateWriteUp as validateWriteUpFn } from "./generated/v2-validators.js";
+import { validateOpening as validateOpeningFn, validatePhrase as validatePhraseFn, validateExtract as validateExtractFn, validateWriteUp as validateWriteUpFn, validateIngest as validateIngestFn } from "./generated/v2-validators.js";
 import sessionSchema from "../../schema/session.schema.json" with { type: "json" };
 
 export interface ValidationResult {
@@ -28,6 +28,7 @@ export function validateSession(data: unknown): ValidationResult {
 export const validateOpening = (data: unknown) => run(validateOpeningFn, data);
 export const validatePhrase = (data: unknown) => run(validatePhraseFn, data);
 export const validateExtract = (data: unknown) => run(validateExtractFn, data);
+export const validateIngest = (data: unknown) => run(validateIngestFn, data);
 export const validateWriteUp = (data: unknown) => run(validateWriteUpFn, data);
 
 export { sessionSchema };

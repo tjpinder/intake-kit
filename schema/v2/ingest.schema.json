@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/tjpinder/intake-kit/schema/v2/ingest.schema.json",
+  "title": "Source ingestion (async intake, schema version 2)",
+  "description": "Which areas one pasted source (a reply, meeting notes or a transcript) answers, each with verbatim quotes, plus the check results. Code applies it; the model never chooses what to ask, creates items, scores or gates.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "answers",
+    "checks"
+  ],
+  "properties": {
+    "answers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/answer"
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/check"
+      }
+    }
+  },
+  "$defs": {
+    "answer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item",
+        "area",
+        "status",
+        "value",
+        "quotes",
+        "conflict"
+      ],
+      "properties": {
+        "item": {
+          "type": "string",
+          "description": "The item ID the area belongs to, from the list given."
+        },
+        "area": {
+          "type": "string",
+          "description": "A coverage ID from the list given."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "answered",
+            "partial",
+            "not_applicable",
+            "declined"
+          ]
+        },
+        "value": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "What the source says, in a short plain sentence. Null when not_applicable or declined with nothing usable."
+        },
+        "quotes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Exact spans copied from the source that carry the answer."
+        },
+        "conflict": {
+          "type": "boolean",
+          "description": "True only if this answer disagrees with what is already recorded for the area."
+        }
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item",
+        "check",
+        "result",
+        "value",
+        "quote"
+      ],
+      "properties": {
+        "item": {
+          "type": "string"
+        },
+        "check": {
+          "type": "string",
+          "enum": [
+            "manual_work",
+            "existing_asset",
+            "kill_criteria"
+          ]
+        },
+        "result": {
+          "type": "string",
+          "enum": [
+            "yes",
+            "no",
+            "unclear"
+          ]
+        },
+        "value": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "quote": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

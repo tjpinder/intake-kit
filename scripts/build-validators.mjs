@@ -16,7 +16,7 @@ const read = (p) => JSON.parse(readFileSync(p, "utf8"));
 const session = read("schema/session.schema.json");
 const framework = read("schema/framework.schema.json");
 // Interview engine v2: the model's three calls and the summary write-up.
-const v2 = Object.fromEntries(["opening", "phrase", "extract", "writeup"].map((n) => [n, read(`schema/v2/${n}.schema.json`)]));
+const v2 = Object.fromEntries(["opening", "phrase", "extract", "writeup", "ingest"].map((n) => [n, read(`schema/v2/${n}.schema.json`)]));
 
 // Formats are referenced from ajv-formats' plain format table, not compiled code.
 // inlineRefs: false keeps each shared $def as one function instead of copying it into every use.
@@ -30,7 +30,7 @@ function generate(ajv, refs) {
 const sessionCode = generate(new Ajv2020(options).addSchema(session, "session"), { validateSession: "session" });
 const v2Ajv = new Ajv2020(options);
 for (const [name, schema] of Object.entries(v2)) v2Ajv.addSchema(schema, name);
-const v2Code = generate(v2Ajv, { validateOpening: "opening", validatePhrase: "phrase", validateExtract: "extract", validateWriteUp: "writeup" });
+const v2Code = generate(v2Ajv, { validateOpening: "opening", validatePhrase: "phrase", validateExtract: "extract", validateWriteUp: "writeup", validateIngest: "ingest" });
 const id = framework.$id;
 const frameworkCode = generate(new Ajv2020(options).addSchema(framework), {
   router: `${id}#/$defs/router`,
@@ -78,7 +78,7 @@ const fn = (name) => `export declare const ${name}: ValidateFunction;`;
 const types = `${HEADER}\nimport type { ValidateFunction } from "ajv";`;
 Object.assign(files, {
   "src/lib/generated/session-validator.d.ts": `${types}\n${fn("validateSession")}\n`,
-  "src/lib/generated/v2-validators.d.ts": `${types}\n${["validateOpening", "validatePhrase", "validateExtract", "validateWriteUp"].map(fn).join("\n")}\n`,
+  "src/lib/generated/v2-validators.d.ts": `${types}\n${["validateOpening", "validatePhrase", "validateExtract", "validateWriteUp", "validateIngest"].map(fn).join("\n")}\n`,
   "src/lib/generated/framework-validators.d.ts": `${types}\n${["router", "module", "scoring", "sections"].map(fn).join("\n")}\n`,
   "src/lib/generated/schema-facts.d.ts": `${HEADER}\nexport declare const factNames: { writeup: string[]; session: string[] };\nexport declare const coreAreas: string[];\n`,
 });

@@ -6,6 +6,7 @@ import openingSchema from "../../schema/v2/opening.schema.json" with { type: "js
 import phraseSchema from "../../schema/v2/phrase.schema.json" with { type: "json" };
 import extractSchema from "../../schema/v2/extract.schema.json" with { type: "json" };
 import writeupSchema from "../../schema/v2/writeup.schema.json" with { type: "json" };
+import ingestSchema from "../../schema/v2/ingest.schema.json" with { type: "json" };
 import type { Framework } from "../lib/framework.ts";
 import type { TranscriptEntry } from "../lib/grounding.ts";
 import { factsFor, guide } from "../lib/guide.ts";
@@ -14,7 +15,7 @@ import { entryOf } from "../engine/apply.ts";
 import type { Target } from "../engine/plan.ts";
 import type { TurnRequest } from "./types.ts";
 
-export { openingSchema, phraseSchema, extractSchema, writeupSchema };
+export { openingSchema, phraseSchema, extractSchema, writeupSchema, ingestSchema };
 
 const STYLE = `You're a plain-spoken interviewer helping someone turn a problem into a build-ready spec. Never mention JSON, schemas, coverage areas, bands, gates or quadrants to the user.`;
 
@@ -151,5 +152,52 @@ export function writeUpRequest(fw: Framework, session: Session, item: Item, tran
     history: [],
     context: [`Item ${item.id}: ${item.title} (${item.type}${item.modifiers.length ? `, ${item.modifiers.join(", ")}` : ""})`, "Recorded answers:", ...answers, "Everything the user said:", userLines(transcript)].join("\n"),
     format: { name: "write_up", schema: writeupSchema },
+  };
+}
+
+export interface IngestInput {
+  /** The source's kind and who it's from, so the model knows whose words they are. */
+  kind: "reply" | "notes" | "transcript";
+  from: string;
+  text: string;
+  items: Array<{ id: string; title: string; type: string; areas: string[]; checks: Array<"manual_work" | "existing_asset" | "kill_criteria"> }>;
+}
+
+const INGEST_CHECKS: Record<"manual_work" | "existing_asset" | "kill_criteria", string> = {
+  manual_work: 'manual_work: is any part of this done by hand today (not only as a fallback if the new thing failed)? "yes", "no", or "unclear".',
+  existing_asset: 'existing_asset: does anything they have, or could get, already do all or part of this? "yes", "no", or "unclear".',
+  kill_criteria: 'kill_criteria: did they say what would make them stop it or switch it off? "yes" with the condition in value, "no" if they said nothing would, "unclear" otherwise.',
+};
+
+/** ingest (async intake): which areas one pasted source answers, with quotes from it. */
+export function ingestRequest(fw: Framework, session: Session, x: IngestInput): TurnRequest {
+  const sections = x.items.map((it) => {
+    const item = session.items.find((i) => i.id === it.id)!;
+    const areas = it.areas.map((id) => {
+      const e = entryOf(session, item, id);
+      const known = e && e.status !== "unknown" && e.value ? ` | recorded so far: ${e.value}` : "";
+      return `- ${id}: ${fw.areas.get(id)?.must_capture ?? ""}${known}`;
+    });
+    const checks = it.checks.map((c) => `- ${INGEST_CHECKS[c]}`);
+    return [`Item ${it.id}: ${it.title} (${it.type})`, "Areas:", ...areas, ...(checks.length ? ["Checks:", ...checks] : [])].join("\n");
+  });
+  const who = x.kind === "notes" ? `the interviewer's notes from talking to ${x.from}` : x.kind === "transcript" ? `a transcript of a conversation with ${x.from}` : `a reply from ${x.from}`;
+  return {
+    system: [
+      "You read one document gathered during an intake and record what it says about each area. You only classify; you never decide what to ask next, create items, score or judge.",
+      [
+        "answers: one entry for each area the document actually says something about. Leave out areas it doesn't mention.",
+        'status: "answered" when it answers what the area needs; "partial" when it answers only some of it, or vaguely ("usually", "I think", no example); "not_applicable" when it says the area doesn\'t apply; "declined" when it says they don\'t know or won\'t say.',
+        "value: what the document says, as one short plain sentence. Null if nothing usable.",
+        "quotes: one or more exact spans copied character for character from the document that carry the answer. Never paraphrase, never join two places into one quote.",
+        "conflict: true only if the answer disagrees with what is recorded so far for that area (shown after \"recorded so far\"). Adding detail isn't a conflict.",
+        "item: the item the area is listed under. A shared core area belongs to the first item listed.",
+        "checks: one entry for each check listed under an item, with the document's words in quote (null if none).",
+      ].join("\n"),
+      "Only use what the document says. Don't infer or fill gaps.",
+    ].join("\n\n"),
+    history: [],
+    context: [`The document is ${who}.`, "", ...sections, "", "The document:", "<<<", x.text, ">>>"].join("\n"),
+    format: { name: "ingest", schema: ingestSchema },
   };
 }

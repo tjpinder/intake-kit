@@ -4,3 +4,4 @@ export declare const validateOpening: ValidateFunction;
 export declare const validatePhrase: ValidateFunction;
 export declare const validateExtract: ValidateFunction;
 export declare const validateWriteUp: ValidateFunction;
+export declare const validateIngest: ValidateFunction;

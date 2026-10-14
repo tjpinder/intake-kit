@@ -4,7 +4,7 @@
 
 import type { ItemType, Modifier } from "../lib/framework.ts";
 
-export type Phase = "opening" | "interview" | "summary" | "confirmed";
+export type Phase = "opening" | "interview" | "collecting" | "summary" | "confirmed";
 export type PendingKind = "ask" | "probe" | "confirm" | "check" | "disambiguate" | "summary";
 export type CheckName = "manual_work" | "existing_asset" | "kill_criteria";
 export type CheckResult = "yes" | "no" | "unclear";
@@ -26,6 +26,8 @@ export interface AreaState {
   confirm: "none" | "asked" | "done";
   /** A partial or off-topic first answer, kept until the probe resolves it. */
   partial: { value: string | null; quote: string | null } | null;
+  /** Async intake: a later source disagreed with what was recorded; a follow-up settles it. */
+  conflict?: { value: string | null; quote: string; source: string } | null;
 }
 
 export interface EngineState {

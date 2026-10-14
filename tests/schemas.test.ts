@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
 import { validateExtract, validateOpening, validatePhrase, validateSession, validateWriteUp } from "../src/lib/schemas.ts";
-import { extractSchema, openingSchema, phraseSchema, writeupSchema } from "../src/llm/v2.ts";
+import { extractSchema, ingestSchema, openingSchema, phraseSchema, writeupSchema } from "../src/llm/v2.ts";
 
 type Json = any;
 
@@ -159,7 +159,7 @@ describe("every model schema fits the strict structured-output subset", () => {
     }
   }
 
-  for (const [name, schema] of Object.entries({ opening: openingSchema, phrase: phraseSchema, extract: extractSchema, writeup: writeupSchema })) {
+  for (const [name, schema] of Object.entries({ opening: openingSchema, phrase: phraseSchema, extract: extractSchema, writeup: writeupSchema, ingest: ingestSchema })) {
     test(`${name}: a plain object; only allowed keywords; every object closed with all properties required`, () => {
       assert.equal((schema as Json).type, "object");
       assert.equal((schema as Json).anyOf, undefined);

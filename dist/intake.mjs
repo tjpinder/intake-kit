@@ -9030,7 +9030,7 @@ function validate68(data, { instancePath = "", parentData, parentDataProperty, r
 }
 validate68.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
 var scoring = validate71;
-var schema27 = { "type": "object", "additionalProperties": false, "required": ["rules_version", "min_known_per_composite", "criteria", "composites", "thresholds", "quadrants", "ai_overlay", "adoption", "gate_facts", "gates"], "properties": { "rules_version": { "$ref": "#/$defs/semver" }, "min_known_per_composite": { "type": "integer", "minimum": 1 }, "criteria": { "type": "object", "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["label", "bands", "describe", "usually_from"], "properties": { "label": { "type": "string" }, "bands": { "$ref": "#/$defs/band_scores" }, "describe": { "type": "object", "additionalProperties": { "type": "string" } }, "usually_from": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "Coverage areas whose answers usually decide this band, shown in the guide." } } } }, "composites": { "type": "object", "additionalProperties": false, "required": ["automation_potential", "ease"], "properties": { "automation_potential": { "type": "object", "additionalProperties": false, "required": ["criteria"], "properties": { "criteria": { "$ref": "#/$defs/weights" } } }, "ease": { "type": "object", "additionalProperties": false, "required": ["criteria"], "properties": { "criteria": { "$ref": "#/$defs/weights" } } } } }, "thresholds": { "type": "object", "additionalProperties": false, "required": ["high_min_pct", "low_below_pct"], "properties": { "high_min_pct": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }, "low_below_pct": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 } } }, "quadrants": { "type": "object", "additionalProperties": false, "required": ["prioritize", "review", "defer"], "properties": { "prioritize": { "type": "string" }, "review": { "type": "string" }, "defer": { "type": "string" } } }, "ai_overlay": { "type": "object", "additionalProperties": false, "required": ["applies_fact", "applies_bands", "checks", "check_bands", "dont_build_on_fail"], "properties": { "applies_fact": { "const": "ai_applies" }, "applies_bands": { "type": "object", "required": ["unknown"], "properties": { "unknown": { "const": false } }, "additionalProperties": { "type": "boolean" } }, "checks": { "type": "object", "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["label", "passes_when", "basis"], "properties": { "label": { "type": "string" }, "passes_when": { "type": "string" }, "basis": { "type": "string" } } } }, "check_bands": { "const": ["pass", "fail", "unknown"] }, "dont_build_on_fail": { "type": "array", "items": { "type": "string" } } } }, "adoption": { "type": "object", "additionalProperties": false, "required": ["applies_to", "forces", "bands", "risk_when"], "properties": { "applies_to": { "type": "array", "items": { "$ref": "#/$defs/item_type" } }, "forces": { "const": ["push", "pull", "anxiety", "habit"] }, "bands": { "$ref": "#/$defs/band_list" }, "risk_when": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } }, "usually_from": { "description": "Per force, the areas its band is usually picked from. Shown in the guide.", "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } } } }, "gate_facts": { "type": "object", "additionalProperties": { "$ref": "#/$defs/band_list" } }, "gate_fact_sources": { "type": "object", "description": "For each gate fact, the areas it comes from, in order; the first that applies to an item is asked.", "additionalProperties": { "type": "array", "items": { "type": "string" }, "minItems": 1 } }, "gate_fact_notes": { "type": "object", "description": "How to pick a gate fact when its band names don't say enough. Shown in the guide.", "additionalProperties": { "type": "string", "minLength": 1 } }, "gates": { "type": "object", "additionalProperties": false, "required": ["go_requires_core", "precedence", "fix_not_build", "dont_build_definitive", "gather_more", "dont_build_quadrant", "go", "fallthrough"], "properties": { "go_requires_core": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^core\\.[a-z_]+$" } }, "precedence": { "const": ["fix_not_build", "dont_build_definitive", "gather_more", "dont_build_quadrant", "go"], "description": "Fixed for v1. The order is part of the gate logic; reordering it is a code change, not a tuning change." }, "fix_not_build": { "type": "object", "additionalProperties": false, "required": ["applies_to", "when_cause", "when_workaround_permanent"], "properties": { "applies_to": { "type": "array", "items": { "$ref": "#/$defs/item_type" } }, "when_cause": { "type": "array", "items": { "type": "string" } }, "when_workaround_permanent": { "type": "array", "items": { "type": "string" } } } }, "dont_build_definitive": { "type": "object", "additionalProperties": false, "required": ["existing_asset", "decision_depends", "decision_depends_applies_to", "value", "superseded_by_go_item"], "properties": { "existing_asset": { "type": "array", "items": { "type": "string" } }, "decision_depends": { "type": "array", "items": { "type": "string" } }, "decision_depends_applies_to": { "description": "Item types where no decision depending on it is a definitive Don't build. For other types it routes to Gather more.", "type": "array", "items": { "$ref": "#/$defs/item_type" } }, "value": { "type": "array", "items": { "type": "string" } }, "superseded_by_go_item": { "type": "boolean" } } }, "gather_more": { "type": "object", "additionalProperties": false, "required": ["critical_unknown", "stability", "review_without_mitigation", "modifiers", "defer_with_critical_unknown", "composite_null", "ai_overlay_unresolved"], "properties": { "critical_unknown": { "type": "boolean" }, "stability": { "type": "array", "items": { "type": "string" } }, "review_without_mitigation": { "type": "boolean" }, "modifiers": { "type": "array", "items": { "$ref": "#/$defs/modifier" } }, "defer_with_critical_unknown": { "type": "boolean" }, "composite_null": { "type": "boolean" }, "ai_overlay_unresolved": { "type": "boolean" }, "decision_depends": { "description": "decision_depends bands that route to Gather more when they aren't a definitive Don't build for the item's type. Missing information is never a reason not to build.", "type": "array", "items": { "type": "string" } } } }, "dont_build_quadrant": { "type": "object", "additionalProperties": false, "required": ["quadrant", "defer_rescued_by_ai_overlay", "ai_overlay_fail"], "properties": { "quadrant": { "type": "array", "items": { "enum": ["prioritize", "review", "defer"] } }, "defer_rescued_by_ai_overlay": { "type": "boolean" }, "ai_overlay_fail": { "type": "boolean" } } }, "go": { "type": "object", "additionalProperties": false, "required": ["success_metric", "quadrants", "review_needs_mitigation", "ai_candidate_from_defer", "ai_overlay_must_pass", "reflect_back_confirmed"], "properties": { "success_metric": { "type": "array", "items": { "type": "string" } }, "quadrants": { "type": "array", "items": { "enum": ["prioritize", "review", "defer"] } }, "review_needs_mitigation": { "type": "boolean" }, "ai_candidate_from_defer": { "type": "boolean" }, "ai_overlay_must_pass": { "type": "boolean" }, "reflect_back_confirmed": { "type": "boolean" } } }, "fallthrough": { "const": "gather_more" } } } } };
+var schema27 = { "type": "object", "additionalProperties": false, "required": ["rules_version", "min_known_per_composite", "criteria", "composites", "thresholds", "quadrants", "ai_overlay", "adoption", "gate_facts", "gates"], "properties": { "rules_version": { "$ref": "#/$defs/semver" }, "min_known_per_composite": { "type": "integer", "minimum": 1 }, "criteria": { "type": "object", "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["label", "bands", "describe", "usually_from"], "properties": { "label": { "type": "string" }, "bands": { "$ref": "#/$defs/band_scores" }, "describe": { "type": "object", "additionalProperties": { "type": "string" } }, "usually_from": { "type": "array", "minItems": 1, "items": { "type": "string" }, "description": "Coverage areas whose answers usually decide this band, shown in the guide." } } } }, "composites": { "type": "object", "additionalProperties": false, "required": ["automation_potential", "ease"], "properties": { "automation_potential": { "type": "object", "additionalProperties": false, "required": ["criteria"], "properties": { "criteria": { "$ref": "#/$defs/weights" } } }, "ease": { "type": "object", "additionalProperties": false, "required": ["criteria"], "properties": { "criteria": { "$ref": "#/$defs/weights" } } } } }, "thresholds": { "type": "object", "additionalProperties": false, "required": ["high_min_pct", "low_below_pct"], "properties": { "high_min_pct": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }, "low_below_pct": { "type": "number", "minimum": 0, "exclusiveMaximum": 1 } } }, "quadrants": { "type": "object", "additionalProperties": false, "required": ["prioritize", "review", "defer"], "properties": { "prioritize": { "type": "string" }, "review": { "type": "string" }, "defer": { "type": "string" } } }, "ai_overlay": { "type": "object", "additionalProperties": false, "required": ["applies_fact", "applies_bands", "checks", "check_bands", "dont_build_on_fail"], "properties": { "applies_fact": { "const": "ai_applies" }, "applies_bands": { "type": "object", "required": ["unknown"], "properties": { "unknown": { "const": false } }, "additionalProperties": { "type": "boolean" } }, "checks": { "type": "object", "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["label", "passes_when", "basis"], "properties": { "label": { "type": "string" }, "passes_when": { "type": "string" }, "basis": { "type": "string" } } } }, "check_bands": { "const": ["pass", "fail", "unknown"] }, "dont_build_on_fail": { "type": "array", "items": { "type": "string" } } } }, "adoption": { "type": "object", "additionalProperties": false, "required": ["applies_to", "forces", "bands", "risk_when"], "properties": { "applies_to": { "type": "array", "items": { "$ref": "#/$defs/item_type" } }, "forces": { "const": ["push", "pull", "anxiety", "habit"] }, "bands": { "$ref": "#/$defs/band_list" }, "risk_when": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } }, "usually_from": { "description": "Per force, the areas its band is usually picked from. Shown in the guide.", "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string" } } } } }, "gate_facts": { "type": "object", "additionalProperties": { "$ref": "#/$defs/band_list" } }, "gate_fact_sources": { "type": "object", "description": "For each gate fact, the areas it comes from, in order; the first that applies to an item is asked.", "additionalProperties": { "type": "array", "items": { "type": "string" }, "minItems": 1 } }, "gap_questions": { "type": "object", "description": "Open questions code adds to a Gather more item for each critical fact left unknown or vague.", "additionalProperties": { "type": "object", "additionalProperties": false, "required": ["when", "question", "who_can_answer", "artifact_needed"], "properties": { "when": { "type": "array", "items": { "type": "string" }, "minItems": 1 }, "question": { "type": "string", "minLength": 1 }, "who_can_answer": { "type": "string", "minLength": 1 }, "artifact_needed": { "type": "string", "minLength": 1 } } } }, "gate_fact_notes": { "type": "object", "description": "How to pick a gate fact when its band names don't say enough. Shown in the guide.", "additionalProperties": { "type": "string", "minLength": 1 } }, "gates": { "type": "object", "additionalProperties": false, "required": ["go_requires_core", "precedence", "fix_not_build", "dont_build_definitive", "gather_more", "dont_build_quadrant", "go", "fallthrough"], "properties": { "go_requires_core": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^core\\.[a-z_]+$" } }, "precedence": { "const": ["fix_not_build", "dont_build_definitive", "gather_more", "dont_build_quadrant", "go"], "description": "Fixed for v1. The order is part of the gate logic; reordering it is a code change, not a tuning change." }, "fix_not_build": { "type": "object", "additionalProperties": false, "required": ["applies_to", "when_cause", "when_workaround_permanent"], "properties": { "applies_to": { "type": "array", "items": { "$ref": "#/$defs/item_type" } }, "when_cause": { "type": "array", "items": { "type": "string" } }, "when_workaround_permanent": { "type": "array", "items": { "type": "string" } } } }, "dont_build_definitive": { "type": "object", "additionalProperties": false, "required": ["existing_asset", "decision_depends", "decision_depends_applies_to", "value", "superseded_by_go_item"], "properties": { "existing_asset": { "type": "array", "items": { "type": "string" } }, "decision_depends": { "type": "array", "items": { "type": "string" } }, "decision_depends_applies_to": { "description": "Item types where no decision depending on it is a definitive Don't build. For other types it routes to Gather more.", "type": "array", "items": { "$ref": "#/$defs/item_type" } }, "value": { "type": "array", "items": { "type": "string" } }, "superseded_by_go_item": { "type": "boolean" } } }, "gather_more": { "type": "object", "additionalProperties": false, "required": ["critical_unknown", "stability", "review_without_mitigation", "modifiers", "defer_with_critical_unknown", "composite_null", "ai_overlay_unresolved"], "properties": { "critical_unknown": { "type": "boolean" }, "stability": { "type": "array", "items": { "type": "string" } }, "review_without_mitigation": { "type": "boolean" }, "modifiers": { "type": "array", "items": { "$ref": "#/$defs/modifier" } }, "defer_with_critical_unknown": { "type": "boolean" }, "composite_null": { "type": "boolean" }, "ai_overlay_unresolved": { "type": "boolean" }, "decision_depends": { "description": "decision_depends bands that route to Gather more when they aren't a definitive Don't build for the item's type. Missing information is never a reason not to build.", "type": "array", "items": { "type": "string" } } } }, "dont_build_quadrant": { "type": "object", "additionalProperties": false, "required": ["quadrant", "defer_rescued_by_ai_overlay", "ai_overlay_fail"], "properties": { "quadrant": { "type": "array", "items": { "enum": ["prioritize", "review", "defer"] } }, "defer_rescued_by_ai_overlay": { "type": "boolean" }, "ai_overlay_fail": { "type": "boolean" } } }, "go": { "type": "object", "additionalProperties": false, "required": ["success_metric", "quadrants", "review_needs_mitigation", "ai_candidate_from_defer", "ai_overlay_must_pass", "reflect_back_confirmed"], "properties": { "success_metric": { "type": "array", "items": { "type": "string" } }, "quadrants": { "type": "array", "items": { "enum": ["prioritize", "review", "defer"] } }, "review_needs_mitigation": { "type": "boolean" }, "ai_candidate_from_defer": { "type": "boolean" }, "ai_overlay_must_pass": { "type": "boolean" }, "reflect_back_confirmed": { "type": "boolean" } } }, "fallthrough": { "const": "gather_more" } } } } };
 var func0 = equal.default;
 var pattern8 = new RegExp("^[a-z0-9][a-z0-9_+-]*$", "u");
 function validate73(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
@@ -10456,14 +10456,14 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
         errors++;
       }
     }
-    if (data.gate_fact_notes !== void 0) {
-      let data51 = data.gate_fact_notes;
+    if (data.gap_questions !== void 0) {
+      let data51 = data.gap_questions;
       if (data51 && typeof data51 == "object" && !Array.isArray(data51)) {
         for (const key18 in data51) {
           let data52 = data51[key18];
-          if (typeof data52 === "string") {
-            if (func1(data52) < 1) {
-              const err97 = { instancePath: instancePath + "/gate_fact_notes/" + key18.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/gate_fact_notes/additionalProperties/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          if (data52 && typeof data52 == "object" && !Array.isArray(data52)) {
+            if (data52.when === void 0) {
+              const err97 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/gap_questions/additionalProperties/required", keyword: "required", params: { missingProperty: "when" }, message: "must have required property 'when'" };
               if (vErrors === null) {
                 vErrors = [err97];
               } else {
@@ -10471,303 +10471,290 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
               }
               errors++;
             }
+            if (data52.question === void 0) {
+              const err98 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/gap_questions/additionalProperties/required", keyword: "required", params: { missingProperty: "question" }, message: "must have required property 'question'" };
+              if (vErrors === null) {
+                vErrors = [err98];
+              } else {
+                vErrors.push(err98);
+              }
+              errors++;
+            }
+            if (data52.who_can_answer === void 0) {
+              const err99 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/gap_questions/additionalProperties/required", keyword: "required", params: { missingProperty: "who_can_answer" }, message: "must have required property 'who_can_answer'" };
+              if (vErrors === null) {
+                vErrors = [err99];
+              } else {
+                vErrors.push(err99);
+              }
+              errors++;
+            }
+            if (data52.artifact_needed === void 0) {
+              const err100 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/gap_questions/additionalProperties/required", keyword: "required", params: { missingProperty: "artifact_needed" }, message: "must have required property 'artifact_needed'" };
+              if (vErrors === null) {
+                vErrors = [err100];
+              } else {
+                vErrors.push(err100);
+              }
+              errors++;
+            }
+            for (const key19 in data52) {
+              if (!(key19 === "when" || key19 === "question" || key19 === "who_can_answer" || key19 === "artifact_needed")) {
+                const err101 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/gap_questions/additionalProperties/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key19 }, message: "must NOT have additional properties" };
+                if (vErrors === null) {
+                  vErrors = [err101];
+                } else {
+                  vErrors.push(err101);
+                }
+                errors++;
+              }
+            }
+            if (data52.when !== void 0) {
+              let data53 = data52.when;
+              if (Array.isArray(data53)) {
+                if (data53.length < 1) {
+                  const err102 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1") + "/when", schemaPath: "#/properties/gap_questions/additionalProperties/properties/when/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
+                  if (vErrors === null) {
+                    vErrors = [err102];
+                  } else {
+                    vErrors.push(err102);
+                  }
+                  errors++;
+                }
+                const len6 = data53.length;
+                for (let i6 = 0; i6 < len6; i6++) {
+                  if (typeof data53[i6] !== "string") {
+                    const err103 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1") + "/when/" + i6, schemaPath: "#/properties/gap_questions/additionalProperties/properties/when/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err103];
+                    } else {
+                      vErrors.push(err103);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err104 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1") + "/when", schemaPath: "#/properties/gap_questions/additionalProperties/properties/when/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                if (vErrors === null) {
+                  vErrors = [err104];
+                } else {
+                  vErrors.push(err104);
+                }
+                errors++;
+              }
+            }
+            if (data52.question !== void 0) {
+              let data55 = data52.question;
+              if (typeof data55 === "string") {
+                if (func1(data55) < 1) {
+                  const err105 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1") + "/question", schemaPath: "#/properties/gap_questions/additionalProperties/properties/question/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err105];
+                  } else {
+                    vErrors.push(err105);
+                  }
+                  errors++;
+                }
+              } else {
+                const err106 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1") + "/question", schemaPath: "#/properties/gap_questions/additionalProperties/properties/question/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err106];
+                } else {
+                  vErrors.push(err106);
+                }
+                errors++;
+              }
+            }
+            if (data52.who_can_answer !== void 0) {
+              let data56 = data52.who_can_answer;
+              if (typeof data56 === "string") {
+                if (func1(data56) < 1) {
+                  const err107 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1") + "/who_can_answer", schemaPath: "#/properties/gap_questions/additionalProperties/properties/who_can_answer/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err107];
+                  } else {
+                    vErrors.push(err107);
+                  }
+                  errors++;
+                }
+              } else {
+                const err108 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1") + "/who_can_answer", schemaPath: "#/properties/gap_questions/additionalProperties/properties/who_can_answer/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err108];
+                } else {
+                  vErrors.push(err108);
+                }
+                errors++;
+              }
+            }
+            if (data52.artifact_needed !== void 0) {
+              let data57 = data52.artifact_needed;
+              if (typeof data57 === "string") {
+                if (func1(data57) < 1) {
+                  const err109 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1") + "/artifact_needed", schemaPath: "#/properties/gap_questions/additionalProperties/properties/artifact_needed/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+                  if (vErrors === null) {
+                    vErrors = [err109];
+                  } else {
+                    vErrors.push(err109);
+                  }
+                  errors++;
+                }
+              } else {
+                const err110 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1") + "/artifact_needed", schemaPath: "#/properties/gap_questions/additionalProperties/properties/artifact_needed/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                if (vErrors === null) {
+                  vErrors = [err110];
+                } else {
+                  vErrors.push(err110);
+                }
+                errors++;
+              }
+            }
           } else {
-            const err98 = { instancePath: instancePath + "/gate_fact_notes/" + key18.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/gate_fact_notes/additionalProperties/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            const err111 = { instancePath: instancePath + "/gap_questions/" + key18.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/gap_questions/additionalProperties/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             if (vErrors === null) {
-              vErrors = [err98];
+              vErrors = [err111];
             } else {
-              vErrors.push(err98);
+              vErrors.push(err111);
             }
             errors++;
           }
         }
       } else {
-        const err99 = { instancePath: instancePath + "/gate_fact_notes", schemaPath: "#/properties/gate_fact_notes/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        const err112 = { instancePath: instancePath + "/gap_questions", schemaPath: "#/properties/gap_questions/type", keyword: "type", params: { type: "object" }, message: "must be object" };
         if (vErrors === null) {
-          vErrors = [err99];
+          vErrors = [err112];
         } else {
-          vErrors.push(err99);
+          vErrors.push(err112);
+        }
+        errors++;
+      }
+    }
+    if (data.gate_fact_notes !== void 0) {
+      let data58 = data.gate_fact_notes;
+      if (data58 && typeof data58 == "object" && !Array.isArray(data58)) {
+        for (const key20 in data58) {
+          let data59 = data58[key20];
+          if (typeof data59 === "string") {
+            if (func1(data59) < 1) {
+              const err113 = { instancePath: instancePath + "/gate_fact_notes/" + key20.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/gate_fact_notes/additionalProperties/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              if (vErrors === null) {
+                vErrors = [err113];
+              } else {
+                vErrors.push(err113);
+              }
+              errors++;
+            }
+          } else {
+            const err114 = { instancePath: instancePath + "/gate_fact_notes/" + key20.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/gate_fact_notes/additionalProperties/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (vErrors === null) {
+              vErrors = [err114];
+            } else {
+              vErrors.push(err114);
+            }
+            errors++;
+          }
+        }
+      } else {
+        const err115 = { instancePath: instancePath + "/gate_fact_notes", schemaPath: "#/properties/gate_fact_notes/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        if (vErrors === null) {
+          vErrors = [err115];
+        } else {
+          vErrors.push(err115);
         }
         errors++;
       }
     }
     if (data.gates !== void 0) {
-      let data53 = data.gates;
-      if (data53 && typeof data53 == "object" && !Array.isArray(data53)) {
-        if (data53.go_requires_core === void 0) {
-          const err100 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "go_requires_core" }, message: "must have required property 'go_requires_core'" };
+      let data60 = data.gates;
+      if (data60 && typeof data60 == "object" && !Array.isArray(data60)) {
+        if (data60.go_requires_core === void 0) {
+          const err116 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "go_requires_core" }, message: "must have required property 'go_requires_core'" };
           if (vErrors === null) {
-            vErrors = [err100];
+            vErrors = [err116];
           } else {
-            vErrors.push(err100);
+            vErrors.push(err116);
           }
           errors++;
         }
-        if (data53.precedence === void 0) {
-          const err101 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "precedence" }, message: "must have required property 'precedence'" };
+        if (data60.precedence === void 0) {
+          const err117 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "precedence" }, message: "must have required property 'precedence'" };
           if (vErrors === null) {
-            vErrors = [err101];
+            vErrors = [err117];
           } else {
-            vErrors.push(err101);
+            vErrors.push(err117);
           }
           errors++;
         }
-        if (data53.fix_not_build === void 0) {
-          const err102 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "fix_not_build" }, message: "must have required property 'fix_not_build'" };
+        if (data60.fix_not_build === void 0) {
+          const err118 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "fix_not_build" }, message: "must have required property 'fix_not_build'" };
           if (vErrors === null) {
-            vErrors = [err102];
+            vErrors = [err118];
           } else {
-            vErrors.push(err102);
+            vErrors.push(err118);
           }
           errors++;
         }
-        if (data53.dont_build_definitive === void 0) {
-          const err103 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "dont_build_definitive" }, message: "must have required property 'dont_build_definitive'" };
+        if (data60.dont_build_definitive === void 0) {
+          const err119 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "dont_build_definitive" }, message: "must have required property 'dont_build_definitive'" };
           if (vErrors === null) {
-            vErrors = [err103];
+            vErrors = [err119];
           } else {
-            vErrors.push(err103);
+            vErrors.push(err119);
           }
           errors++;
         }
-        if (data53.gather_more === void 0) {
-          const err104 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "gather_more" }, message: "must have required property 'gather_more'" };
+        if (data60.gather_more === void 0) {
+          const err120 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "gather_more" }, message: "must have required property 'gather_more'" };
           if (vErrors === null) {
-            vErrors = [err104];
+            vErrors = [err120];
           } else {
-            vErrors.push(err104);
+            vErrors.push(err120);
           }
           errors++;
         }
-        if (data53.dont_build_quadrant === void 0) {
-          const err105 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "dont_build_quadrant" }, message: "must have required property 'dont_build_quadrant'" };
+        if (data60.dont_build_quadrant === void 0) {
+          const err121 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "dont_build_quadrant" }, message: "must have required property 'dont_build_quadrant'" };
           if (vErrors === null) {
-            vErrors = [err105];
+            vErrors = [err121];
           } else {
-            vErrors.push(err105);
+            vErrors.push(err121);
           }
           errors++;
         }
-        if (data53.go === void 0) {
-          const err106 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "go" }, message: "must have required property 'go'" };
+        if (data60.go === void 0) {
+          const err122 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "go" }, message: "must have required property 'go'" };
           if (vErrors === null) {
-            vErrors = [err106];
+            vErrors = [err122];
           } else {
-            vErrors.push(err106);
+            vErrors.push(err122);
           }
           errors++;
         }
-        if (data53.fallthrough === void 0) {
-          const err107 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "fallthrough" }, message: "must have required property 'fallthrough'" };
+        if (data60.fallthrough === void 0) {
+          const err123 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/required", keyword: "required", params: { missingProperty: "fallthrough" }, message: "must have required property 'fallthrough'" };
           if (vErrors === null) {
-            vErrors = [err107];
+            vErrors = [err123];
           } else {
-            vErrors.push(err107);
+            vErrors.push(err123);
           }
           errors++;
         }
-        for (const key19 in data53) {
-          if (!(key19 === "go_requires_core" || key19 === "precedence" || key19 === "fix_not_build" || key19 === "dont_build_definitive" || key19 === "gather_more" || key19 === "dont_build_quadrant" || key19 === "go" || key19 === "fallthrough")) {
-            const err108 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key19 }, message: "must NOT have additional properties" };
+        for (const key21 in data60) {
+          if (!(key21 === "go_requires_core" || key21 === "precedence" || key21 === "fix_not_build" || key21 === "dont_build_definitive" || key21 === "gather_more" || key21 === "dont_build_quadrant" || key21 === "go" || key21 === "fallthrough")) {
+            const err124 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key21 }, message: "must NOT have additional properties" };
             if (vErrors === null) {
-              vErrors = [err108];
+              vErrors = [err124];
             } else {
-              vErrors.push(err108);
+              vErrors.push(err124);
             }
             errors++;
           }
         }
-        if (data53.go_requires_core !== void 0) {
-          let data54 = data53.go_requires_core;
-          if (Array.isArray(data54)) {
-            if (data54.length < 1) {
-              const err109 = { instancePath: instancePath + "/gates/go_requires_core", schemaPath: "#/properties/gates/properties/go_requires_core/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
-              if (vErrors === null) {
-                vErrors = [err109];
-              } else {
-                vErrors.push(err109);
-              }
-              errors++;
-            }
-            const len6 = data54.length;
-            for (let i6 = 0; i6 < len6; i6++) {
-              let data55 = data54[i6];
-              if (typeof data55 === "string") {
-                if (!pattern5.test(data55)) {
-                  const err110 = { instancePath: instancePath + "/gates/go_requires_core/" + i6, schemaPath: "#/properties/gates/properties/go_requires_core/items/pattern", keyword: "pattern", params: { pattern: "^core\\.[a-z_]+$" }, message: 'must match pattern "^core\\.[a-z_]+$"' };
-                  if (vErrors === null) {
-                    vErrors = [err110];
-                  } else {
-                    vErrors.push(err110);
-                  }
-                  errors++;
-                }
-              } else {
-                const err111 = { instancePath: instancePath + "/gates/go_requires_core/" + i6, schemaPath: "#/properties/gates/properties/go_requires_core/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                if (vErrors === null) {
-                  vErrors = [err111];
-                } else {
-                  vErrors.push(err111);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err112 = { instancePath: instancePath + "/gates/go_requires_core", schemaPath: "#/properties/gates/properties/go_requires_core/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-            if (vErrors === null) {
-              vErrors = [err112];
-            } else {
-              vErrors.push(err112);
-            }
-            errors++;
-          }
-        }
-        if (data53.precedence !== void 0) {
-          if (!func0(data53.precedence, schema27.properties.gates.properties.precedence.const)) {
-            const err113 = { instancePath: instancePath + "/gates/precedence", schemaPath: "#/properties/gates/properties/precedence/const", keyword: "const", params: { allowedValue: schema27.properties.gates.properties.precedence.const }, message: "must be equal to constant" };
-            if (vErrors === null) {
-              vErrors = [err113];
-            } else {
-              vErrors.push(err113);
-            }
-            errors++;
-          }
-        }
-        if (data53.fix_not_build !== void 0) {
-          let data57 = data53.fix_not_build;
-          if (data57 && typeof data57 == "object" && !Array.isArray(data57)) {
-            if (data57.applies_to === void 0) {
-              const err114 = { instancePath: instancePath + "/gates/fix_not_build", schemaPath: "#/properties/gates/properties/fix_not_build/required", keyword: "required", params: { missingProperty: "applies_to" }, message: "must have required property 'applies_to'" };
-              if (vErrors === null) {
-                vErrors = [err114];
-              } else {
-                vErrors.push(err114);
-              }
-              errors++;
-            }
-            if (data57.when_cause === void 0) {
-              const err115 = { instancePath: instancePath + "/gates/fix_not_build", schemaPath: "#/properties/gates/properties/fix_not_build/required", keyword: "required", params: { missingProperty: "when_cause" }, message: "must have required property 'when_cause'" };
-              if (vErrors === null) {
-                vErrors = [err115];
-              } else {
-                vErrors.push(err115);
-              }
-              errors++;
-            }
-            if (data57.when_workaround_permanent === void 0) {
-              const err116 = { instancePath: instancePath + "/gates/fix_not_build", schemaPath: "#/properties/gates/properties/fix_not_build/required", keyword: "required", params: { missingProperty: "when_workaround_permanent" }, message: "must have required property 'when_workaround_permanent'" };
-              if (vErrors === null) {
-                vErrors = [err116];
-              } else {
-                vErrors.push(err116);
-              }
-              errors++;
-            }
-            for (const key20 in data57) {
-              if (!(key20 === "applies_to" || key20 === "when_cause" || key20 === "when_workaround_permanent")) {
-                const err117 = { instancePath: instancePath + "/gates/fix_not_build", schemaPath: "#/properties/gates/properties/fix_not_build/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key20 }, message: "must NOT have additional properties" };
-                if (vErrors === null) {
-                  vErrors = [err117];
-                } else {
-                  vErrors.push(err117);
-                }
-                errors++;
-              }
-            }
-            if (data57.applies_to !== void 0) {
-              let data58 = data57.applies_to;
-              if (Array.isArray(data58)) {
-                const len7 = data58.length;
-                for (let i7 = 0; i7 < len7; i7++) {
-                  if (!validate56(data58[i7], { instancePath: instancePath + "/gates/fix_not_build/applies_to/" + i7, parentData: data58, parentDataProperty: i7, rootData, dynamicAnchors })) {
-                    vErrors = vErrors === null ? validate56.errors : vErrors.concat(validate56.errors);
-                    errors = vErrors.length;
-                  }
-                }
-              } else {
-                const err118 = { instancePath: instancePath + "/gates/fix_not_build/applies_to", schemaPath: "#/properties/gates/properties/fix_not_build/properties/applies_to/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-                if (vErrors === null) {
-                  vErrors = [err118];
-                } else {
-                  vErrors.push(err118);
-                }
-                errors++;
-              }
-            }
-            if (data57.when_cause !== void 0) {
-              let data60 = data57.when_cause;
-              if (Array.isArray(data60)) {
-                const len8 = data60.length;
-                for (let i8 = 0; i8 < len8; i8++) {
-                  if (typeof data60[i8] !== "string") {
-                    const err119 = { instancePath: instancePath + "/gates/fix_not_build/when_cause/" + i8, schemaPath: "#/properties/gates/properties/fix_not_build/properties/when_cause/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                    if (vErrors === null) {
-                      vErrors = [err119];
-                    } else {
-                      vErrors.push(err119);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err120 = { instancePath: instancePath + "/gates/fix_not_build/when_cause", schemaPath: "#/properties/gates/properties/fix_not_build/properties/when_cause/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-                if (vErrors === null) {
-                  vErrors = [err120];
-                } else {
-                  vErrors.push(err120);
-                }
-                errors++;
-              }
-            }
-            if (data57.when_workaround_permanent !== void 0) {
-              let data62 = data57.when_workaround_permanent;
-              if (Array.isArray(data62)) {
-                const len9 = data62.length;
-                for (let i9 = 0; i9 < len9; i9++) {
-                  if (typeof data62[i9] !== "string") {
-                    const err121 = { instancePath: instancePath + "/gates/fix_not_build/when_workaround_permanent/" + i9, schemaPath: "#/properties/gates/properties/fix_not_build/properties/when_workaround_permanent/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                    if (vErrors === null) {
-                      vErrors = [err121];
-                    } else {
-                      vErrors.push(err121);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err122 = { instancePath: instancePath + "/gates/fix_not_build/when_workaround_permanent", schemaPath: "#/properties/gates/properties/fix_not_build/properties/when_workaround_permanent/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-                if (vErrors === null) {
-                  vErrors = [err122];
-                } else {
-                  vErrors.push(err122);
-                }
-                errors++;
-              }
-            }
-          } else {
-            const err123 = { instancePath: instancePath + "/gates/fix_not_build", schemaPath: "#/properties/gates/properties/fix_not_build/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            if (vErrors === null) {
-              vErrors = [err123];
-            } else {
-              vErrors.push(err123);
-            }
-            errors++;
-          }
-        }
-        if (data53.dont_build_definitive !== void 0) {
-          let data64 = data53.dont_build_definitive;
-          if (data64 && typeof data64 == "object" && !Array.isArray(data64)) {
-            if (data64.existing_asset === void 0) {
-              const err124 = { instancePath: instancePath + "/gates/dont_build_definitive", schemaPath: "#/properties/gates/properties/dont_build_definitive/required", keyword: "required", params: { missingProperty: "existing_asset" }, message: "must have required property 'existing_asset'" };
-              if (vErrors === null) {
-                vErrors = [err124];
-              } else {
-                vErrors.push(err124);
-              }
-              errors++;
-            }
-            if (data64.decision_depends === void 0) {
-              const err125 = { instancePath: instancePath + "/gates/dont_build_definitive", schemaPath: "#/properties/gates/properties/dont_build_definitive/required", keyword: "required", params: { missingProperty: "decision_depends" }, message: "must have required property 'decision_depends'" };
+        if (data60.go_requires_core !== void 0) {
+          let data61 = data60.go_requires_core;
+          if (Array.isArray(data61)) {
+            if (data61.length < 1) {
+              const err125 = { instancePath: instancePath + "/gates/go_requires_core", schemaPath: "#/properties/gates/properties/go_requires_core/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
               if (vErrors === null) {
                 vErrors = [err125];
               } else {
@@ -10775,86 +10762,83 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
               }
               errors++;
             }
-            if (data64.decision_depends_applies_to === void 0) {
-              const err126 = { instancePath: instancePath + "/gates/dont_build_definitive", schemaPath: "#/properties/gates/properties/dont_build_definitive/required", keyword: "required", params: { missingProperty: "decision_depends_applies_to" }, message: "must have required property 'decision_depends_applies_to'" };
-              if (vErrors === null) {
-                vErrors = [err126];
+            const len7 = data61.length;
+            for (let i7 = 0; i7 < len7; i7++) {
+              let data62 = data61[i7];
+              if (typeof data62 === "string") {
+                if (!pattern5.test(data62)) {
+                  const err126 = { instancePath: instancePath + "/gates/go_requires_core/" + i7, schemaPath: "#/properties/gates/properties/go_requires_core/items/pattern", keyword: "pattern", params: { pattern: "^core\\.[a-z_]+$" }, message: 'must match pattern "^core\\.[a-z_]+$"' };
+                  if (vErrors === null) {
+                    vErrors = [err126];
+                  } else {
+                    vErrors.push(err126);
+                  }
+                  errors++;
+                }
               } else {
-                vErrors.push(err126);
-              }
-              errors++;
-            }
-            if (data64.value === void 0) {
-              const err127 = { instancePath: instancePath + "/gates/dont_build_definitive", schemaPath: "#/properties/gates/properties/dont_build_definitive/required", keyword: "required", params: { missingProperty: "value" }, message: "must have required property 'value'" };
-              if (vErrors === null) {
-                vErrors = [err127];
-              } else {
-                vErrors.push(err127);
-              }
-              errors++;
-            }
-            if (data64.superseded_by_go_item === void 0) {
-              const err128 = { instancePath: instancePath + "/gates/dont_build_definitive", schemaPath: "#/properties/gates/properties/dont_build_definitive/required", keyword: "required", params: { missingProperty: "superseded_by_go_item" }, message: "must have required property 'superseded_by_go_item'" };
-              if (vErrors === null) {
-                vErrors = [err128];
-              } else {
-                vErrors.push(err128);
-              }
-              errors++;
-            }
-            for (const key21 in data64) {
-              if (!(key21 === "existing_asset" || key21 === "decision_depends" || key21 === "decision_depends_applies_to" || key21 === "value" || key21 === "superseded_by_go_item")) {
-                const err129 = { instancePath: instancePath + "/gates/dont_build_definitive", schemaPath: "#/properties/gates/properties/dont_build_definitive/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key21 }, message: "must NOT have additional properties" };
+                const err127 = { instancePath: instancePath + "/gates/go_requires_core/" + i7, schemaPath: "#/properties/gates/properties/go_requires_core/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                 if (vErrors === null) {
-                  vErrors = [err129];
+                  vErrors = [err127];
                 } else {
-                  vErrors.push(err129);
+                  vErrors.push(err127);
                 }
                 errors++;
               }
             }
-            if (data64.existing_asset !== void 0) {
-              let data65 = data64.existing_asset;
-              if (Array.isArray(data65)) {
-                const len10 = data65.length;
-                for (let i10 = 0; i10 < len10; i10++) {
-                  if (typeof data65[i10] !== "string") {
-                    const err130 = { instancePath: instancePath + "/gates/dont_build_definitive/existing_asset/" + i10, schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/existing_asset/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                    if (vErrors === null) {
-                      vErrors = [err130];
-                    } else {
-                      vErrors.push(err130);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err131 = { instancePath: instancePath + "/gates/dont_build_definitive/existing_asset", schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/existing_asset/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-                if (vErrors === null) {
-                  vErrors = [err131];
-                } else {
-                  vErrors.push(err131);
-                }
-                errors++;
-              }
+          } else {
+            const err128 = { instancePath: instancePath + "/gates/go_requires_core", schemaPath: "#/properties/gates/properties/go_requires_core/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+            if (vErrors === null) {
+              vErrors = [err128];
+            } else {
+              vErrors.push(err128);
             }
-            if (data64.decision_depends !== void 0) {
-              let data67 = data64.decision_depends;
-              if (Array.isArray(data67)) {
-                const len11 = data67.length;
-                for (let i11 = 0; i11 < len11; i11++) {
-                  if (typeof data67[i11] !== "string") {
-                    const err132 = { instancePath: instancePath + "/gates/dont_build_definitive/decision_depends/" + i11, schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/decision_depends/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                    if (vErrors === null) {
-                      vErrors = [err132];
-                    } else {
-                      vErrors.push(err132);
-                    }
-                    errors++;
-                  }
-                }
+            errors++;
+          }
+        }
+        if (data60.precedence !== void 0) {
+          if (!func0(data60.precedence, schema27.properties.gates.properties.precedence.const)) {
+            const err129 = { instancePath: instancePath + "/gates/precedence", schemaPath: "#/properties/gates/properties/precedence/const", keyword: "const", params: { allowedValue: schema27.properties.gates.properties.precedence.const }, message: "must be equal to constant" };
+            if (vErrors === null) {
+              vErrors = [err129];
+            } else {
+              vErrors.push(err129);
+            }
+            errors++;
+          }
+        }
+        if (data60.fix_not_build !== void 0) {
+          let data64 = data60.fix_not_build;
+          if (data64 && typeof data64 == "object" && !Array.isArray(data64)) {
+            if (data64.applies_to === void 0) {
+              const err130 = { instancePath: instancePath + "/gates/fix_not_build", schemaPath: "#/properties/gates/properties/fix_not_build/required", keyword: "required", params: { missingProperty: "applies_to" }, message: "must have required property 'applies_to'" };
+              if (vErrors === null) {
+                vErrors = [err130];
               } else {
-                const err133 = { instancePath: instancePath + "/gates/dont_build_definitive/decision_depends", schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/decision_depends/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                vErrors.push(err130);
+              }
+              errors++;
+            }
+            if (data64.when_cause === void 0) {
+              const err131 = { instancePath: instancePath + "/gates/fix_not_build", schemaPath: "#/properties/gates/properties/fix_not_build/required", keyword: "required", params: { missingProperty: "when_cause" }, message: "must have required property 'when_cause'" };
+              if (vErrors === null) {
+                vErrors = [err131];
+              } else {
+                vErrors.push(err131);
+              }
+              errors++;
+            }
+            if (data64.when_workaround_permanent === void 0) {
+              const err132 = { instancePath: instancePath + "/gates/fix_not_build", schemaPath: "#/properties/gates/properties/fix_not_build/required", keyword: "required", params: { missingProperty: "when_workaround_permanent" }, message: "must have required property 'when_workaround_permanent'" };
+              if (vErrors === null) {
+                vErrors = [err132];
+              } else {
+                vErrors.push(err132);
+              }
+              errors++;
+            }
+            for (const key22 in data64) {
+              if (!(key22 === "applies_to" || key22 === "when_cause" || key22 === "when_workaround_permanent")) {
+                const err133 = { instancePath: instancePath + "/gates/fix_not_build", schemaPath: "#/properties/gates/properties/fix_not_build/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key22 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
                   vErrors = [err133];
                 } else {
@@ -10863,18 +10847,18 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
-            if (data64.decision_depends_applies_to !== void 0) {
-              let data69 = data64.decision_depends_applies_to;
-              if (Array.isArray(data69)) {
-                const len12 = data69.length;
-                for (let i12 = 0; i12 < len12; i12++) {
-                  if (!validate56(data69[i12], { instancePath: instancePath + "/gates/dont_build_definitive/decision_depends_applies_to/" + i12, parentData: data69, parentDataProperty: i12, rootData, dynamicAnchors })) {
+            if (data64.applies_to !== void 0) {
+              let data65 = data64.applies_to;
+              if (Array.isArray(data65)) {
+                const len8 = data65.length;
+                for (let i8 = 0; i8 < len8; i8++) {
+                  if (!validate56(data65[i8], { instancePath: instancePath + "/gates/fix_not_build/applies_to/" + i8, parentData: data65, parentDataProperty: i8, rootData, dynamicAnchors })) {
                     vErrors = vErrors === null ? validate56.errors : vErrors.concat(validate56.errors);
                     errors = vErrors.length;
                   }
                 }
               } else {
-                const err134 = { instancePath: instancePath + "/gates/dont_build_definitive/decision_depends_applies_to", schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/decision_depends_applies_to/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                const err134 = { instancePath: instancePath + "/gates/fix_not_build/applies_to", schemaPath: "#/properties/gates/properties/fix_not_build/properties/applies_to/type", keyword: "type", params: { type: "array" }, message: "must be array" };
                 if (vErrors === null) {
                   vErrors = [err134];
                 } else {
@@ -10883,13 +10867,13 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
-            if (data64.value !== void 0) {
-              let data71 = data64.value;
-              if (Array.isArray(data71)) {
-                const len13 = data71.length;
-                for (let i13 = 0; i13 < len13; i13++) {
-                  if (typeof data71[i13] !== "string") {
-                    const err135 = { instancePath: instancePath + "/gates/dont_build_definitive/value/" + i13, schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/value/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (data64.when_cause !== void 0) {
+              let data67 = data64.when_cause;
+              if (Array.isArray(data67)) {
+                const len9 = data67.length;
+                for (let i9 = 0; i9 < len9; i9++) {
+                  if (typeof data67[i9] !== "string") {
+                    const err135 = { instancePath: instancePath + "/gates/fix_not_build/when_cause/" + i9, schemaPath: "#/properties/gates/properties/fix_not_build/properties/when_cause/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                     if (vErrors === null) {
                       vErrors = [err135];
                     } else {
@@ -10899,7 +10883,7 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                   }
                 }
               } else {
-                const err136 = { instancePath: instancePath + "/gates/dont_build_definitive/value", schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/value/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                const err136 = { instancePath: instancePath + "/gates/fix_not_build/when_cause", schemaPath: "#/properties/gates/properties/fix_not_build/properties/when_cause/type", keyword: "type", params: { type: "array" }, message: "must be array" };
                 if (vErrors === null) {
                   vErrors = [err136];
                 } else {
@@ -10908,41 +10892,46 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
-            if (data64.superseded_by_go_item !== void 0) {
-              if (typeof data64.superseded_by_go_item !== "boolean") {
-                const err137 = { instancePath: instancePath + "/gates/dont_build_definitive/superseded_by_go_item", schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/superseded_by_go_item/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+            if (data64.when_workaround_permanent !== void 0) {
+              let data69 = data64.when_workaround_permanent;
+              if (Array.isArray(data69)) {
+                const len10 = data69.length;
+                for (let i10 = 0; i10 < len10; i10++) {
+                  if (typeof data69[i10] !== "string") {
+                    const err137 = { instancePath: instancePath + "/gates/fix_not_build/when_workaround_permanent/" + i10, schemaPath: "#/properties/gates/properties/fix_not_build/properties/when_workaround_permanent/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err137];
+                    } else {
+                      vErrors.push(err137);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err138 = { instancePath: instancePath + "/gates/fix_not_build/when_workaround_permanent", schemaPath: "#/properties/gates/properties/fix_not_build/properties/when_workaround_permanent/type", keyword: "type", params: { type: "array" }, message: "must be array" };
                 if (vErrors === null) {
-                  vErrors = [err137];
+                  vErrors = [err138];
                 } else {
-                  vErrors.push(err137);
+                  vErrors.push(err138);
                 }
                 errors++;
               }
             }
           } else {
-            const err138 = { instancePath: instancePath + "/gates/dont_build_definitive", schemaPath: "#/properties/gates/properties/dont_build_definitive/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            const err139 = { instancePath: instancePath + "/gates/fix_not_build", schemaPath: "#/properties/gates/properties/fix_not_build/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             if (vErrors === null) {
-              vErrors = [err138];
+              vErrors = [err139];
             } else {
-              vErrors.push(err138);
+              vErrors.push(err139);
             }
             errors++;
           }
         }
-        if (data53.gather_more !== void 0) {
-          let data74 = data53.gather_more;
-          if (data74 && typeof data74 == "object" && !Array.isArray(data74)) {
-            if (data74.critical_unknown === void 0) {
-              const err139 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/required", keyword: "required", params: { missingProperty: "critical_unknown" }, message: "must have required property 'critical_unknown'" };
-              if (vErrors === null) {
-                vErrors = [err139];
-              } else {
-                vErrors.push(err139);
-              }
-              errors++;
-            }
-            if (data74.stability === void 0) {
-              const err140 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/required", keyword: "required", params: { missingProperty: "stability" }, message: "must have required property 'stability'" };
+        if (data60.dont_build_definitive !== void 0) {
+          let data71 = data60.dont_build_definitive;
+          if (data71 && typeof data71 == "object" && !Array.isArray(data71)) {
+            if (data71.existing_asset === void 0) {
+              const err140 = { instancePath: instancePath + "/gates/dont_build_definitive", schemaPath: "#/properties/gates/properties/dont_build_definitive/required", keyword: "required", params: { missingProperty: "existing_asset" }, message: "must have required property 'existing_asset'" };
               if (vErrors === null) {
                 vErrors = [err140];
               } else {
@@ -10950,8 +10939,8 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
               }
               errors++;
             }
-            if (data74.review_without_mitigation === void 0) {
-              const err141 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/required", keyword: "required", params: { missingProperty: "review_without_mitigation" }, message: "must have required property 'review_without_mitigation'" };
+            if (data71.decision_depends === void 0) {
+              const err141 = { instancePath: instancePath + "/gates/dont_build_definitive", schemaPath: "#/properties/gates/properties/dont_build_definitive/required", keyword: "required", params: { missingProperty: "decision_depends" }, message: "must have required property 'decision_depends'" };
               if (vErrors === null) {
                 vErrors = [err141];
               } else {
@@ -10959,8 +10948,8 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
               }
               errors++;
             }
-            if (data74.modifiers === void 0) {
-              const err142 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/required", keyword: "required", params: { missingProperty: "modifiers" }, message: "must have required property 'modifiers'" };
+            if (data71.decision_depends_applies_to === void 0) {
+              const err142 = { instancePath: instancePath + "/gates/dont_build_definitive", schemaPath: "#/properties/gates/properties/dont_build_definitive/required", keyword: "required", params: { missingProperty: "decision_depends_applies_to" }, message: "must have required property 'decision_depends_applies_to'" };
               if (vErrors === null) {
                 vErrors = [err142];
               } else {
@@ -10968,8 +10957,8 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
               }
               errors++;
             }
-            if (data74.defer_with_critical_unknown === void 0) {
-              const err143 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/required", keyword: "required", params: { missingProperty: "defer_with_critical_unknown" }, message: "must have required property 'defer_with_critical_unknown'" };
+            if (data71.value === void 0) {
+              const err143 = { instancePath: instancePath + "/gates/dont_build_definitive", schemaPath: "#/properties/gates/properties/dont_build_definitive/required", keyword: "required", params: { missingProperty: "value" }, message: "must have required property 'value'" };
               if (vErrors === null) {
                 vErrors = [err143];
               } else {
@@ -10977,8 +10966,8 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
               }
               errors++;
             }
-            if (data74.composite_null === void 0) {
-              const err144 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/required", keyword: "required", params: { missingProperty: "composite_null" }, message: "must have required property 'composite_null'" };
+            if (data71.superseded_by_go_item === void 0) {
+              const err144 = { instancePath: instancePath + "/gates/dont_build_definitive", schemaPath: "#/properties/gates/properties/dont_build_definitive/required", keyword: "required", params: { missingProperty: "superseded_by_go_item" }, message: "must have required property 'superseded_by_go_item'" };
               if (vErrors === null) {
                 vErrors = [err144];
               } else {
@@ -10986,29 +10975,34 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
               }
               errors++;
             }
-            if (data74.ai_overlay_unresolved === void 0) {
-              const err145 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/required", keyword: "required", params: { missingProperty: "ai_overlay_unresolved" }, message: "must have required property 'ai_overlay_unresolved'" };
-              if (vErrors === null) {
-                vErrors = [err145];
-              } else {
-                vErrors.push(err145);
-              }
-              errors++;
-            }
-            for (const key22 in data74) {
-              if (!(key22 === "critical_unknown" || key22 === "stability" || key22 === "review_without_mitigation" || key22 === "modifiers" || key22 === "defer_with_critical_unknown" || key22 === "composite_null" || key22 === "ai_overlay_unresolved" || key22 === "decision_depends")) {
-                const err146 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key22 }, message: "must NOT have additional properties" };
+            for (const key23 in data71) {
+              if (!(key23 === "existing_asset" || key23 === "decision_depends" || key23 === "decision_depends_applies_to" || key23 === "value" || key23 === "superseded_by_go_item")) {
+                const err145 = { instancePath: instancePath + "/gates/dont_build_definitive", schemaPath: "#/properties/gates/properties/dont_build_definitive/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key23 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
-                  vErrors = [err146];
+                  vErrors = [err145];
                 } else {
-                  vErrors.push(err146);
+                  vErrors.push(err145);
                 }
                 errors++;
               }
             }
-            if (data74.critical_unknown !== void 0) {
-              if (typeof data74.critical_unknown !== "boolean") {
-                const err147 = { instancePath: instancePath + "/gates/gather_more/critical_unknown", schemaPath: "#/properties/gates/properties/gather_more/properties/critical_unknown/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+            if (data71.existing_asset !== void 0) {
+              let data72 = data71.existing_asset;
+              if (Array.isArray(data72)) {
+                const len11 = data72.length;
+                for (let i11 = 0; i11 < len11; i11++) {
+                  if (typeof data72[i11] !== "string") {
+                    const err146 = { instancePath: instancePath + "/gates/dont_build_definitive/existing_asset/" + i11, schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/existing_asset/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err146];
+                    } else {
+                      vErrors.push(err146);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err147 = { instancePath: instancePath + "/gates/dont_build_definitive/existing_asset", schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/existing_asset/type", keyword: "type", params: { type: "array" }, message: "must be array" };
                 if (vErrors === null) {
                   vErrors = [err147];
                 } else {
@@ -11017,13 +11011,13 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
-            if (data74.stability !== void 0) {
-              let data76 = data74.stability;
-              if (Array.isArray(data76)) {
-                const len14 = data76.length;
-                for (let i14 = 0; i14 < len14; i14++) {
-                  if (typeof data76[i14] !== "string") {
-                    const err148 = { instancePath: instancePath + "/gates/gather_more/stability/" + i14, schemaPath: "#/properties/gates/properties/gather_more/properties/stability/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (data71.decision_depends !== void 0) {
+              let data74 = data71.decision_depends;
+              if (Array.isArray(data74)) {
+                const len12 = data74.length;
+                for (let i12 = 0; i12 < len12; i12++) {
+                  if (typeof data74[i12] !== "string") {
+                    const err148 = { instancePath: instancePath + "/gates/dont_build_definitive/decision_depends/" + i12, schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/decision_depends/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                     if (vErrors === null) {
                       vErrors = [err148];
                     } else {
@@ -11033,7 +11027,7 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                   }
                 }
               } else {
-                const err149 = { instancePath: instancePath + "/gates/gather_more/stability", schemaPath: "#/properties/gates/properties/gather_more/properties/stability/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                const err149 = { instancePath: instancePath + "/gates/dont_build_definitive/decision_depends", schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/decision_depends/type", keyword: "type", params: { type: "array" }, message: "must be array" };
                 if (vErrors === null) {
                   vErrors = [err149];
                 } else {
@@ -11042,9 +11036,18 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
-            if (data74.review_without_mitigation !== void 0) {
-              if (typeof data74.review_without_mitigation !== "boolean") {
-                const err150 = { instancePath: instancePath + "/gates/gather_more/review_without_mitigation", schemaPath: "#/properties/gates/properties/gather_more/properties/review_without_mitigation/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+            if (data71.decision_depends_applies_to !== void 0) {
+              let data76 = data71.decision_depends_applies_to;
+              if (Array.isArray(data76)) {
+                const len13 = data76.length;
+                for (let i13 = 0; i13 < len13; i13++) {
+                  if (!validate56(data76[i13], { instancePath: instancePath + "/gates/dont_build_definitive/decision_depends_applies_to/" + i13, parentData: data76, parentDataProperty: i13, rootData, dynamicAnchors })) {
+                    vErrors = vErrors === null ? validate56.errors : vErrors.concat(validate56.errors);
+                    errors = vErrors.length;
+                  }
+                }
+              } else {
+                const err150 = { instancePath: instancePath + "/gates/dont_build_definitive/decision_depends_applies_to", schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/decision_depends_applies_to/type", keyword: "type", params: { type: "array" }, message: "must be array" };
                 if (vErrors === null) {
                   vErrors = [err150];
                 } else {
@@ -11053,29 +11056,23 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
-            if (data74.modifiers !== void 0) {
-              let data79 = data74.modifiers;
-              if (Array.isArray(data79)) {
-                const len15 = data79.length;
-                for (let i15 = 0; i15 < len15; i15++) {
-                  if (!validate60(data79[i15], { instancePath: instancePath + "/gates/gather_more/modifiers/" + i15, parentData: data79, parentDataProperty: i15, rootData, dynamicAnchors })) {
-                    vErrors = vErrors === null ? validate60.errors : vErrors.concat(validate60.errors);
-                    errors = vErrors.length;
+            if (data71.value !== void 0) {
+              let data78 = data71.value;
+              if (Array.isArray(data78)) {
+                const len14 = data78.length;
+                for (let i14 = 0; i14 < len14; i14++) {
+                  if (typeof data78[i14] !== "string") {
+                    const err151 = { instancePath: instancePath + "/gates/dont_build_definitive/value/" + i14, schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/value/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err151];
+                    } else {
+                      vErrors.push(err151);
+                    }
+                    errors++;
                   }
                 }
               } else {
-                const err151 = { instancePath: instancePath + "/gates/gather_more/modifiers", schemaPath: "#/properties/gates/properties/gather_more/properties/modifiers/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-                if (vErrors === null) {
-                  vErrors = [err151];
-                } else {
-                  vErrors.push(err151);
-                }
-                errors++;
-              }
-            }
-            if (data74.defer_with_critical_unknown !== void 0) {
-              if (typeof data74.defer_with_critical_unknown !== "boolean") {
-                const err152 = { instancePath: instancePath + "/gates/gather_more/defer_with_critical_unknown", schemaPath: "#/properties/gates/properties/gather_more/properties/defer_with_critical_unknown/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                const err152 = { instancePath: instancePath + "/gates/dont_build_definitive/value", schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/value/type", keyword: "type", params: { type: "array" }, message: "must be array" };
                 if (vErrors === null) {
                   vErrors = [err152];
                 } else {
@@ -11084,9 +11081,9 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
-            if (data74.composite_null !== void 0) {
-              if (typeof data74.composite_null !== "boolean") {
-                const err153 = { instancePath: instancePath + "/gates/gather_more/composite_null", schemaPath: "#/properties/gates/properties/gather_more/properties/composite_null/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+            if (data71.superseded_by_go_item !== void 0) {
+              if (typeof data71.superseded_by_go_item !== "boolean") {
+                const err153 = { instancePath: instancePath + "/gates/dont_build_definitive/superseded_by_go_item", schemaPath: "#/properties/gates/properties/dont_build_definitive/properties/superseded_by_go_item/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
                 if (vErrors === null) {
                   vErrors = [err153];
                 } else {
@@ -11095,57 +11092,48 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
-            if (data74.ai_overlay_unresolved !== void 0) {
-              if (typeof data74.ai_overlay_unresolved !== "boolean") {
-                const err154 = { instancePath: instancePath + "/gates/gather_more/ai_overlay_unresolved", schemaPath: "#/properties/gates/properties/gather_more/properties/ai_overlay_unresolved/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
-                if (vErrors === null) {
-                  vErrors = [err154];
-                } else {
-                  vErrors.push(err154);
-                }
-                errors++;
-              }
-            }
-            if (data74.decision_depends !== void 0) {
-              let data84 = data74.decision_depends;
-              if (Array.isArray(data84)) {
-                const len16 = data84.length;
-                for (let i16 = 0; i16 < len16; i16++) {
-                  if (typeof data84[i16] !== "string") {
-                    const err155 = { instancePath: instancePath + "/gates/gather_more/decision_depends/" + i16, schemaPath: "#/properties/gates/properties/gather_more/properties/decision_depends/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                    if (vErrors === null) {
-                      vErrors = [err155];
-                    } else {
-                      vErrors.push(err155);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err156 = { instancePath: instancePath + "/gates/gather_more/decision_depends", schemaPath: "#/properties/gates/properties/gather_more/properties/decision_depends/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-                if (vErrors === null) {
-                  vErrors = [err156];
-                } else {
-                  vErrors.push(err156);
-                }
-                errors++;
-              }
-            }
           } else {
-            const err157 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            const err154 = { instancePath: instancePath + "/gates/dont_build_definitive", schemaPath: "#/properties/gates/properties/dont_build_definitive/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             if (vErrors === null) {
-              vErrors = [err157];
+              vErrors = [err154];
             } else {
-              vErrors.push(err157);
+              vErrors.push(err154);
             }
             errors++;
           }
         }
-        if (data53.dont_build_quadrant !== void 0) {
-          let data86 = data53.dont_build_quadrant;
-          if (data86 && typeof data86 == "object" && !Array.isArray(data86)) {
-            if (data86.quadrant === void 0) {
-              const err158 = { instancePath: instancePath + "/gates/dont_build_quadrant", schemaPath: "#/properties/gates/properties/dont_build_quadrant/required", keyword: "required", params: { missingProperty: "quadrant" }, message: "must have required property 'quadrant'" };
+        if (data60.gather_more !== void 0) {
+          let data81 = data60.gather_more;
+          if (data81 && typeof data81 == "object" && !Array.isArray(data81)) {
+            if (data81.critical_unknown === void 0) {
+              const err155 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/required", keyword: "required", params: { missingProperty: "critical_unknown" }, message: "must have required property 'critical_unknown'" };
+              if (vErrors === null) {
+                vErrors = [err155];
+              } else {
+                vErrors.push(err155);
+              }
+              errors++;
+            }
+            if (data81.stability === void 0) {
+              const err156 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/required", keyword: "required", params: { missingProperty: "stability" }, message: "must have required property 'stability'" };
+              if (vErrors === null) {
+                vErrors = [err156];
+              } else {
+                vErrors.push(err156);
+              }
+              errors++;
+            }
+            if (data81.review_without_mitigation === void 0) {
+              const err157 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/required", keyword: "required", params: { missingProperty: "review_without_mitigation" }, message: "must have required property 'review_without_mitigation'" };
+              if (vErrors === null) {
+                vErrors = [err157];
+              } else {
+                vErrors.push(err157);
+              }
+              errors++;
+            }
+            if (data81.modifiers === void 0) {
+              const err158 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/required", keyword: "required", params: { missingProperty: "modifiers" }, message: "must have required property 'modifiers'" };
               if (vErrors === null) {
                 vErrors = [err158];
               } else {
@@ -11153,8 +11141,8 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
               }
               errors++;
             }
-            if (data86.defer_rescued_by_ai_overlay === void 0) {
-              const err159 = { instancePath: instancePath + "/gates/dont_build_quadrant", schemaPath: "#/properties/gates/properties/dont_build_quadrant/required", keyword: "required", params: { missingProperty: "defer_rescued_by_ai_overlay" }, message: "must have required property 'defer_rescued_by_ai_overlay'" };
+            if (data81.defer_with_critical_unknown === void 0) {
+              const err159 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/required", keyword: "required", params: { missingProperty: "defer_with_critical_unknown" }, message: "must have required property 'defer_with_critical_unknown'" };
               if (vErrors === null) {
                 vErrors = [err159];
               } else {
@@ -11162,8 +11150,8 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
               }
               errors++;
             }
-            if (data86.ai_overlay_fail === void 0) {
-              const err160 = { instancePath: instancePath + "/gates/dont_build_quadrant", schemaPath: "#/properties/gates/properties/dont_build_quadrant/required", keyword: "required", params: { missingProperty: "ai_overlay_fail" }, message: "must have required property 'ai_overlay_fail'" };
+            if (data81.composite_null === void 0) {
+              const err160 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/required", keyword: "required", params: { missingProperty: "composite_null" }, message: "must have required property 'composite_null'" };
               if (vErrors === null) {
                 vErrors = [err160];
               } else {
@@ -11171,35 +11159,29 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
               }
               errors++;
             }
-            for (const key23 in data86) {
-              if (!(key23 === "quadrant" || key23 === "defer_rescued_by_ai_overlay" || key23 === "ai_overlay_fail")) {
-                const err161 = { instancePath: instancePath + "/gates/dont_build_quadrant", schemaPath: "#/properties/gates/properties/dont_build_quadrant/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key23 }, message: "must NOT have additional properties" };
+            if (data81.ai_overlay_unresolved === void 0) {
+              const err161 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/required", keyword: "required", params: { missingProperty: "ai_overlay_unresolved" }, message: "must have required property 'ai_overlay_unresolved'" };
+              if (vErrors === null) {
+                vErrors = [err161];
+              } else {
+                vErrors.push(err161);
+              }
+              errors++;
+            }
+            for (const key24 in data81) {
+              if (!(key24 === "critical_unknown" || key24 === "stability" || key24 === "review_without_mitigation" || key24 === "modifiers" || key24 === "defer_with_critical_unknown" || key24 === "composite_null" || key24 === "ai_overlay_unresolved" || key24 === "decision_depends")) {
+                const err162 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key24 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
-                  vErrors = [err161];
+                  vErrors = [err162];
                 } else {
-                  vErrors.push(err161);
+                  vErrors.push(err162);
                 }
                 errors++;
               }
             }
-            if (data86.quadrant !== void 0) {
-              let data87 = data86.quadrant;
-              if (Array.isArray(data87)) {
-                const len17 = data87.length;
-                for (let i17 = 0; i17 < len17; i17++) {
-                  let data88 = data87[i17];
-                  if (!(data88 === "prioritize" || data88 === "review" || data88 === "defer")) {
-                    const err162 = { instancePath: instancePath + "/gates/dont_build_quadrant/quadrant/" + i17, schemaPath: "#/properties/gates/properties/dont_build_quadrant/properties/quadrant/items/enum", keyword: "enum", params: { allowedValues: schema27.properties.gates.properties.dont_build_quadrant.properties.quadrant.items.enum }, message: "must be equal to one of the allowed values" };
-                    if (vErrors === null) {
-                      vErrors = [err162];
-                    } else {
-                      vErrors.push(err162);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err163 = { instancePath: instancePath + "/gates/dont_build_quadrant/quadrant", schemaPath: "#/properties/gates/properties/dont_build_quadrant/properties/quadrant/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+            if (data81.critical_unknown !== void 0) {
+              if (typeof data81.critical_unknown !== "boolean") {
+                const err163 = { instancePath: instancePath + "/gates/gather_more/critical_unknown", schemaPath: "#/properties/gates/properties/gather_more/properties/critical_unknown/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
                 if (vErrors === null) {
                   vErrors = [err163];
                 } else {
@@ -11208,20 +11190,23 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
-            if (data86.defer_rescued_by_ai_overlay !== void 0) {
-              if (typeof data86.defer_rescued_by_ai_overlay !== "boolean") {
-                const err164 = { instancePath: instancePath + "/gates/dont_build_quadrant/defer_rescued_by_ai_overlay", schemaPath: "#/properties/gates/properties/dont_build_quadrant/properties/defer_rescued_by_ai_overlay/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
-                if (vErrors === null) {
-                  vErrors = [err164];
-                } else {
-                  vErrors.push(err164);
+            if (data81.stability !== void 0) {
+              let data83 = data81.stability;
+              if (Array.isArray(data83)) {
+                const len15 = data83.length;
+                for (let i15 = 0; i15 < len15; i15++) {
+                  if (typeof data83[i15] !== "string") {
+                    const err164 = { instancePath: instancePath + "/gates/gather_more/stability/" + i15, schemaPath: "#/properties/gates/properties/gather_more/properties/stability/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err164];
+                    } else {
+                      vErrors.push(err164);
+                    }
+                    errors++;
+                  }
                 }
-                errors++;
-              }
-            }
-            if (data86.ai_overlay_fail !== void 0) {
-              if (typeof data86.ai_overlay_fail !== "boolean") {
-                const err165 = { instancePath: instancePath + "/gates/dont_build_quadrant/ai_overlay_fail", schemaPath: "#/properties/gates/properties/dont_build_quadrant/properties/ai_overlay_fail/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+              } else {
+                const err165 = { instancePath: instancePath + "/gates/gather_more/stability", schemaPath: "#/properties/gates/properties/gather_more/properties/stability/type", keyword: "type", params: { type: "array" }, message: "must be array" };
                 if (vErrors === null) {
                   vErrors = [err165];
                 } else {
@@ -11230,127 +11215,138 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
+            if (data81.review_without_mitigation !== void 0) {
+              if (typeof data81.review_without_mitigation !== "boolean") {
+                const err166 = { instancePath: instancePath + "/gates/gather_more/review_without_mitigation", schemaPath: "#/properties/gates/properties/gather_more/properties/review_without_mitigation/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                if (vErrors === null) {
+                  vErrors = [err166];
+                } else {
+                  vErrors.push(err166);
+                }
+                errors++;
+              }
+            }
+            if (data81.modifiers !== void 0) {
+              let data86 = data81.modifiers;
+              if (Array.isArray(data86)) {
+                const len16 = data86.length;
+                for (let i16 = 0; i16 < len16; i16++) {
+                  if (!validate60(data86[i16], { instancePath: instancePath + "/gates/gather_more/modifiers/" + i16, parentData: data86, parentDataProperty: i16, rootData, dynamicAnchors })) {
+                    vErrors = vErrors === null ? validate60.errors : vErrors.concat(validate60.errors);
+                    errors = vErrors.length;
+                  }
+                }
+              } else {
+                const err167 = { instancePath: instancePath + "/gates/gather_more/modifiers", schemaPath: "#/properties/gates/properties/gather_more/properties/modifiers/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                if (vErrors === null) {
+                  vErrors = [err167];
+                } else {
+                  vErrors.push(err167);
+                }
+                errors++;
+              }
+            }
+            if (data81.defer_with_critical_unknown !== void 0) {
+              if (typeof data81.defer_with_critical_unknown !== "boolean") {
+                const err168 = { instancePath: instancePath + "/gates/gather_more/defer_with_critical_unknown", schemaPath: "#/properties/gates/properties/gather_more/properties/defer_with_critical_unknown/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                if (vErrors === null) {
+                  vErrors = [err168];
+                } else {
+                  vErrors.push(err168);
+                }
+                errors++;
+              }
+            }
+            if (data81.composite_null !== void 0) {
+              if (typeof data81.composite_null !== "boolean") {
+                const err169 = { instancePath: instancePath + "/gates/gather_more/composite_null", schemaPath: "#/properties/gates/properties/gather_more/properties/composite_null/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                if (vErrors === null) {
+                  vErrors = [err169];
+                } else {
+                  vErrors.push(err169);
+                }
+                errors++;
+              }
+            }
+            if (data81.ai_overlay_unresolved !== void 0) {
+              if (typeof data81.ai_overlay_unresolved !== "boolean") {
+                const err170 = { instancePath: instancePath + "/gates/gather_more/ai_overlay_unresolved", schemaPath: "#/properties/gates/properties/gather_more/properties/ai_overlay_unresolved/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                if (vErrors === null) {
+                  vErrors = [err170];
+                } else {
+                  vErrors.push(err170);
+                }
+                errors++;
+              }
+            }
+            if (data81.decision_depends !== void 0) {
+              let data91 = data81.decision_depends;
+              if (Array.isArray(data91)) {
+                const len17 = data91.length;
+                for (let i17 = 0; i17 < len17; i17++) {
+                  if (typeof data91[i17] !== "string") {
+                    const err171 = { instancePath: instancePath + "/gates/gather_more/decision_depends/" + i17, schemaPath: "#/properties/gates/properties/gather_more/properties/decision_depends/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err171];
+                    } else {
+                      vErrors.push(err171);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err172 = { instancePath: instancePath + "/gates/gather_more/decision_depends", schemaPath: "#/properties/gates/properties/gather_more/properties/decision_depends/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                if (vErrors === null) {
+                  vErrors = [err172];
+                } else {
+                  vErrors.push(err172);
+                }
+                errors++;
+              }
+            }
           } else {
-            const err166 = { instancePath: instancePath + "/gates/dont_build_quadrant", schemaPath: "#/properties/gates/properties/dont_build_quadrant/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            const err173 = { instancePath: instancePath + "/gates/gather_more", schemaPath: "#/properties/gates/properties/gather_more/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             if (vErrors === null) {
-              vErrors = [err166];
+              vErrors = [err173];
             } else {
-              vErrors.push(err166);
+              vErrors.push(err173);
             }
             errors++;
           }
         }
-        if (data53.go !== void 0) {
-          let data91 = data53.go;
-          if (data91 && typeof data91 == "object" && !Array.isArray(data91)) {
-            if (data91.success_metric === void 0) {
-              const err167 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/required", keyword: "required", params: { missingProperty: "success_metric" }, message: "must have required property 'success_metric'" };
+        if (data60.dont_build_quadrant !== void 0) {
+          let data93 = data60.dont_build_quadrant;
+          if (data93 && typeof data93 == "object" && !Array.isArray(data93)) {
+            if (data93.quadrant === void 0) {
+              const err174 = { instancePath: instancePath + "/gates/dont_build_quadrant", schemaPath: "#/properties/gates/properties/dont_build_quadrant/required", keyword: "required", params: { missingProperty: "quadrant" }, message: "must have required property 'quadrant'" };
               if (vErrors === null) {
-                vErrors = [err167];
+                vErrors = [err174];
               } else {
-                vErrors.push(err167);
+                vErrors.push(err174);
               }
               errors++;
             }
-            if (data91.quadrants === void 0) {
-              const err168 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/required", keyword: "required", params: { missingProperty: "quadrants" }, message: "must have required property 'quadrants'" };
+            if (data93.defer_rescued_by_ai_overlay === void 0) {
+              const err175 = { instancePath: instancePath + "/gates/dont_build_quadrant", schemaPath: "#/properties/gates/properties/dont_build_quadrant/required", keyword: "required", params: { missingProperty: "defer_rescued_by_ai_overlay" }, message: "must have required property 'defer_rescued_by_ai_overlay'" };
               if (vErrors === null) {
-                vErrors = [err168];
+                vErrors = [err175];
               } else {
-                vErrors.push(err168);
+                vErrors.push(err175);
               }
               errors++;
             }
-            if (data91.review_needs_mitigation === void 0) {
-              const err169 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/required", keyword: "required", params: { missingProperty: "review_needs_mitigation" }, message: "must have required property 'review_needs_mitigation'" };
+            if (data93.ai_overlay_fail === void 0) {
+              const err176 = { instancePath: instancePath + "/gates/dont_build_quadrant", schemaPath: "#/properties/gates/properties/dont_build_quadrant/required", keyword: "required", params: { missingProperty: "ai_overlay_fail" }, message: "must have required property 'ai_overlay_fail'" };
               if (vErrors === null) {
-                vErrors = [err169];
+                vErrors = [err176];
               } else {
-                vErrors.push(err169);
+                vErrors.push(err176);
               }
               errors++;
             }
-            if (data91.ai_candidate_from_defer === void 0) {
-              const err170 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/required", keyword: "required", params: { missingProperty: "ai_candidate_from_defer" }, message: "must have required property 'ai_candidate_from_defer'" };
-              if (vErrors === null) {
-                vErrors = [err170];
-              } else {
-                vErrors.push(err170);
-              }
-              errors++;
-            }
-            if (data91.ai_overlay_must_pass === void 0) {
-              const err171 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/required", keyword: "required", params: { missingProperty: "ai_overlay_must_pass" }, message: "must have required property 'ai_overlay_must_pass'" };
-              if (vErrors === null) {
-                vErrors = [err171];
-              } else {
-                vErrors.push(err171);
-              }
-              errors++;
-            }
-            if (data91.reflect_back_confirmed === void 0) {
-              const err172 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/required", keyword: "required", params: { missingProperty: "reflect_back_confirmed" }, message: "must have required property 'reflect_back_confirmed'" };
-              if (vErrors === null) {
-                vErrors = [err172];
-              } else {
-                vErrors.push(err172);
-              }
-              errors++;
-            }
-            for (const key24 in data91) {
-              if (!(key24 === "success_metric" || key24 === "quadrants" || key24 === "review_needs_mitigation" || key24 === "ai_candidate_from_defer" || key24 === "ai_overlay_must_pass" || key24 === "reflect_back_confirmed")) {
-                const err173 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key24 }, message: "must NOT have additional properties" };
-                if (vErrors === null) {
-                  vErrors = [err173];
-                } else {
-                  vErrors.push(err173);
-                }
-                errors++;
-              }
-            }
-            if (data91.success_metric !== void 0) {
-              let data92 = data91.success_metric;
-              if (Array.isArray(data92)) {
-                const len18 = data92.length;
-                for (let i18 = 0; i18 < len18; i18++) {
-                  if (typeof data92[i18] !== "string") {
-                    const err174 = { instancePath: instancePath + "/gates/go/success_metric/" + i18, schemaPath: "#/properties/gates/properties/go/properties/success_metric/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                    if (vErrors === null) {
-                      vErrors = [err174];
-                    } else {
-                      vErrors.push(err174);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err175 = { instancePath: instancePath + "/gates/go/success_metric", schemaPath: "#/properties/gates/properties/go/properties/success_metric/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-                if (vErrors === null) {
-                  vErrors = [err175];
-                } else {
-                  vErrors.push(err175);
-                }
-                errors++;
-              }
-            }
-            if (data91.quadrants !== void 0) {
-              let data94 = data91.quadrants;
-              if (Array.isArray(data94)) {
-                const len19 = data94.length;
-                for (let i19 = 0; i19 < len19; i19++) {
-                  let data95 = data94[i19];
-                  if (!(data95 === "prioritize" || data95 === "review" || data95 === "defer")) {
-                    const err176 = { instancePath: instancePath + "/gates/go/quadrants/" + i19, schemaPath: "#/properties/gates/properties/go/properties/quadrants/items/enum", keyword: "enum", params: { allowedValues: schema27.properties.gates.properties.go.properties.quadrants.items.enum }, message: "must be equal to one of the allowed values" };
-                    if (vErrors === null) {
-                      vErrors = [err176];
-                    } else {
-                      vErrors.push(err176);
-                    }
-                    errors++;
-                  }
-                }
-              } else {
-                const err177 = { instancePath: instancePath + "/gates/go/quadrants", schemaPath: "#/properties/gates/properties/go/properties/quadrants/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+            for (const key25 in data93) {
+              if (!(key25 === "quadrant" || key25 === "defer_rescued_by_ai_overlay" || key25 === "ai_overlay_fail")) {
+                const err177 = { instancePath: instancePath + "/gates/dont_build_quadrant", schemaPath: "#/properties/gates/properties/dont_build_quadrant/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key25 }, message: "must NOT have additional properties" };
                 if (vErrors === null) {
                   vErrors = [err177];
                 } else {
@@ -11359,20 +11355,24 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
-            if (data91.review_needs_mitigation !== void 0) {
-              if (typeof data91.review_needs_mitigation !== "boolean") {
-                const err178 = { instancePath: instancePath + "/gates/go/review_needs_mitigation", schemaPath: "#/properties/gates/properties/go/properties/review_needs_mitigation/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
-                if (vErrors === null) {
-                  vErrors = [err178];
-                } else {
-                  vErrors.push(err178);
+            if (data93.quadrant !== void 0) {
+              let data94 = data93.quadrant;
+              if (Array.isArray(data94)) {
+                const len18 = data94.length;
+                for (let i18 = 0; i18 < len18; i18++) {
+                  let data95 = data94[i18];
+                  if (!(data95 === "prioritize" || data95 === "review" || data95 === "defer")) {
+                    const err178 = { instancePath: instancePath + "/gates/dont_build_quadrant/quadrant/" + i18, schemaPath: "#/properties/gates/properties/dont_build_quadrant/properties/quadrant/items/enum", keyword: "enum", params: { allowedValues: schema27.properties.gates.properties.dont_build_quadrant.properties.quadrant.items.enum }, message: "must be equal to one of the allowed values" };
+                    if (vErrors === null) {
+                      vErrors = [err178];
+                    } else {
+                      vErrors.push(err178);
+                    }
+                    errors++;
+                  }
                 }
-                errors++;
-              }
-            }
-            if (data91.ai_candidate_from_defer !== void 0) {
-              if (typeof data91.ai_candidate_from_defer !== "boolean") {
-                const err179 = { instancePath: instancePath + "/gates/go/ai_candidate_from_defer", schemaPath: "#/properties/gates/properties/go/properties/ai_candidate_from_defer/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+              } else {
+                const err179 = { instancePath: instancePath + "/gates/dont_build_quadrant/quadrant", schemaPath: "#/properties/gates/properties/dont_build_quadrant/properties/quadrant/type", keyword: "type", params: { type: "array" }, message: "must be array" };
                 if (vErrors === null) {
                   vErrors = [err179];
                 } else {
@@ -11381,9 +11381,9 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
-            if (data91.ai_overlay_must_pass !== void 0) {
-              if (typeof data91.ai_overlay_must_pass !== "boolean") {
-                const err180 = { instancePath: instancePath + "/gates/go/ai_overlay_must_pass", schemaPath: "#/properties/gates/properties/go/properties/ai_overlay_must_pass/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+            if (data93.defer_rescued_by_ai_overlay !== void 0) {
+              if (typeof data93.defer_rescued_by_ai_overlay !== "boolean") {
+                const err180 = { instancePath: instancePath + "/gates/dont_build_quadrant/defer_rescued_by_ai_overlay", schemaPath: "#/properties/gates/properties/dont_build_quadrant/properties/defer_rescued_by_ai_overlay/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
                 if (vErrors === null) {
                   vErrors = [err180];
                 } else {
@@ -11392,9 +11392,9 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
                 errors++;
               }
             }
-            if (data91.reflect_back_confirmed !== void 0) {
-              if (typeof data91.reflect_back_confirmed !== "boolean") {
-                const err181 = { instancePath: instancePath + "/gates/go/reflect_back_confirmed", schemaPath: "#/properties/gates/properties/go/properties/reflect_back_confirmed/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+            if (data93.ai_overlay_fail !== void 0) {
+              if (typeof data93.ai_overlay_fail !== "boolean") {
+                const err181 = { instancePath: instancePath + "/gates/dont_build_quadrant/ai_overlay_fail", schemaPath: "#/properties/gates/properties/dont_build_quadrant/properties/ai_overlay_fail/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
                 if (vErrors === null) {
                   vErrors = [err181];
                 } else {
@@ -11404,7 +11404,7 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
               }
             }
           } else {
-            const err182 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            const err182 = { instancePath: instancePath + "/gates/dont_build_quadrant", schemaPath: "#/properties/gates/properties/dont_build_quadrant/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             if (vErrors === null) {
               vErrors = [err182];
             } else {
@@ -11413,33 +11413,206 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
             errors++;
           }
         }
-        if (data53.fallthrough !== void 0) {
-          if ("gather_more" !== data53.fallthrough) {
-            const err183 = { instancePath: instancePath + "/gates/fallthrough", schemaPath: "#/properties/gates/properties/fallthrough/const", keyword: "const", params: { allowedValue: "gather_more" }, message: "must be equal to constant" };
+        if (data60.go !== void 0) {
+          let data98 = data60.go;
+          if (data98 && typeof data98 == "object" && !Array.isArray(data98)) {
+            if (data98.success_metric === void 0) {
+              const err183 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/required", keyword: "required", params: { missingProperty: "success_metric" }, message: "must have required property 'success_metric'" };
+              if (vErrors === null) {
+                vErrors = [err183];
+              } else {
+                vErrors.push(err183);
+              }
+              errors++;
+            }
+            if (data98.quadrants === void 0) {
+              const err184 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/required", keyword: "required", params: { missingProperty: "quadrants" }, message: "must have required property 'quadrants'" };
+              if (vErrors === null) {
+                vErrors = [err184];
+              } else {
+                vErrors.push(err184);
+              }
+              errors++;
+            }
+            if (data98.review_needs_mitigation === void 0) {
+              const err185 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/required", keyword: "required", params: { missingProperty: "review_needs_mitigation" }, message: "must have required property 'review_needs_mitigation'" };
+              if (vErrors === null) {
+                vErrors = [err185];
+              } else {
+                vErrors.push(err185);
+              }
+              errors++;
+            }
+            if (data98.ai_candidate_from_defer === void 0) {
+              const err186 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/required", keyword: "required", params: { missingProperty: "ai_candidate_from_defer" }, message: "must have required property 'ai_candidate_from_defer'" };
+              if (vErrors === null) {
+                vErrors = [err186];
+              } else {
+                vErrors.push(err186);
+              }
+              errors++;
+            }
+            if (data98.ai_overlay_must_pass === void 0) {
+              const err187 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/required", keyword: "required", params: { missingProperty: "ai_overlay_must_pass" }, message: "must have required property 'ai_overlay_must_pass'" };
+              if (vErrors === null) {
+                vErrors = [err187];
+              } else {
+                vErrors.push(err187);
+              }
+              errors++;
+            }
+            if (data98.reflect_back_confirmed === void 0) {
+              const err188 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/required", keyword: "required", params: { missingProperty: "reflect_back_confirmed" }, message: "must have required property 'reflect_back_confirmed'" };
+              if (vErrors === null) {
+                vErrors = [err188];
+              } else {
+                vErrors.push(err188);
+              }
+              errors++;
+            }
+            for (const key26 in data98) {
+              if (!(key26 === "success_metric" || key26 === "quadrants" || key26 === "review_needs_mitigation" || key26 === "ai_candidate_from_defer" || key26 === "ai_overlay_must_pass" || key26 === "reflect_back_confirmed")) {
+                const err189 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key26 }, message: "must NOT have additional properties" };
+                if (vErrors === null) {
+                  vErrors = [err189];
+                } else {
+                  vErrors.push(err189);
+                }
+                errors++;
+              }
+            }
+            if (data98.success_metric !== void 0) {
+              let data99 = data98.success_metric;
+              if (Array.isArray(data99)) {
+                const len19 = data99.length;
+                for (let i19 = 0; i19 < len19; i19++) {
+                  if (typeof data99[i19] !== "string") {
+                    const err190 = { instancePath: instancePath + "/gates/go/success_metric/" + i19, schemaPath: "#/properties/gates/properties/go/properties/success_metric/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    if (vErrors === null) {
+                      vErrors = [err190];
+                    } else {
+                      vErrors.push(err190);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err191 = { instancePath: instancePath + "/gates/go/success_metric", schemaPath: "#/properties/gates/properties/go/properties/success_metric/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                if (vErrors === null) {
+                  vErrors = [err191];
+                } else {
+                  vErrors.push(err191);
+                }
+                errors++;
+              }
+            }
+            if (data98.quadrants !== void 0) {
+              let data101 = data98.quadrants;
+              if (Array.isArray(data101)) {
+                const len20 = data101.length;
+                for (let i20 = 0; i20 < len20; i20++) {
+                  let data102 = data101[i20];
+                  if (!(data102 === "prioritize" || data102 === "review" || data102 === "defer")) {
+                    const err192 = { instancePath: instancePath + "/gates/go/quadrants/" + i20, schemaPath: "#/properties/gates/properties/go/properties/quadrants/items/enum", keyword: "enum", params: { allowedValues: schema27.properties.gates.properties.go.properties.quadrants.items.enum }, message: "must be equal to one of the allowed values" };
+                    if (vErrors === null) {
+                      vErrors = [err192];
+                    } else {
+                      vErrors.push(err192);
+                    }
+                    errors++;
+                  }
+                }
+              } else {
+                const err193 = { instancePath: instancePath + "/gates/go/quadrants", schemaPath: "#/properties/gates/properties/go/properties/quadrants/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+                if (vErrors === null) {
+                  vErrors = [err193];
+                } else {
+                  vErrors.push(err193);
+                }
+                errors++;
+              }
+            }
+            if (data98.review_needs_mitigation !== void 0) {
+              if (typeof data98.review_needs_mitigation !== "boolean") {
+                const err194 = { instancePath: instancePath + "/gates/go/review_needs_mitigation", schemaPath: "#/properties/gates/properties/go/properties/review_needs_mitigation/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                if (vErrors === null) {
+                  vErrors = [err194];
+                } else {
+                  vErrors.push(err194);
+                }
+                errors++;
+              }
+            }
+            if (data98.ai_candidate_from_defer !== void 0) {
+              if (typeof data98.ai_candidate_from_defer !== "boolean") {
+                const err195 = { instancePath: instancePath + "/gates/go/ai_candidate_from_defer", schemaPath: "#/properties/gates/properties/go/properties/ai_candidate_from_defer/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                if (vErrors === null) {
+                  vErrors = [err195];
+                } else {
+                  vErrors.push(err195);
+                }
+                errors++;
+              }
+            }
+            if (data98.ai_overlay_must_pass !== void 0) {
+              if (typeof data98.ai_overlay_must_pass !== "boolean") {
+                const err196 = { instancePath: instancePath + "/gates/go/ai_overlay_must_pass", schemaPath: "#/properties/gates/properties/go/properties/ai_overlay_must_pass/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                if (vErrors === null) {
+                  vErrors = [err196];
+                } else {
+                  vErrors.push(err196);
+                }
+                errors++;
+              }
+            }
+            if (data98.reflect_back_confirmed !== void 0) {
+              if (typeof data98.reflect_back_confirmed !== "boolean") {
+                const err197 = { instancePath: instancePath + "/gates/go/reflect_back_confirmed", schemaPath: "#/properties/gates/properties/go/properties/reflect_back_confirmed/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+                if (vErrors === null) {
+                  vErrors = [err197];
+                } else {
+                  vErrors.push(err197);
+                }
+                errors++;
+              }
+            }
+          } else {
+            const err198 = { instancePath: instancePath + "/gates/go", schemaPath: "#/properties/gates/properties/go/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             if (vErrors === null) {
-              vErrors = [err183];
+              vErrors = [err198];
             } else {
-              vErrors.push(err183);
+              vErrors.push(err198);
+            }
+            errors++;
+          }
+        }
+        if (data60.fallthrough !== void 0) {
+          if ("gather_more" !== data60.fallthrough) {
+            const err199 = { instancePath: instancePath + "/gates/fallthrough", schemaPath: "#/properties/gates/properties/fallthrough/const", keyword: "const", params: { allowedValue: "gather_more" }, message: "must be equal to constant" };
+            if (vErrors === null) {
+              vErrors = [err199];
+            } else {
+              vErrors.push(err199);
             }
             errors++;
           }
         }
       } else {
-        const err184 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        const err200 = { instancePath: instancePath + "/gates", schemaPath: "#/properties/gates/type", keyword: "type", params: { type: "object" }, message: "must be object" };
         if (vErrors === null) {
-          vErrors = [err184];
+          vErrors = [err200];
         } else {
-          vErrors.push(err184);
+          vErrors.push(err200);
         }
         errors++;
       }
     }
   } else {
-    const err185 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err201 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err185];
+      vErrors = [err201];
     } else {
-      vErrors.push(err185);
+      vErrors.push(err201);
     }
     errors++;
   }
@@ -11754,6 +11927,14 @@ function buildFramework(sources, options = {}) {
     for (const id of def.usually_from) if (!areas.has(id)) issues.push(`scoring.yaml: ${c}.usually_from names unknown area ${id}`);
     for (const b of Object.keys(def.describe)) if (!(b in def.bands)) issues.push(`scoring.yaml: ${c}.describe names unknown band ${b}`);
     for (const b of Object.keys(def.bands)) if (b !== "unknown" && !(b in def.describe)) issues.push(`scoring.yaml: ${c} band ${b} has no description`);
+  }
+  for (const [fact, q] of Object.entries(scoring2.gap_questions ?? {})) {
+    const allowed = factBands.get(fact);
+    if (!allowed) {
+      issues.push(`scoring.yaml: gap_questions names unknown fact ${fact}`);
+      continue;
+    }
+    for (const b of q.when) if (!allowed.includes(b)) issues.push(`scoring.yaml: gap_questions.${fact} names band "${b}", which ${fact} doesn't define`);
   }
   for (const [fact, ids] of Object.entries(scoring2.gate_fact_sources ?? {})) {
     if (!scoring2.gate_facts[fact]) issues.push(`scoring.yaml: gate_fact_sources names unknown gate fact ${fact}`);
@@ -14061,6 +14242,21 @@ function gateFactSource(fact, item, fw) {
   const applies = new Set(["core", item.type, ...item.modifiers.map((m) => `mod.${m}`)].flatMap((m) => fw.modules[m]?.areas.map((a) => a.id) ?? []));
   return (fw.scoring.gate_fact_sources?.[fact] ?? []).find((id) => applies.has(id)) ?? null;
 }
+function factSource(fact, item, fw) {
+  const gate = gateFactSource(fact, item, fw);
+  if (gate) return gate;
+  const applies = new Set(["core", item.type, ...item.modifiers.map((m) => `mod.${m}`)].flatMap((m) => fw.modules[m]?.areas.map((a) => a.id) ?? []));
+  return fw.scoring.criteria[fact]?.usually_from.find((id) => applies.has(id)) ?? null;
+}
+function addGapQuestions(session, item, fw) {
+  const view = scoringView(session, item);
+  for (const [fact, q] of Object.entries(fw.scoring.gap_questions ?? {})) {
+    if (!q.when.includes(bandOf(view, fact, fw))) continue;
+    const area = factSource(fact, item, fw);
+    if (!area || item.open_questions.some((o) => o.question === q.question)) continue;
+    item.open_questions.push({ area, question: q.question, who_can_answer: q.who_can_answer, artifact_needed: q.artifact_needed });
+  }
+}
 function wasAsked2(session, item, id) {
   const key = askedKey(item.id, id);
   if (key && session.session.asked?.[key]) return true;
@@ -14231,6 +14427,7 @@ function scoreAndGate(session, fw) {
     return gate;
   };
   for (const item of out2.items) item.gate = gateOf(item.id);
+  for (const item of out2.items) if (item.gate.decision === "gather_more") addGapQuestions(out2, item, fw);
   return { session: out2, scored: true };
 }
 

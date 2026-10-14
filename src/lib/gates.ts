@@ -34,6 +34,28 @@ export function gateFactSource(fact: string, item: Item, fw: Framework): string 
   return (fw.scoring.gate_fact_sources?.[fact] ?? []).find((id) => applies.has(id)) ?? null;
 }
 
+/** The area a fact comes from for this item: its gate-fact source, or a criterion's first applicable source. */
+function factSource(fact: string, item: Item, fw: Framework): string | null {
+  const gate = gateFactSource(fact, item, fw);
+  if (gate) return gate;
+  const applies = new Set(["core", item.type, ...item.modifiers.map((m) => `mod.${m}`)].flatMap((m) => fw.modules[m]?.areas.map((a) => a.id) ?? []));
+  return fw.scoring.criteria[fact]?.usually_from.find((id) => applies.has(id)) ?? null;
+}
+
+/**
+ * One open question per critical fact still unknown or vague (gap_questions), for a Gather more
+ * item, so its discovery brief always says what to ask, who can answer and what would settle it.
+ */
+export function addGapQuestions(session: Session, item: Item, fw: Framework): void {
+  const view = scoringView(session, item);
+  for (const [fact, q] of Object.entries(fw.scoring.gap_questions ?? {})) {
+    if (!q.when.includes(bandOf(view, fact, fw))) continue;
+    const area = factSource(fact, item, fw);
+    if (!area || item.open_questions.some((o) => o.question === q.question)) continue;
+    item.open_questions.push({ area, question: q.question, who_can_answer: q.who_can_answer, artifact_needed: q.artifact_needed });
+  }
+}
+
 /** The user was asked about this area (or answered it unprompted). */
 function wasAsked(session: Session, item: Item, id: string): boolean {
   const key = askedKey(item.id, id);
@@ -246,5 +268,6 @@ export function scoreAndGate(session: Session, fw: Framework): { session: Sessio
     return gate;
   };
   for (const item of out.items) item.gate = gateOf(item.id);
+  for (const item of out.items) if (item.gate!.decision === "gather_more") addGapQuestions(out, item, fw);
   return { session: out, scored: true };
 }

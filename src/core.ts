@@ -14,7 +14,7 @@ export { buildSummary, summaryText, summaryIndex } from "./lib/summary.ts";
 export type { Summary, SummaryItem } from "./lib/summary.ts";
 export type { Status, ItemStatus } from "./lib/guide.ts";
 
-export { renderAll, scope, RenderError } from "./lib/render.ts";
+export { renderAll, scope, RenderError, gateBlurb } from "./lib/render.ts";
 export { lineDiff } from "./lib/diff.ts";
 export { normalize, findQuote } from "./lib/grounding.ts";
 export type { TranscriptEntry } from "./lib/grounding.ts";

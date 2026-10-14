@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { loadFramework, readTemplates } from "../src/lib/framework-fs.ts";
-import { renderAll, RenderError } from "../src/lib/render.ts";
+import { gateBlurb, renderAll, RenderError } from "../src/lib/render.ts";
 import { scoreAndGate } from "../src/lib/gates.ts";
 import { lineDiff } from "../src/lib/diff.ts";
 import { writeSession } from "../src/lib/state.ts";
@@ -255,5 +255,48 @@ describe("render ledger", () => {
 
   test("--overwrite and --keep on the same file is refused", () => {
     assert.equal(run(repoWith("mine\n"), "--overwrite", "CLAUDE.md", "--keep", "CLAUDE.md").status, 4);
+  });
+});
+
+describe("Gather more: the brief always has open questions, and the card matches it (enablement live test)", () => {
+  const fwG = loadFramework(".");
+  const tplG = readTemplates(".");
+  const enablement = () => {
+    const s = parseYaml(readFileSync("tests/fixtures/session/enablement-live-gather-more.yaml", "utf8"));
+    for (const item of s.items) { item.scoring = null; item.gate = null; item.open_questions = []; }
+    return scoreAndGate(s, fwG).session;
+  };
+
+  test("one open question per unknown or vague critical fact, with who can answer and what would settle it", () => {
+    const s = enablement();
+    const item = s.items[0];
+    assert.equal(item.gate!.decision, "gather_more");
+    const qs = item.open_questions.map((q) => q.question);
+    assert.ok(qs.some((q) => q.startsWith("What decision or outcome depends on this")), qs.join(" | "));
+    assert.ok(qs.some((q) => q.startsWith("What number would show this worked")), qs.join(" | "));
+    assert.ok(qs.some((q) => q.startsWith("What is the current way costing")), qs.join(" | "));
+    for (const q of item.open_questions) assert.ok(q.who_can_answer && q.artifact_needed, q.question);
+    const brief = new Map(renderAll(s, fwG, tplG)).get("DISCOVERY_BRIEF.md")!;
+    assert.doesNotMatch(brief, /_Nothing recorded\._/);
+    assert.match(brief, /Who can answer: .*What would settle it: /);
+  });
+
+  test("the card's line and the brief can't disagree", () => {
+    const cases = [enablement()];
+    const bare = enablement();
+    bare.items[0].open_questions = [];
+    cases.push(bare);
+    for (const s of cases) {
+      const item = s.items[0];
+      const brief = new Map(renderAll(s, fwG, tplG)).get("DISCOVERY_BRIEF.md")!;
+      const section = brief.slice(brief.indexOf("Open questions:"));
+      const lines = section.split("\n").filter((l) => l.startsWith("- "));
+      const blurb = gateBlurb(s, item, fwG);
+      if (lines.length === 0) assert.doesNotMatch(blurb, /lists/, blurb);
+      else {
+        assert.match(blurb, new RegExp(`lists ${lines.length} open question`), blurb);
+        if (/who can answer/.test(blurb)) assert.ok(lines.every((l) => l.includes("Who can answer:")), blurb);
+      }
+    }
   });
 });

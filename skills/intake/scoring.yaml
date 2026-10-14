@@ -140,6 +140,27 @@ gate_fact_sources:
   workaround_permanent: [broken.workaround]
   success_metric: [core.outcome]
 
+# A Gather more item gets one open question per critical fact that's still unknown or vague, written
+# by code so the discovery brief is never empty (enablement live test). Keyed by fact; `when` lists
+# the bands that leave it open. The area is the fact's source (gate_fact_sources, or the
+# criterion's usually_from).
+gap_questions:
+  decision_depends:
+    when: [unknown]
+    question: What decision or outcome depends on this, and who makes it?
+    who_can_answer: Whoever asked for it, or whoever will act on the result
+    artifact_needed: A named decision or outcome that changes once this exists, and who owns it
+  success_metric:
+    when: [unknown, vague, measurable_no_baseline]
+    question: What number would show this worked, and what is that number today?
+    who_can_answer: Whoever owns the outcome, and whoever keeps today's numbers
+    artifact_needed: A baseline measured today (a time, count or cost) and the target that would count as success
+  value:
+    when: [unknown]
+    question: What is the current way costing, or what is this worth if it works?
+    who_can_answer: Whoever owns the outcome, or whoever pays for the current way
+    artifact_needed: An estimate of the cost today or the gain, in hours, errors or money, even a rough one
+
 # How to pick gate facts the band names don't explain on their own. Shown in the guide.
 gate_fact_notes:
   decision_depends: >-

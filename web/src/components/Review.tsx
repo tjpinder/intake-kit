@@ -1,14 +1,15 @@
 // After the reflect-back is confirmed: each item's gate, why, and the spec pack to download.
 
 import { useMemo, useState } from "react";
-import type { Session } from "../../../src/core.ts";
+import { gateBlurb, type Session } from "../../../src/core.ts";
+import { fw } from "../kit.ts";
 import { downloadPack, packFiles } from "../pack.ts";
 
-const DECISION: Record<string, { label: string; cls: string; blurb: string }> = {
-  go: { label: "Go", cls: "g-go", blurb: "Ready to build. The spec pack has everything to start." },
-  gather_more: { label: "Gather more", cls: "g-more", blurb: "Not yet: a few answers are missing. The discovery brief lists who can fill them in." },
-  dont_build: { label: "Don't build", cls: "g-dont", blurb: "Building this isn't worth it right now. That's a good outcome when it's right." },
-  fix_not_build: { label: "Fix, not build", cls: "g-fix", blurb: "This is a fix, not a project. The diagnostic brief has the ticket text." },
+const DECISION: Record<string, { label: string; cls: string }> = {
+  go: { label: "Go", cls: "g-go" },
+  gather_more: { label: "Gather more", cls: "g-more" },
+  dont_build: { label: "Don't build", cls: "g-dont" },
+  fix_not_build: { label: "Fix, not build", cls: "g-fix" },
 };
 
 export function Review({ session, onNewIntake }: { session: Session; onNewIntake: () => void }) {
@@ -31,7 +32,7 @@ export function Review({ session, onNewIntake }: { session: Session; onNewIntake
                 <span className="decision">{d.label}</span>
                 <h3>{item.title}</h3>
               </header>
-              <p className="blurb">{primary[0]?.startsWith("Superseded by") ? `Not needed: ${item.superseded_by} replaces it.` : d.blurb}</p>
+              <p className="blurb">{primary[0]?.startsWith("Superseded by") ? `Not needed: ${item.superseded_by} replaces it.` : gateBlurb(session, item, fw)}</p>
               <ul>{primary.map((r) => <li key={r}>{r}</li>)}</ul>
               {also.length ? (
                 <details>

@@ -60,6 +60,8 @@ export interface Scoring {
   gate_fact_notes?: Record<string, string>;
   /** For each gate fact, the areas it comes from; the first one that applies to an item is asked. */
   gate_fact_sources?: Record<string, string[]>;
+  /** Open questions code adds to a Gather more item for each critical fact left unknown or vague. */
+  gap_questions?: Record<string, { when: Band[]; question: string; who_can_answer: string; artifact_needed: string }>;
   gates: {
     go_requires_core: string[];
     precedence: string[];
@@ -275,6 +277,11 @@ export function buildFramework(sources: FrameworkSources, options: BuildOptions 
     for (const id of def.usually_from) if (!areas.has(id)) issues.push(`scoring.yaml: ${c}.usually_from names unknown area ${id}`);
     for (const b of Object.keys(def.describe)) if (!(b in def.bands)) issues.push(`scoring.yaml: ${c}.describe names unknown band ${b}`);
     for (const b of Object.keys(def.bands)) if (b !== "unknown" && !(b in def.describe)) issues.push(`scoring.yaml: ${c} band ${b} has no description`);
+  }
+  for (const [fact, q] of Object.entries(scoring.gap_questions ?? {})) {
+    const allowed = factBands.get(fact);
+    if (!allowed) { issues.push(`scoring.yaml: gap_questions names unknown fact ${fact}`); continue; }
+    for (const b of q.when) if (!allowed.includes(b)) issues.push(`scoring.yaml: gap_questions.${fact} names band "${b}", which ${fact} doesn't define`);
   }
   for (const [fact, ids] of Object.entries(scoring.gate_fact_sources ?? {})) {
     if (!scoring.gate_facts[fact]) issues.push(`scoring.yaml: gate_fact_sources names unknown gate fact ${fact}`);

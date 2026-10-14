@@ -1,0 +1,353 @@
+# Synthetic: the shape and bands of the Oct 14 enablement live test (Gather more, decision and
+# value unknown, success vague), with every user answer replaced. No real words.
+schema_version: 1
+framework_version: 0.1.0
+session:
+  id: 2026-01-01-0e57
+  started_at: 2026-10-14T14:31:03.097Z
+  mode: stakeholder
+  provider: azure-openai
+  grounding: transcript
+  reflect_back:
+    text: (synthetic)
+    confirmed: true
+    corrections: []
+    proposed_at: 2026-10-14T14:44:55.861Z
+  asked:
+    item-1:known_idea.proposal: 2026-10-14T14:34:29.198Z
+    item-1:known_idea.pull: 2026-10-14T14:34:29.198Z
+    item-1:known_idea.push: 2026-10-14T14:34:29.198Z
+    item-1:known_idea.current: 2026-10-14T14:34:29.198Z
+    core.users: 2026-10-14T14:34:59.179Z
+    core.outcome: 2026-10-14T14:35:29.045Z
+    core.data: 2026-10-14T14:36:21.002Z
+    core.systems: 2026-10-14T14:36:59.836Z
+    core.constraints: 2026-10-14T14:37:37.770Z
+    core.trust: 2026-10-14T14:39:24.646Z
+    item-1:known_idea.adoption: 2026-10-14T14:39:50.113Z
+    item-1:known_idea.prior: 2026-10-14T14:40:46.987Z
+    item-1:known_idea.existing: 2026-10-14T14:42:28.906Z
+  engine:
+    version: 2
+    phase: confirmed
+    turns: 15
+    pending: null
+    areas:
+      item-1:known_idea.current:
+        probed: false
+        confirm: none
+        partial: null
+      core.users:
+        probed: false
+        confirm: none
+        partial: null
+      core.outcome:
+        probed: true
+        confirm: none
+        partial: null
+      core.data:
+        probed: false
+        confirm: none
+        partial: null
+      core.systems:
+        probed: false
+        confirm: none
+        partial: null
+      core.constraints:
+        probed: false
+        confirm: none
+        partial: null
+      core.trust:
+        probed: false
+        confirm: none
+        partial: null
+      item-1:known_idea.adoption:
+        probed: false
+        confirm: none
+        partial: null
+      item-1:known_idea.prior:
+        probed: false
+        confirm: none
+        partial: null
+    checks: {}
+    disambiguated: true
+    summary_rounds: 3
+core:
+  users:
+    status: covered
+    value: Synthetic users answer.
+    quotes:
+      - synthetic users words
+    probe_count: 0
+    updated_at: 2026-10-14T14:35:29.045Z
+  outcome:
+    status: covered
+    value: Synthetic outcome answer.
+    quotes:
+      - synthetic outcome words
+    probe_count: 1
+    updated_at: 2026-10-14T14:44:55.861Z
+  data:
+    status: covered
+    value: Synthetic data answer.
+    quotes:
+      - synthetic data words
+    probe_count: 0
+    updated_at: 2026-10-14T14:44:55.861Z
+  systems:
+    status: covered
+    value: Synthetic systems answer.
+    quotes:
+      - synthetic systems words
+    probe_count: 0
+    updated_at: 2026-10-14T14:37:37.770Z
+  constraints:
+    status: covered
+    value: Synthetic constraints answer.
+    quotes:
+      - synthetic constraints words
+    probe_count: 0
+    updated_at: 2026-10-14T14:43:50.888Z
+  trust:
+    status: covered
+    value: Synthetic trust answer.
+    quotes:
+      - synthetic trust words
+    probe_count: 0
+    updated_at: 2026-10-14T14:39:50.113Z
+items:
+  - id: item-1
+    title: Enablement kit (synthetic)
+    type: known_idea
+    confidence: high
+    trigger_quote: synthetic opening
+    modifiers: []
+    spawned_from: null
+    superseded_by: null
+    type_history:
+      - from: null
+        to: known_idea
+        reason: opening
+        quote: synthetic opening
+        at: 2026-10-14T14:34:29.198Z
+    core_overrides: {}
+    coverage:
+      known_idea.proposal:
+        status: covered
+        value: Synthetic known_idea.proposal answer.
+        quotes:
+          - synthetic known_idea.proposal words
+        probe_count: 0
+        updated_at: 2026-10-14T14:43:50.888Z
+      known_idea.pull:
+        status: covered
+        value: Synthetic known_idea.pull answer.
+        quotes:
+          - synthetic known_idea.pull words
+        probe_count: 0
+        updated_at: 2026-10-14T14:34:29.198Z
+      known_idea.push:
+        status: covered
+        value: Synthetic known_idea.push answer.
+        quotes:
+          - synthetic known_idea.push words
+        probe_count: 0
+        updated_at: 2026-10-14T14:34:29.198Z
+      known_idea.current:
+        status: not_applicable
+        value: Synthetic known_idea.current answer.
+        quotes:
+          - synthetic known_idea.current words
+        probe_count: 0
+        updated_at: 2026-10-14T14:34:59.179Z
+      known_idea.adoption:
+        status: covered
+        value: Synthetic known_idea.adoption answer.
+        quotes:
+          - synthetic known_idea.adoption words
+        probe_count: 0
+        updated_at: 2026-10-14T14:40:46.987Z
+      known_idea.prior:
+        status: covered
+        value: Synthetic known_idea.prior answer.
+        quotes:
+          - synthetic known_idea.prior words
+        probe_count: 0
+        updated_at: 2026-10-14T14:44:55.861Z
+      known_idea.existing:
+        status: covered
+        value: Synthetic known_idea.existing answer.
+        quotes:
+          - synthetic known_idea.existing words
+        probe_count: 0
+        updated_at: 2026-10-14T14:42:28.906Z
+    facts:
+      rule_clarity:
+        band: written
+        evidence:
+          - core.constraints
+        quotes: []
+      input_digital:
+        band: fully
+        evidence:
+          - core.data
+        quotes: []
+      input_structured:
+        band: 80+
+        evidence:
+          - core.data
+        quotes: []
+      ways_done:
+        band: one
+        evidence:
+          - core.data
+        quotes: []
+      stability:
+        band: none
+        evidence:
+          - core.systems
+        quotes: []
+      documentation:
+        band: none
+        evidence:
+          - core.data
+        quotes: []
+      steps_apps:
+        band: under_20
+        evidence:
+          - core.systems
+        quotes: []
+      access:
+        band: programmatic
+        evidence:
+          - core.systems
+        quotes: []
+      value:
+        band: unknown
+        evidence:
+          - core.outcome
+        quotes: []
+      ai_applies:
+        band: no
+        evidence:
+          - core.data
+        quotes: []
+      push:
+        band: med
+        evidence:
+          - known_idea.push
+        quotes: []
+      pull:
+        band: med
+        evidence:
+          - known_idea.pull
+        quotes: []
+      anxiety:
+        band: med
+        evidence:
+          - known_idea.adoption
+        quotes: []
+      habit:
+        band: med
+        evidence:
+          - known_idea.adoption
+        quotes: []
+      existing_asset:
+        band: none
+        evidence:
+          - known_idea.existing
+        quotes: []
+      decision_depends:
+        band: unknown
+        evidence: []
+        quotes: []
+      success_metric:
+        band: vague
+        evidence:
+          - core.outcome
+        quotes: []
+    prose:
+      problem_statement: Synthetic problem_statement.
+      current_state: Synthetic current_state.
+      mvp: Synthetic mvp.
+      out_of_scope: Synthetic out_of_scope.
+      mitigation: Synthetic mitigation.
+    acceptance:
+      - kind: criterion
+        given: a synthetic given
+        when: a synthetic when
+        then: a synthetic then
+        evidence:
+          - known_idea.proposal
+          - core.data
+    guardrails:
+      - kind: fallback
+        text: Synthetic fallback.
+        evidence:
+          - core.trust
+    scoring:
+      criteria:
+        rule_clarity:
+          score: 5
+          band: written
+          evidence:
+            - core.constraints
+        input_digital:
+          score: 5
+          band: fully
+          evidence:
+            - core.data
+        input_structured:
+          score: 5
+          band: 80+
+          evidence:
+            - core.data
+        ways_done:
+          score: 5
+          band: one
+          evidence:
+            - core.data
+        stability:
+          score: 5
+          band: none
+          evidence:
+            - core.systems
+        documentation:
+          score: 1
+          band: none
+          evidence:
+            - core.data
+        steps_apps:
+          score: 5
+          band: under_20
+          evidence:
+            - core.systems
+        access:
+          score: 5
+          band: programmatic
+          evidence:
+            - core.systems
+        value:
+          score: null
+          band: unknown
+          evidence:
+            - core.outcome
+      automation_potential: 5
+      ease: 4
+      quadrant: prioritize
+      ai_overlay:
+        applies: false
+        checks: {}
+      adoption:
+        push: med
+        pull: med
+        anxiety: med
+        habit: med
+      rules_version: 0.1.0
+    gate:
+      decision: gather_more
+      reasons:
+        - Nobody has said what decision or outcome depends on it
+      revisit_trigger: null
+      rules_version: 0.1.0
+    open_questions: []

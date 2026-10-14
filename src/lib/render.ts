@@ -72,6 +72,27 @@ function openQuestionLines(session: Session, item: Item, fw: Framework, files: s
   return lines;
 }
 
+/**
+ * The decision card's line under each gate, built from what the pack actually contains, so the
+ * card can't promise a brief that isn't there (enablement live test: "the discovery brief lists
+ * who can fill them in", over a brief with no open questions).
+ */
+export function gateBlurb(session: Session, item: Item, fw: Framework): string {
+  switch (item.gate?.decision) {
+    case "go": return "Ready to build. The spec pack has everything to start.";
+    case "dont_build": return "Building this isn't worth it right now. That's a good outcome when it's right.";
+    case "fix_not_build": return "This is a fix, not a project. The diagnostic brief has the ticket text.";
+    case "gather_more": {
+      const open = openQuestionLines(session, item, fw, Object.keys(fw.sections));
+      if (!open.length) return "Not yet: the reasons below need answers before this can go ahead.";
+      const who = open.every((l) => l.includes(" Who can answer: "));
+      const n = open.length === 1 ? "1 open question" : `${open.length} open questions`;
+      return `Not yet: the discovery brief lists ${n}${who ? ", with who can answer each" : ""}.`;
+    }
+    default: return "";
+  }
+}
+
 function acceptanceLines(session: Session, item: Item, kind: "criterion" | "error_case"): string[] {
   return item.acceptance
     .filter((a) => a.kind === kind)

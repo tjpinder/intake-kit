@@ -65,3 +65,13 @@ describe("packet wording", () => {
     assert.match(followUpEmail(s, findGaps(s, fw)), /If you don't know, say so\. That's a useful answer\./);
   });
 });
+
+describe("ingest prompt: a contradiction is flagged on every area holding the fact; values add nothing", () => {
+  test("the prompt says so", async () => {
+    const reqs: TurnRequest[] = [];
+    const p: Provider = { name: "azure-openai", async complete(r) { reqs.push(r); return { text: JSON.stringify({ answers: [], checks: [], terms: [], definitions: [] }), usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 }, model: "x" }; } };
+    await runIngest({ provider: p, fw, session: triaged(), source: { kind: "reply", from: "x", text: "hello" }, now: NOW });
+    assert.match(reqs[0].system, /return an answer with conflict true for every area where that fact is recorded/);
+    assert.match(reqs[0].system, /Never add a detail it doesn't say/);
+  });
+});

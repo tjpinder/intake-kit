@@ -16365,9 +16365,10 @@ function ingestRequest(fw, session, x) {
       [
         "answers: one entry for each area the document actually says something about. Leave out areas it doesn't mention.",
         `status: "answered" when it answers what the area needs; "partial" when it answers only some of it, or vaguely ("usually", "I think", no example); "not_applicable" when it says the area doesn't apply; "declined" when it says they don't know or won't say.`,
-        "value: what the document says, as one short plain sentence. Null if nothing usable.",
+        "value: what the document says, as one short plain sentence. Never add a detail it doesn't say (a day, a number, a name). Null if nothing usable.",
         "quotes: one or more exact spans copied character for character from the document that carry the answer. Never paraphrase, never join two places into one quote.",
         `conflict: true only if the answer contradicts what is recorded so far for that area (shown after "recorded so far"): both can't be true at once, like "by 7am" and "by 6am". Adding detail, narrowing it down, or saying the same thing another way is never a conflict: "per picker" then "per picker, per shift, per day" is conflict false.`,
+        "The same fact is often recorded under more than one area (a deadline under both rules and delivery). When the document contradicts a recorded fact, return an answer with conflict true for every area where that fact is recorded, not just one.",
         'item: the exact item ID the area is listed under, like "item-1" (never the type). A shared core area belongs to the first item listed.',
         "checks: one entry for each check listed under an item, with the document's words in quote (null if none).",
         "terms: business terms the document uses whose meaning is local to this business or could be read more than one way, so two people could count or judge them differently (over pick, fill rate, on-time, exception, active user), each with the words where it appears. Not the name of something being built or already in use (a script, a template, a report, a tool, a program), not job titles or system names, not generic words, and not terms already listed below.",

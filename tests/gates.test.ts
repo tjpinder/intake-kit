@@ -7,7 +7,7 @@ import { scoreAndGate, criticalAreas, gateFactSource, gateItem, GateError } from
 import { requiredAreas } from "../src/engine/plan.ts";
 import { validateSession } from "../src/lib/schemas.ts";
 import { scoreItem } from "../src/lib/score.ts";
-import type { Gate, Item, Session } from "../src/lib/session.ts";
+import type { Gate, Item, Session, Term } from "../src/lib/session.ts";
 import type { ItemType } from "../src/lib/framework.ts";
 import { makeItem, makeSession, unknown, assumed, covered, type ItemOptions } from "./helpers.ts";
 
@@ -344,5 +344,47 @@ describe("gate reasons (enablement live test)", () => {
       assert.ok(gateFactSource("decision_depends", item, fwR), `${type}: decision_depends has no source`);
       assert.ok(gateFactSource("success_metric", item, fwR), `${type}: success_metric has no source`);
     }
+  });
+});
+
+describe("definitions gate: no confirmed definition, no Go", () => {
+  const fwT = loadFramework(".");
+  const term = (over: Partial<Term> = {}): Term => ({ id: "term-1", term: "over pick", items: ["item-1"], found_in: { quote: "over picks", source: null }, status: "unconfirmed", kind: "metric", definition: null, quotes: [], given_by: null, source: null, measurable: "unknown", examples: [], starter: null, ...over });
+  const goSession = () => {
+    const fixture: Session = parseYaml(readFileSync("tests/fixtures/session/pick-exception-scored.yaml", "utf8"));
+    for (const item of fixture.items as Item[]) { item.scoring = null; item.gate = null; }
+    return fixture;
+  };
+
+  test("an item that would reach Go stays at Gather more while a term it uses is unconfirmed, with an open question for the owner", () => {
+    assert.equal(scoreAndGate(goSession(), fwT).session.items[0].gate!.decision, "go");
+    const s = goSession();
+    s.terms = [term()];
+    const item = scoreAndGate(s, fwT).session.items[0];
+    assert.equal(item.gate!.decision, "gather_more");
+    assert.ok(item.gate!.reasons.includes('"over pick" has no confirmed definition'), item.gate!.reasons.join(" | "));
+    const q = item.open_questions.find((o) => o.area === "term-1")!;
+    assert.match(q.question, /In your own words, what counts as "over pick"/);
+  });
+
+  test("a confirmed definition lets it go; two that disagree hold it back; a metric with no example only gets a recommendation", () => {
+    const confirmed = term({ status: "confirmed", definition: "More units than the ticket", quotes: ["over picks"], given_by: "Dana" });
+    const ok = goSession();
+    ok.terms = [confirmed];
+    const okItem = scoreAndGate(ok, fwT).session.items[0];
+    assert.equal(okItem.gate!.decision, "go");
+    assert.match(okItem.open_questions.find((o) => o.area === "term-1")!.question, /^Recommended: give one real example/);
+
+    const split = goSession();
+    split.terms = [{ ...confirmed, conflict: { definition: "Confirmed qty above task qty", quote: "q", source: "src-3" } }];
+    const g = scoreAndGate(split, fwT).session.items[0].gate!;
+    assert.equal(g.decision, "gather_more");
+    assert.ok(g.reasons.includes('"over pick" has two definitions that disagree'));
+  });
+
+  test("a missing definition never makes an item Don't build", () => {
+    const s = makeSession([makeItem("item-1", { type: "known_idea" })]);
+    s.terms = [term()];
+    assert.notEqual(scoreAndGate(s, fwT).session.items[0].gate!.decision, "dont_build");
   });
 });

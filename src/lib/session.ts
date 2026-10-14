@@ -113,6 +113,26 @@ export interface Item {
   open_questions: Array<{ area: string; question: string; who_can_answer: string | null; artifact_needed: string | null }>;
 }
 
+/** Definitions: a business term and the owner's definition of it. */
+export interface Term {
+  id: string;
+  term: string;
+  /** The items whose spec uses it. */
+  items: string[];
+  found_in: { quote: string; source: string | null };
+  status: "unconfirmed" | "confirmed" | "not_a_term";
+  kind: "metric" | "rule" | "label";
+  /** The owner's definition, in their words. */
+  definition: string | null;
+  quotes: string[];
+  given_by: string | null;
+  source: string | null;
+  measurable: "yes" | "partly" | "no" | "unknown";
+  examples: Array<{ case: string; expected: string }>;
+  conflict?: { definition: string; quote: string; source: string } | null;
+  starter: "accepted" | "edited" | null;
+}
+
 /** Async intake: one pasted source. */
 export interface Source {
   id: string;
@@ -154,6 +174,8 @@ export interface Session {
   };
   core: Record<"users" | "outcome" | "data" | "systems" | "constraints" | "trust", CoverageEntry>;
   items: Item[];
+  /** Definitions: every business term found, with the owner's definition. */
+  terms?: Term[];
 }
 
 /** The coverage entry that applies to an item: its override for a core area, else the shared one. */

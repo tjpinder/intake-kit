@@ -7,7 +7,9 @@
   "additionalProperties": false,
   "required": [
     "answers",
-    "checks"
+    "checks",
+    "terms",
+    "definitions"
   ],
   "properties": {
     "answers": {
@@ -20,6 +22,20 @@
       "type": "array",
       "items": {
         "$ref": "#/$defs/check"
+      }
+    },
+    "terms": {
+      "type": "array",
+      "description": "Business terms the document uses whose meaning is local to the business or could be read more than one way. Not generic words.",
+      "items": {
+        "$ref": "#/$defs/term"
+      }
+    },
+    "definitions": {
+      "type": "array",
+      "description": "Definitions the document gives for any term, in the owner's words.",
+      "items": {
+        "$ref": "#/$defs/definition"
       }
     }
   },
@@ -114,6 +130,95 @@
             "string",
             "null"
           ]
+        }
+      }
+    },
+    "term": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "term",
+        "quote",
+        "kind"
+      ],
+      "properties": {
+        "term": {
+          "type": "string"
+        },
+        "quote": {
+          "type": "string",
+          "description": "Exact words from the document where the term appears."
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "metric",
+            "rule",
+            "label"
+          ],
+          "description": "metric: something counted or measured. rule: a condition that decides something. label: a name for a thing."
+        }
+      }
+    },
+    "definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "term",
+        "definition",
+        "quotes",
+        "measurable",
+        "examples",
+        "conflict"
+      ],
+      "properties": {
+        "term": {
+          "type": "string"
+        },
+        "definition": {
+          "type": "string",
+          "description": "What counts and what doesn't, as the document says it, in one or two plain sentences."
+        },
+        "quotes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Exact spans from the document that give the definition."
+        },
+        "measurable": {
+          "type": "string",
+          "enum": [
+            "yes",
+            "partly",
+            "no",
+            "unknown"
+          ],
+          "description": "Whether the document says it can be seen in the system's data."
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "case",
+              "expected"
+            ],
+            "properties": {
+              "case": {
+                "type": "string"
+              },
+              "expected": {
+                "type": "string"
+              }
+            }
+          },
+          "description": "Worked examples the document gives, each with the right result."
+        },
+        "conflict": {
+          "type": "boolean",
+          "description": "True only if it disagrees with the definition already recorded."
         }
       }
     }

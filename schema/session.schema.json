@@ -7,6 +7,11 @@
   "additionalProperties": false,
   "required": ["schema_version", "framework_version", "session", "core", "items"],
   "properties": {
+    "terms": {
+      "description": "Definitions (HANDOFF.md): every business term found, and the owner's definition. Code owns status; an item can't reach Go while a term it uses is unconfirmed.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/term" }
+    },
     "schema_version": { "enum": [1, 2], "description": "2 adds async intake (channel, sources, quote_sources). Version 1 files load as live sessions." },
     "framework_version": { "$ref": "#/$defs/semver", "description": "Version of the router, module and scoring YAML used." },
     "session": {
@@ -166,6 +171,39 @@
     "semver": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
     "item_id": { "type": "string", "pattern": "^item-\\d+$" },
     "core_area": { "enum": ["users", "outcome", "data", "systems", "constraints", "trust"] },
+    "term": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "term", "items", "found_in", "status", "kind", "definition", "quotes", "given_by", "source", "measurable", "examples", "starter"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^term-\\d+$" },
+        "term": { "type": "string", "minLength": 1 },
+        "items": { "type": "array", "items": { "$ref": "#/$defs/item_id" } },
+        "found_in": {
+          "type": "object", "additionalProperties": false, "required": ["quote", "source"],
+          "properties": { "quote": { "$ref": "#/$defs/quote" }, "source": { "type": ["string", "null"] } }
+        },
+        "status": { "enum": ["unconfirmed", "confirmed", "not_a_term"] },
+        "kind": { "enum": ["metric", "rule", "label"] },
+        "definition": { "type": ["string", "null"] },
+        "quotes": { "type": "array", "items": { "$ref": "#/$defs/quote" } },
+        "given_by": { "type": ["string", "null"] },
+        "source": { "type": ["string", "null"] },
+        "measurable": { "enum": ["yes", "partly", "no", "unknown"] },
+        "examples": {
+          "type": "array",
+          "items": { "type": "object", "additionalProperties": false, "required": ["case", "expected"], "properties": { "case": { "type": "string", "minLength": 1 }, "expected": { "type": "string", "minLength": 1 } } }
+        },
+        "conflict": {
+          "description": "A later source defined it differently; kept for the follow-up to settle.",
+          "oneOf": [{ "type": "null" }, { "type": "object", "additionalProperties": false, "required": ["definition", "quote", "source"], "properties": { "definition": { "type": "string" }, "quote": { "type": "string" }, "source": { "type": "string" } } }]
+        },
+        "starter": { "enum": ["accepted", "edited", null] }
+      },
+      "allOf": [
+        { "if": { "properties": { "status": { "const": "confirmed" } } }, "then": { "properties": { "definition": { "type": "string", "minLength": 1 }, "quotes": { "type": "array", "minItems": 1 } } } }
+      ]
+    },
     "coverage_id": {
       "type": "string",
       "pattern": "^(core|broken|manual_process|known_idea|exploratory|data_report)\\.[a-z][a-z0-9_]*$|^mod\\.(integration|compliance|migration)\\.[a-z][a-z0-9_]*$"
@@ -337,7 +375,7 @@
             "additionalProperties": false,
             "required": ["area", "question", "who_can_answer", "artifact_needed"],
             "properties": {
-              "area": { "$ref": "#/$defs/coverage_id" },
+              "area": { "oneOf": [{ "$ref": "#/$defs/coverage_id" }, { "type": "string", "pattern": "^term-\\d+$" }] },
               "question": { "type": "string", "minLength": 1 },
               "who_can_answer": { "type": ["string", "null"] },
               "artifact_needed": { "type": ["string", "null"] }

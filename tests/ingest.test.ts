@@ -37,7 +37,7 @@ const REPLY = [
   "If the counts disagreed with the WMS for two weeks we'd switch it off.",
 ].join("\n\n");
 const answer = (area: string, quotes: string[], over: Record<string, unknown> = {}) => ({ item: "item-1", area, status: "answered", value: `value for ${area}`, quotes, conflict: false, ...over });
-const ingestOut = (answers: unknown[], checks: unknown[] = []) => ({ answers, checks });
+const ingestOut = (answers: unknown[], checks: unknown[] = [], terms: unknown[] = [], definitions: unknown[] = []) => ({ answers, checks, terms, definitions });
 
 describe("triage", () => {
   test("starts a valid async session with the request as its first source; no model call", () => {
@@ -141,5 +141,43 @@ describe("ingest", () => {
     assert.equal(provider.requests.length, chunks(text).length);
     assert.equal(out.session.items[0].coverage["data_report.definition"].status, "covered");
     assert.equal(sourceTranscript(out.session).length, 2);
+  });
+});
+
+describe("definitions (HANDOFF.md, Definitions)", () => {
+  const TEXT = [
+    "We keep seeing over picks on the night shift.",
+    "An over pick is when the picker takes more units than the pick ticket says, and it never shows on the system transaction.",
+    "Last Tuesday, order 1043's ticket said 20 and 22 left the slot, so that's 2 over picked.",
+  ].join("\n\n");
+
+  test("a term found in the source starts unconfirmed; one not in the source is ignored", async () => {
+    const out = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "over pick", quote: "over picks on the night shift", kind: "metric" }, { term: "fill rate", quote: "fill rate", kind: "metric" }])]), fw, session: triaged(), source: { kind: "reply", from: "Dana", text: TEXT }, now: LATER });
+    assert.deepEqual(out.session.terms!.map((t) => [t.term, t.status, t.items]), [["over pick", "unconfirmed", ["item-1"]]]);
+    assert.equal(validateSession(out.session).ok, true, validateSession(out.session).errors.join("; "));
+  });
+
+  test("a definition in the owner's words confirms the term, with who gave it, whether it's measurable and the worked example", async () => {
+    const def = { term: "Over pick", definition: "More units taken than the ticket says; not on the system transaction", quotes: ["An over pick is when the picker takes more units than the pick ticket says"], measurable: "no", examples: [{ case: "Order 1043: ticket 20, 22 left the slot", expected: "2" }], conflict: false };
+    const out = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "over pick", quote: "over picks on the night shift", kind: "metric" }], [def])]), fw, session: triaged(), source: { kind: "notes", from: "Dana", text: TEXT }, now: LATER });
+    const [t] = out.session.terms!;
+    assert.equal(t.status, "confirmed");
+    assert.equal(t.given_by, "Dana");
+    assert.equal(t.source, "src-2");
+    assert.equal(t.measurable, "no");
+    assert.deepEqual(t.examples, [{ case: "Order 1043: ticket 20, 22 left the slot", expected: "2" }]);
+    assert.equal(validateSession(out.session).ok, true, validateSession(out.session).errors.join("; "));
+  });
+
+  test("a definition with no words from the source isn't recorded; a later disagreeing one is kept as a conflict", async () => {
+    const def = (definition: string, quote: string, conflict = false) => ({ term: "over pick", definition, quotes: [quote], measurable: "unknown", examples: [], conflict });
+    const none = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "over pick", quote: "over picks on the night shift", kind: "metric" }], [def("Anything extra", "words not in it")])]), fw, session: triaged(), source: { kind: "reply", from: "x", text: TEXT }, now: LATER });
+    assert.equal(none.session.terms![0].status, "unconfirmed");
+
+    const first = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "over pick", quote: "over picks on the night shift", kind: "metric" }], [def("Not on the transaction", "it never shows on the system transaction")])]), fw, session: triaged(), source: { kind: "reply", from: "x", text: TEXT }, now: LATER });
+    const second = await runIngest({ provider: scripted([ingestOut([], [], [], [def("Picked qty above ticket qty in the WMS", "confirmed quantity is above the task quantity", true)])]), fw, session: first.session, source: { kind: "reply", from: "IT", text: "For us an over pick is when the confirmed quantity is above the task quantity." }, now: LATER });
+    const t = second.session.terms![0];
+    assert.equal(t.definition, "Not on the transaction");
+    assert.deepEqual(t.conflict, { definition: "Picked qty above ticket qty in the WMS", quote: "confirmed quantity is above the task quantity", source: "src-3" });
   });
 });

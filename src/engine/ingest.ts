@@ -7,7 +7,7 @@
 import type { Framework, ItemType, Modifier } from "../lib/framework.ts";
 import type { TranscriptEntry } from "../lib/grounding.ts";
 import { validateIngest } from "../lib/schemas.ts";
-import type { CoverageEntry, Session, Source } from "../lib/session.ts";
+import type { CoverageEntry, Session, Source, Term } from "../lib/session.ts";
 import { ingestRequest } from "../llm/v2.ts";
 import { ProviderError, type Provider } from "../llm/types.ts";
 import { applyCheck, areaFits, entryOf, grounded, setEntry, type ApplyContext } from "./apply.ts";
@@ -89,6 +89,8 @@ function readTargets(session: Session, fw: Framework) {
 }
 
 interface IngestResult {
+  terms: Array<{ term: string; quote: string; kind: "metric" | "rule" | "label" }>;
+  definitions: Array<{ term: string; definition: string; quotes: string[]; measurable: "yes" | "partly" | "no" | "unknown"; examples: Array<{ case: string; expected: string }>; conflict: boolean }>;
   answers: Array<{ item: string; area: string; status: "answered" | "partial" | "not_applicable" | "declined"; value: string | null; quotes: string[]; conflict: boolean }>;
   checks: Array<{ item: string; check: CheckName; result: "yes" | "no" | "unclear"; value: string | null; quote: string | null }>;
 }
@@ -165,6 +167,52 @@ export function applyIngest(session: Session, source: Source, r: IngestResult, f
     const out = applyCheck(session, { item: item.id, area, kind: "check", check: c.check, question: "packet" }, { status: "answered", value: c.value, quote: c.quote, check: c.result, wrap_up: false, also_answers: [] }, ctx);
     Object.assign(session, out.session);
     events.push(...out.events);
+  }
+  events.push(...applyTerms(session, source, r, transcript));
+  return events;
+}
+
+const termKey = (t: string) => t.trim().toLowerCase().replace(/[\s_-]+/g, " ");
+
+/**
+ * Definitions (HANDOFF.md): new terms start unconfirmed; a definition in the source, in its words,
+ * confirms one. Notes count, labelled by their source. A later definition that disagrees is kept as
+ * a conflict, never written over the first.
+ */
+export function applyTerms(session: Session, source: Source, r: Pick<IngestResult, "terms" | "definitions">, transcript: TranscriptEntry[]): string[] {
+  const events: string[] = [];
+  const terms = session.terms ?? (session.terms = []);
+  const primary = session.items.find((i) => !i.spawned_from && !i.dropped);
+  const find = (t: string) => terms.find((x) => termKey(x.term) === termKey(t));
+  const add = (term: string, quote: string, kind: "metric" | "rule" | "label"): Term => {
+    const t: Term = { id: `term-${terms.length + 1}`, term: term.trim(), items: primary ? [primary.id] : [], found_in: { quote, source: source.id }, status: "unconfirmed", kind, definition: null, quotes: [], given_by: null, source: null, measurable: "unknown", examples: [], starter: null };
+    terms.push(t);
+    return t;
+  };
+  for (const t of r.terms) {
+    const quote = grounded(t.quote, transcript);
+    if (!quote || !t.term.trim()) { events.push(`term "${t.term}": not in the source, ignored`); continue; }
+    if (find(t.term)) continue;
+    add(t.term, quote, t.kind);
+    events.push(`term "${t.term}": found, unconfirmed`);
+  }
+  for (const d of r.definitions) {
+    const quotes = [...new Set(d.quotes.map((q) => grounded(q, transcript)).filter((q): q is string => !!q))];
+    if (!quotes.length || !d.definition.trim()) { events.push(`definition of "${d.term}": no words from the source, not recorded`); continue; }
+    const t = find(d.term) ?? add(d.term, quotes[0], "label");
+    if (t.status === "confirmed" && d.conflict) {
+      t.conflict = { definition: d.definition.trim(), quote: quotes[0], source: source.id };
+      events.push(`definition of "${t.term}": conflicts with the recorded one; kept both for the follow-up`);
+      continue;
+    }
+    if (t.status === "confirmed") {
+      t.quotes = [...new Set([...t.quotes, ...quotes])];
+    } else {
+      Object.assign(t, { status: "confirmed", definition: d.definition.trim(), quotes, given_by: source.from, source: source.id });
+      events.push(`definition of "${t.term}": confirmed`);
+    }
+    if (d.measurable !== "unknown") t.measurable = d.measurable;
+    for (const e of d.examples) if (e.case.trim() && e.expected.trim() && !t.examples.some((x) => x.case === e.case)) t.examples.push({ case: e.case.trim(), expected: e.expected.trim() });
   }
   return events;
 }

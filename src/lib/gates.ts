@@ -56,6 +56,26 @@ export function addGapQuestions(session: Session, item: Item, fw: Framework): vo
   }
 }
 
+/** The terms an item uses that block Go: no confirmed definition, or two that disagree. */
+function termReasons(session: Session, item: Item): string[] {
+  return (session.terms ?? []).filter((t) => t.items.includes(item.id)).flatMap((t) =>
+    t.status === "unconfirmed" ? [`"${t.term}" has no confirmed definition`] : t.status === "confirmed" && t.conflict ? [`"${t.term}" has two definitions that disagree`] : []);
+}
+
+/**
+ * One open question per term an item uses that has no confirmed definition, or two that disagree;
+ * and, as a recommendation, a known-answer example for each metric that has none.
+ */
+export function addTermQuestions(session: Session, item: Item): void {
+  for (const t of (session.terms ?? []).filter((x) => x.items.includes(item.id) && x.status !== "not_a_term")) {
+    let q: { question: string; artifact_needed: string } | null = null;
+    if (t.status === "unconfirmed") q = { question: `In your own words, what counts as "${t.term}", and what doesn't? Give one real example and the right ${t.kind === "metric" ? "count" : "result"}.`, artifact_needed: "The owner's definition in their own words, and one real example with the correct result" };
+    else if (t.conflict) q = { question: `"${t.term}" was defined two ways: "${t.definition}" and "${t.conflict.definition}". Which is right?`, artifact_needed: "One agreed definition, in the owner's words" };
+    else if (t.kind === "metric" && !t.examples.length) q = { question: `Recommended: give one real example of "${t.term}" and the right count, so the build can be checked against it.`, artifact_needed: "A real case and its correct result" };
+    if (q && !item.open_questions.some((o) => o.area === t.id)) item.open_questions.push({ area: t.id, question: q.question, who_can_answer: "Whoever owns the process", artifact_needed: q.artifact_needed });
+  }
+}
+
 /** The user was asked about this area (or answered it unprompted). */
 function wasAsked(session: Session, item: Item, id: string): boolean {
   const key = askedKey(item.id, id);
@@ -147,6 +167,9 @@ function evaluate(session: Session, item: Item, fw: Framework, gateOf: (id: stri
     m.gather_more.reasons.push("Review quadrant with no written mitigation");
   }
   for (const mod of gm.modifiers) if (item.modifiers.includes(mod)) m.gather_more.reasons.push(`${mod} modifier routes to more discovery`);
+  // Definitions: no confirmed definition, no Go. A missing definition is Gather more, never Don't build.
+  const termGaps = termReasons(session, item);
+  m.gather_more.reasons.push(...termGaps);
   if (gm.defer_with_critical_unknown && scoring.quadrant === "defer" && unsettled.length) {
     m.gather_more.reasons.push("Scored Defer while a critical area is still unknown");
   }
@@ -189,6 +212,7 @@ function evaluate(session: Session, item: Item, fw: Framework, gateOf: (id: stri
     (go.ai_candidate_from_defer && scoring.quadrant === "defer" && aiOverlayPasses(scoring));
   if (!quadrantOk) unmet.push(scoring.quadrant ? `${scoring.quadrant} quadrant doesn't qualify for Go` : "Not enough known criteria to place in a quadrant");
   if (go.ai_overlay_must_pass && scoring.ai_overlay.applies && !aiOverlayPasses(scoring)) unmet.push("AI overlay doesn't pass every check");
+  unmet.push(...termGaps);
   if (unmet.length === 0) {
     m.go.reasons.push(
       scoring.quadrant === "defer" ? "AI candidate: Defer for rule-based automation, but every AI overlay check passes" : `${scoring.quadrant![0].toUpperCase()}${scoring.quadrant!.slice(1)} quadrant`,
@@ -269,5 +293,6 @@ export function scoreAndGate(session: Session, fw: Framework): { session: Sessio
   };
   for (const item of out.items) item.gate = gateOf(item.id);
   for (const item of out.items) if (item.gate!.decision === "gather_more") addGapQuestions(out, item, fw);
+  for (const item of out.items) if (!item.dropped) addTermQuestions(out, item);
   return { session: out, scored: true };
 }

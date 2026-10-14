@@ -169,6 +169,12 @@ const INGEST_CHECKS: Record<"manual_work" | "existing_asset" | "kill_criteria", 
   kill_criteria: 'kill_criteria: did they say what would make them stop it or switch it off? "yes" with the condition in value, "no" if they said nothing would, "unclear" otherwise.',
 };
 
+const termLines = (session: Session): string[] => {
+  const terms = (session.terms ?? []).filter((t) => t.status !== "not_a_term");
+  if (!terms.length) return [];
+  return ["Terms so far:", ...terms.map((t) => `- ${t.term}: ${t.status === "confirmed" ? `defined as "${t.definition}"` : "not yet defined"}`), ""];
+};
+
 /** ingest (async intake): which areas one pasted source answers, with quotes from it. */
 export function ingestRequest(fw: Framework, session: Session, x: IngestInput): TurnRequest {
   const sections = x.items.map((it) => {
@@ -193,11 +199,13 @@ export function ingestRequest(fw: Framework, session: Session, x: IngestInput): 
         "conflict: true only if the answer disagrees with what is recorded so far for that area (shown after \"recorded so far\"). Adding detail isn't a conflict.",
         "item: the item the area is listed under. A shared core area belongs to the first item listed.",
         "checks: one entry for each check listed under an item, with the document's words in quote (null if none).",
+        "terms: business terms the document uses whose meaning is local to this business or could be read more than one way (over pick, fill rate, on-time, exception), each with the words where it appears. Not generic words, and not terms already listed below.",
+        "definitions: for any term (listed below or new), a definition the document gives: what counts and what doesn't, in its words, with quotes; whether it says the thing can be seen in the system's data; any worked example with the right result. conflict: true only if it disagrees with a definition already recorded.",
       ].join("\n"),
       "Only use what the document says. Don't infer or fill gaps.",
     ].join("\n\n"),
     history: [],
-    context: [`The document is ${who}.`, "", ...sections, "", "The document:", "<<<", x.text, ">>>"].join("\n"),
+    context: [`The document is ${who}.`, "", ...sections, "", ...termLines(session), "The document:", "<<<", x.text, ">>>"].join("\n"),
     format: { name: "ingest", schema: ingestSchema },
   };
 }

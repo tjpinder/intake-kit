@@ -608,6 +608,71 @@ Fixes from the Oct 14 live test that apply to both modes still go first: re-rend
 - "If you know" questions are included in the packet by default.
 - At sign-off the spec pack includes a SOW draft (build or discovery), with commercial and legal terms left as marked blanks.
 
+## Definitions: the owner's meaning of every business term (Oct 14, 2026)
+
+**Why.** This is the over-pick failure. While drafting the pick-exception example, the agent read "over pick" as "confirmed quantity above the task quantity". The owner's meaning was "units physically picked that aren't on the system transaction", which the system can't see at all. The SQL ran fine and was wrong. A build that runs on the wrong meaning is worse than no build, because it looks right. So no term is interpreted: the owner defines it, the definition sits next to the logic, and a known answer proves the logic matches.
+
+**1. Find the terms.** In both modes, the model lists the business terms in what the user says: words whose meaning is local to the business, or could be read more than one way. Examples: over pick, short pick, on-time, fill rate, exception, active picker. Each one comes with the words it appeared in.
+- In live mode the terms come back with the opening classification and each extraction. In async mode they come back with each ingest.
+- Code records each term as `unconfirmed`, with its quote, against the items that use it. Generic words aren't terms.
+- In async mode, the interviewer can add or remove terms before the packet goes out.
+
+**2. Ask the owner.** Each unconfirmed term becomes a question: "In your own words, what counts as an over pick, and what doesn't? Can you give one real example, and what the right count is?"
+- In async mode the terms go in the packet as their own section, and any still unconfirmed go in every follow-up packet.
+- In live mode they're asked after the required areas and checks, one term per question.
+- The definition is stored in the owner's words, as a quote, with who gave it and from which source. That makes it **confirmed**.
+- If the owner says the term can't be seen in the data (an over pick isn't on any transaction), code records it as not measurable from the data. That becomes an assumption in DECISIONS.md, and an open question about how it would be measured.
+- **Starter definitions are never applied silently.** A definition from the starter pack (point 7) counts as confirmed only once the owner accepts or edits it.
+
+**3. Gate: no confirmed definition, no Go.**
+- Go requires every term an item uses to be confirmed.
+- Each unconfirmed term is a Gather more reason ("'over pick' has no confirmed definition"), plus an open question in the discovery brief, with the owner as who can answer.
+- A missing definition never makes an item Don't build. Missing information means Gather more.
+- In the summary, each term shows its definition or "unconfirmed", so the interviewer sees it before signing off.
+
+**4. DEFINITIONS.md.** A new spec-pack file next to SPEC and ACCEPTANCE, rendered for every outcome. For each term it lists:
+- the owner's definition, quoted
+- who gave it, and the source
+- what counts and what doesn't
+- whether it can be measured from the data
+- the known-answer examples
+- its status: confirmed or unconfirmed
+
+The SOW draft links to it, and its assumptions include every term not measurable from the data.
+
+**5. The definition sits next to the logic.** CLAUDE.md and FIRST_PROMPT.md tell the builder:
+- Wherever a term becomes SQL, a rule or a metric, put the owner's definition in a comment or in the acceptance check. Example: `-- Over pick = units picked that aren't on the system transaction (owner-confirmed, DEFINITIONS.md)`.
+- Never use a term that isn't in DEFINITIONS.md. Add it as unconfirmed and ask.
+
+A new guardrail check, `definitions`, enforces this. A changed file that names a defined term, as a word or in snake_case, must cite that term's definition or `DEFINITIONS.md` within a few lines, or the check fails. It's skipped when there's no DEFINITIONS.md.
+
+**6. Acceptance checks with known answers.** Each term that becomes a number (a metric) gets one or two known-answer cases in ACCEPTANCE.md, built from the owner's examples. For example: "Given an order whose pick ticket said 20 units and 22 left the slot, the over-pick count for that line is 2."
+- A wrong definition fails the check even when the SQL runs.
+- A metric term with no example is an open question. Go requires at least one known-answer case for each metric term.
+
+**7. Domain starter pack (optional, later).** `framework/glossaries/warehouse.yaml`: common warehouse terms with their usual meanings and a typical known-answer case. These are offered as suggestions when a term matches, never applied silently, and DEFINITIONS.md records whether the owner accepted, edited or replaced each one. The same file doubles as a recipes-repo entry.
+
+**Data contract.** Session schema 2 adds `terms[]`. Each term has:
+- id and term
+- the items that use it
+- `found_in`: the quote and its source
+- status: `unconfirmed`, `confirmed` or `not_a_term`
+- the definition, its quotes, who gave it and the source
+- kind: `metric`, `rule` or `label`
+- measurable: `yes`, `partly`, `no` or `unknown`
+- `examples[]`: each case and its expected result
+- starter: `accepted`, `edited` or null
+
+The model only finds terms and classifies definitions. Code owns status and gating.
+
+**Build order.** This runs alongside async mode:
+1. Terms and definitions in the session file, plus term-finding in ingest and in the live opening and extract calls.
+2. Term questions in the packet and the follow-up packet.
+3. The gate rule and the brief's open questions.
+4. DEFINITIONS.md, the known-answer acceptance cases, and the CLAUDE.md and FIRST_PROMPT.md instructions.
+5. The `definitions` guardrail check.
+6. The starter pack, last.
+
 ## Build decisions
 
 Resolved after Claude Code's pre-build review on Oct 10, 2026. Where these conflict with an earlier section, these win.

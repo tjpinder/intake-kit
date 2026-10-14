@@ -96,7 +96,9 @@ describe("Plan", () => {
   test("required areas include constraints for every type and the proposal for a known idea", () => {
     for (const type of ["broken", "manual_process", "known_idea", "exploratory", "data_report"] as const) {
       const k = applyOpening(empty(), opening({ type }), ctx, { mayProbe: false }) as { session: Session };
-      assert.ok(requiredAreas(k.session.items[0], fw).has("core.constraints"), type);
+      for (const modifiers of [[], ["compliance"], ["integration"], ["migration"]] as const) {
+        assert.ok(requiredAreas({ ...k.session.items[0], modifiers: [...modifiers] }, fw).has("core.constraints"), `${type} ${modifiers.join(",")}`);
+      }
     }
     const idea = applyOpening(empty(), opening({ type: "known_idea" }), ctx, { mayProbe: false }) as { session: Session };
     assert.ok(requiredAreas(idea.session.items[0], fw).has("known_idea.proposal"));

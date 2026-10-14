@@ -26,7 +26,7 @@ describe("framework loads and matches the spec", () => {
 
   test("the spec's always-asked areas are marked always_ask", () => {
     const always = [...fw.areas.values()].filter((a) => a.always_ask).map((a) => a.id).sort();
-    assert.deepEqual(always, ["broken.workaround", "data_report.decision", "data_report.existing", "known_idea.adoption", "known_idea.existing", "known_idea.prior", "known_idea.pull", "known_idea.push"]);
+    assert.deepEqual(always, ["broken.workaround", "core.constraints", "data_report.decision", "data_report.existing", "known_idea.adoption", "known_idea.existing", "known_idea.prior", "known_idea.pull", "known_idea.push"]);
     assert.deepEqual(fw.modules.known_idea.asks_core, ["core.constraints"]);
   });
 

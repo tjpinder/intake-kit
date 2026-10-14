@@ -14,6 +14,10 @@ anchor: known_idea.current
 areas:
   - id: known_idea.current
     must_capture: What happens today when this gets done, from the last real instance
+    packet:
+      ask: "What happens today when this gets done? Walk through the last real time."
+      why: "The idea is judged against what happens now, not against nothing."
+      example: "Last month a lead copied pick data into a spreadsheet and sorted it by hand to find who to coach."
     probes:
       - "What happens today when this gets done? Walk me through the last time."
     critical: true
@@ -27,6 +31,10 @@ areas:
   # record the plan, so the smallest version and what's out of scope were guessed.
   - id: known_idea.proposal
     must_capture: What they propose to build, its main parts, the smallest version that would be useful, and what's deliberately left out
+    packet:
+      ask: "What would you build? What are its main parts, what's the smallest version that would be useful, and what would you leave out?"
+      why: "A small first version that's useful on its own is what gets built and tested quickly."
+      example: "A ranked list of pickers with their error rates. The first version leaves out charts and any coaching notes."
     probes:
       - "What would the first version include, and what would you leave out?"
       - "If you could only build one part of it, which would it be?"
@@ -40,6 +48,10 @@ areas:
 
   - id: known_idea.push
     must_capture: The worst part of how it's done now
+    packet:
+      ask: "What's the worst part of how it's done now?"
+      why: "How much the current way hurts is a big part of whether people will switch."
+      example: "It's a full morning of copying, and the numbers are a week old by the time we use them."
     probes:
       - "What's the worst part of how it's done now?"
     always_ask: true
@@ -51,6 +63,10 @@ areas:
 
   - id: known_idea.pull
     must_capture: What would be different on a normal day if it worked
+    packet:
+      ask: "If it worked perfectly, what would be different on a normal day?"
+      why: "A clear picture of the better day is what people will actually move toward."
+      example: "Leads would know first thing who needs help, without anyone building anything."
     probes:
       - "If it worked perfectly, what would be different on a normal Tuesday?"
     always_ask: true
@@ -62,6 +78,10 @@ areas:
 
   - id: known_idea.adoption
     must_capture: What would stop people trusting it and what they'd keep doing the old way
+    packet:
+      ask: "What would make people not trust it, or keep doing it the old way?"
+      why: "Adoption fails on trust and habit far more often than on the technology."
+      example: "If the numbers ever disagreed with the WMS, the leads would go back to their own sheets."
     probes:
       - "What would make you not trust it? What would people keep doing the old way?"
     always_ask: true
@@ -73,6 +93,10 @@ areas:
 
   - id: known_idea.prior
     must_capture: Previous attempts and what happened
+    packet:
+      ask: "Has anyone tried to solve this before? What happened?"
+      why: "Past attempts show what's hard and what to avoid."
+      example: "A contractor built a dashboard two years ago; nobody kept it updated."
     probes:
       - "Has anyone tried to solve this before? What happened?"
     always_ask: true
@@ -85,6 +109,10 @@ areas:
     # Found in the first live test: the warehouse wording (WMS, ERP, BI) was asked word for word
     # about a repo of documents and scripts.
     must_capture: Whether a tool they already have, or one they could get, already does something close
+    packet:
+      ask: "Does anything you already have, or could easily get, do something close to this?"
+      why: "If a tool already does most of it, using that may beat building."
+      example: "Our WMS vendor sells a labour-reporting add-on, but we've never looked at it."
     probes:
       - "Does anything you already use, or could easily get, do something close to this?"
     always_ask: true

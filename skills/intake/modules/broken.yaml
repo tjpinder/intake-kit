@@ -9,6 +9,10 @@ anchor: broken.symptom
 areas:
   - id: broken.symptom
     must_capture: What exactly is seen, and whether it affects everything or some cases
+    packet:
+      ask: "What exactly goes wrong? Is it an error, missing records or wrong numbers, and does it hit everything or only some cases?"
+      why: "A precise symptom is what lets someone find the cause instead of guessing."
+      example: "About one in five orders from one customer arrives in the WMS with no ship-to address. Other customers are fine."
     probes:
       - "What exactly do you see: an error, missing records, wrong numbers? All orders or some?"
     critical: true
@@ -20,6 +24,10 @@ areas:
 
   - id: broken.timeline
     must_capture: When it last worked and what changed around then
+    packet:
+      ask: "When did it last work properly, and did anything change around then?"
+      why: "Most breaks trace back to a change: a release, a new customer, a setting or a person."
+      example: "It was fine until the 3rd. That week IT moved us to the new label printer driver."
     probes:
       - "When did it last work? Did anything change then: a release, a new customer, a setting, a person?"
     critical: false
@@ -29,6 +37,10 @@ areas:
 
   - id: broken.impact
     must_capture: Volume affected and any SLA or chargeback impact
+    packet:
+      ask: "How much does it affect: how many orders or hours a day, and is there any SLA or chargeback impact?"
+      why: "The size of the impact decides how urgent the fix is."
+      example: "About 40 orders a day need fixing by hand, around two hours. We paid one late-shipment chargeback last month."
     probes:
       - "How many orders or hours a day? Any SLA or chargeback impact?"
     critical: false
@@ -38,6 +50,10 @@ areas:
 
   - id: broken.workaround
     must_capture: What's being done in the meantime
+    packet:
+      ask: "What are you doing in the meantime to get by?"
+      why: "The workaround shows the real cost, and whether living with it is an option."
+      example: "A clerk re-keys the missing addresses from the customer portal every morning."
     probes:
       - "What are you doing in the meantime?"
     always_ask: true
@@ -51,6 +67,10 @@ areas:
 
   - id: broken.cause
     must_capture: The process or system condition behind it, reached by asking why repeatedly and branching where an answer has more than one cause
+    packet:
+      ask: "Why do you think it happens? If you know a reason, what's behind that reason?"
+      why: "A fix aimed at the real cause stays fixed; a fix aimed at a symptom comes back."
+      example: "The customer added a second address line, and our mapping drops anything after the first line."
     probes:
       - "Why did that happen?"
     critical: true
@@ -66,6 +86,10 @@ areas:
 
   - id: broken.recurrence
     must_capture: Whether it has happened before and whether it's documented
+    packet:
+      ask: "Has this happened before, and is it written down anywhere?"
+      why: "A repeat problem needs a lasting fix and a known-error note, not another patch."
+      example: "Same thing last spring with a different customer. It's in a ticket, but there's no write-up."
     probes:
       - "Has this happened before? Is it written down anywhere?"
     critical: false

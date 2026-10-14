@@ -9,6 +9,10 @@ anchor: data_report.decision
 areas:
   - id: data_report.decision
     must_capture: What the user will do differently when they see the number
+    packet:
+      ask: "What will you do differently when you see this report?"
+      why: "A report nobody acts on isn't worth building; the decision is what it's for."
+      example: "Pick which two pickers get retraining that week."
     probes:
       - "What will you do differently when you see this?"
     always_ask: true
@@ -22,6 +26,10 @@ areas:
 
   - id: data_report.definition
     must_capture: Exactly how the thing is counted, what's in and what's out
+    packet:
+      ask: "How exactly is one counted? What's in and what's out?"
+      why: "Two people counting \"the same thing\" differently is the most common reason reports get distrusted."
+      example: "Short picks and wrong-location scans count. Cancelled lines don't."
     probes:
       - "How exactly do you count one? What's in and what's out?"
     critical: true
@@ -32,6 +40,10 @@ areas:
 
   - id: data_report.grain
     must_capture: The level of detail and the time window
+    packet:
+      ask: "At what level of detail, and over what time window? Per order, line, person, shift or zone; daily, weekly?"
+      why: "The level of detail decides what data is needed and how it's grouped."
+      example: "Per picker, per shift, per day, for the last two weeks."
     probes:
       - "Per order, line, person, shift or zone? Over what window?"
     critical: false
@@ -42,6 +54,10 @@ areas:
 
   - id: data_report.truth
     must_capture: Which system's number wins when sources disagree
+    packet:
+      ask: "When two systems give different numbers, which one wins?"
+      why: "If nobody decides, every disagreement turns into an argument about the report."
+      example: "The WMS counts win over the dashboard."
     probes:
       - "Which system's number do you trust when they disagree?"
     critical: false
@@ -52,6 +68,10 @@ areas:
 
   - id: data_report.delivery
     must_capture: How fresh it must be and where it should appear
+    packet:
+      ask: "How fresh does it need to be, and where do you want to see it?"
+      why: "Freshness and location decide how it's delivered: an email, a screen, a file."
+      example: "By 7am each day, as an email to the shift leads."
     probes:
       - "How fresh does it need to be, and where do you want to see it?"
     critical: false
@@ -62,6 +82,10 @@ areas:
 
   - id: data_report.existing
     must_capture: Any existing report that's close, and what's wrong with it
+    packet:
+      ask: "Is there a report or screen today that's close to this? What's missing from it?"
+      why: "If something already covers it, the answer might be to fix that, not to build new."
+      example: "The WMS dashboard shows building totals, but nothing per picker."
     probes:
       - "Is there a report today that's close? What's wrong with it?"
     always_ask: true

@@ -6,6 +6,10 @@ effects: { risk_tier: high }
 areas:
   - id: mod.compliance.requirement_source
     must_capture: Who requires it and where the requirement is written
+    packet:
+      ask: "Who requires this, and where is the requirement written down?"
+      why: "The source of a requirement decides what exactly must be met."
+      example: "Our largest customer's routing guide, section 4."
     probes:
       - "Who requires this, and where is it written down?"
     critical: true
@@ -16,6 +20,10 @@ areas:
 
   - id: mod.compliance.evidence
     must_capture: What evidence must be produced
+    packet:
+      ask: "What would you have to show an auditor or the customer to prove it was done right?"
+      why: "Evidence has to be designed in from the start, not added later."
+      example: "A log of every change with who made it and when."
     probes:
       - "What would you have to show an auditor?"
     critical: false
@@ -25,6 +33,10 @@ areas:
 
   - id: mod.compliance.retention
     must_capture: How long records must be kept
+    packet:
+      ask: "How long do the records have to be kept?"
+      why: "Retention decides where records are stored and when they can be deleted."
+      example: "Seven years."
     probes:
       - "How long do the records have to be kept?"
     critical: false
@@ -34,6 +46,10 @@ areas:
 
   - id: mod.compliance.reviewer
     must_capture: Who reviews changes and outputs
+    packet:
+      ask: "Who has to review changes to this, or its results, before they go live?"
+      why: "A required reviewer has to be part of the plan, or the work stalls at the end."
+      example: "The quality manager approves any change to the process."
     probes:
       - "Who has to review changes to this before they go live?"
     critical: false

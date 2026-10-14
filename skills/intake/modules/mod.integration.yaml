@@ -5,6 +5,10 @@ applies_to: modifier
 areas:
   - id: mod.integration.systems
     must_capture: The system on each side
+    packet:
+      ask: "What's on each end: where does the information start, and where does it land?"
+      why: "Each end has its own owner, format and limits."
+      example: "Orders start in the customer's EDI feed and land in our WMS."
     probes:
       - "What's on each end: where does it start and where does it land?"
     critical: false
@@ -14,6 +18,10 @@ areas:
 
   - id: mod.integration.trigger
     must_capture: What starts a transfer
+    packet:
+      ask: "What starts a transfer: a schedule, an event, or someone pressing a button?"
+      why: "The trigger decides how fresh the data is and what happens when it doesn't fire."
+      example: "Every 15 minutes on a schedule."
     probes:
       - "What kicks off a transfer: a schedule, an event, someone pressing a button?"
     critical: false
@@ -23,6 +31,10 @@ areas:
 
   - id: mod.integration.payload
     must_capture: Payload format and a real example
+    packet:
+      ask: "What format does it travel in? Could we see one real example, with anything sensitive removed?"
+      why: "One real example settles more format questions than any description."
+      example: "An EDI 940 file. We can share a scrubbed one."
     probes:
       - "What format does it travel in? Can we see one real message?"
     critical: false
@@ -33,6 +45,10 @@ areas:
 
   - id: mod.integration.error_handling
     must_capture: What happens when a transfer fails and who finds out
+    packet:
+      ask: "When a transfer fails today, what happens, and who finds out?"
+      why: "Silent failures are the expensive ones."
+      example: "Nobody's told. We find out when a customer calls about a missing order."
     probes:
       - "When one fails today, what happens and who finds out?"
     critical: false
@@ -43,6 +59,10 @@ areas:
 
   - id: mod.integration.owners
     must_capture: Who owns each end
+    packet:
+      ask: "Who owns each end, and who do you call when it breaks?"
+      why: "Someone has to answer for each side when it goes wrong."
+      example: "IT owns the WMS side; the customer's EDI team owns theirs."
     probes:
       - "Who owns each end, and who do you call when it breaks?"
     critical: false

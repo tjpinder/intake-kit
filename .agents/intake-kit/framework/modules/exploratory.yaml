@@ -13,6 +13,10 @@ anchor: exploratory.instances
 areas:
   - id: exploratory.zones
     must_capture: Repetitive work nobody values, waits on other teams' skills, places people get stuck
+    packet:
+      ask: "Where does time go on work nobody values: repetitive tasks, waiting on another team, places people get stuck?"
+      why: "These are the places worth looking first."
+      example: "Re-keying carrier invoices, and waiting on IT for every report change."
     probes:
       - "What's repetitive work nobody values?"
       - "Where do you wait on another team's skills?"
@@ -24,6 +28,10 @@ areas:
 
   - id: exploratory.instances
     must_capture: The most recent concrete example of each zone named
+    packet:
+      ask: "For each one, what's the most recent real example?"
+      why: "A real, recent example is what makes a problem concrete enough to judge."
+      example: "Last Tuesday a clerk spent the afternoon re-keying 60 invoices from PDFs."
     probes:
       - "Give me the most recent example of each."
     critical: true
@@ -36,6 +44,10 @@ areas:
 
   - id: exploratory.value
     must_capture: Rough weekly cost in time or money of each instance
+    packet:
+      ask: "Roughly what does each one cost in a week, in time or money?"
+      why: "A rough cost is enough to rank them against each other."
+      example: "About six hours a week on invoices; the report waits cost about a day each time."
     probes:
       - "Roughly how much time or money does that cost a week?"
     critical: false

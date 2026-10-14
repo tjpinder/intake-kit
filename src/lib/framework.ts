@@ -15,6 +15,8 @@ export interface Feed { file: string; section: string }
 export interface Area {
   id: string;
   must_capture: string;
+  /** Async intake: the area's question in the packet, why it matters, and a synthetic example. */
+  packet: { ask: string; why: string; example: string };
   probes: string[];
   always_ask?: boolean;
   critical: boolean;

@@ -131,10 +131,21 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["id", "must_capture", "probes", "critical", "followup_conditions", "feeds"],
+            "required": ["id", "must_capture", "packet", "probes", "critical", "followup_conditions", "feeds"],
             "properties": {
               "id": { "type": "string" },
               "must_capture": { "type": "string", "minLength": 1 },
+              "packet": {
+                "description": "Async intake: the area's question in the packet, why it matters, and a short synthetic example answer.",
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["ask", "why", "example"],
+                "properties": {
+                  "ask": { "type": "string", "minLength": 1 },
+                  "why": { "type": "string", "minLength": 1 },
+                  "example": { "type": "string", "minLength": 1 }
+                }
+              },
               "probes": { "$ref": "#/$defs/phrases" },
               "always_ask": { "type": "boolean" },
               "critical": { "type": "boolean" },

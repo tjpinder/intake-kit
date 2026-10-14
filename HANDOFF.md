@@ -486,6 +486,7 @@ How v2 was built. Where these conflict with an earlier section, these win; the v
     - a new kill-criteria check, asked word for word: "What would make you stop this, or switch it off?"
 
     The kill-criteria answer joins `core.trust` and always becomes a kill criterion.
+  - **Constraints.** `core.constraints` is always asked, for every type and modifier. Under the compliance or migration modifier it had dropped out of the required areas, because another area also fed its section.
 - **Repo hygiene** stores the forbidden outside-framework names encoded, so the test itself contains none, and scans every file, docs and this spec included. The StartVest brand isn't a framework reference.
 
 ## Known issues (Oct 14, 2026, not fixed)

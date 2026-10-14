@@ -6,6 +6,10 @@ applies_to: all
 areas:
   - id: core.users
     must_capture: Who does the work, who uses the output, who owns the process, who signs off
+    packet:
+      ask: "Who's involved: who does the work today, who uses the result, who owns the process, and who signs off on changes?"
+      why: "Knowing who uses it and who can say yes keeps the build pointed at the right people."
+      example: "Two clerks do it, the three shift leads use it, and the operations manager signs off."
     probes:
       - "Who touches this, first person to last?"
       - "Who can say yes to changing it?"
@@ -19,6 +23,10 @@ areas:
 
   - id: core.outcome
     must_capture: Baseline, target, how it's measured, what we won't claim
+    packet:
+      ask: "How would you know this worked? What's it costing today, in hours, errors or money, and what would good look like?"
+      why: "A number for today and a target are what turn \"better\" into something you can check."
+      example: "It takes about four hours every Monday. Success is under 30 minutes, with the same counts."
     probes:
       - "How do you know today whether it went well?"
       - "What number would tell you this worked?"
@@ -35,6 +43,10 @@ areas:
 
   - id: core.data
     must_capture: Sources, system of record, how structured, quality issues, sensitivity, real examples
+    packet:
+      ask: "Where does the information come from, which copy do you trust, and is any of it sensitive?"
+      why: "The build has to read from the right source, and sensitive data changes what's allowed."
+      example: "Pick confirmations from the WMS reporting database. No customer or pricing data, just badge numbers."
     probes:
       - "Where does that live, and which copy do you trust?"
       - "Show me one real example."
@@ -50,6 +62,10 @@ areas:
 
   - id: core.systems
     must_capture: Apps touched, access method, changes expected in 6 months
+    packet:
+      ask: "Which screens, systems or files do you use for this, and is anything changing in them in the next six months?"
+      why: "The systems decide how it can be built, and an upcoming change can make a build wasted."
+      example: "The WMS and Excel. The WMS upgrade is planned for next spring."
     probes:
       - "Which screens or systems do you open?"
       - "Any upgrades planned in the next six months?"
@@ -63,9 +79,16 @@ areas:
 
   - id: core.constraints
     must_capture: Policy, compliance, SLAs, timing windows, approvals
+    packet:
+      ask: "Are there rules it must follow: policies, deadlines, time windows, approvals, or anyone outside your team who requires it?"
+      why: "Constraints rule options in or out before anyone starts building."
+      example: "It has to be ready by 7am. IT must approve anything that writes back to the WMS."
     probes:
       - "Is anyone outside your team requiring this?"
       - "When does it have to be done each day?"
+    # Always asked, whatever modifiers apply: a compliance or migration area also feeds the
+    # constraints section, which otherwise dropped it from the required list.
+    always_ask: true
     critical: false
     followup_conditions:
       - when: an outside requirement is mentioned
@@ -75,6 +98,10 @@ areas:
 
   - id: core.trust
     must_capture: Cost of a wrong output, who catches errors, required review, fallback, what would make them switch it off
+    packet:
+      ask: "When it goes wrong, who catches it today, how bad is a wrong result, and what would you do if the new thing stopped working?"
+      why: "This sets how much checking a person must do, and what the fallback is."
+      example: "A shift lead spots odd numbers. A wrong result means retraining the wrong person. If it broke, we'd go back to the spreadsheet."
     probes:
       - "When this goes wrong today, who catches it?"
       - "Worst outcome if an automated version got one wrong?"

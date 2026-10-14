@@ -11,6 +11,10 @@ anchor: manual_process.walkthrough
 areas:
   - id: manual_process.walkthrough
     must_capture: The last time, step by step, with screens, what was typed and what was checked
+    packet:
+      ask: "Walk through the last time it was done, step by step: which screen, what was typed, what was checked."
+      why: "The real steps, not the official ones, are what a build has to replace."
+      example: "Open the order screen, export to Excel, delete cancelled lines, sort by zone, email the file to two leads."
     probes:
       - "Walk me through the last time, step by step: which screen, what you typed, what you checked."
     critical: true
@@ -23,6 +27,10 @@ areas:
 
   - id: manual_process.boundary
     must_capture: What kicks it off, the finished output and who receives it
+    packet:
+      ask: "What starts it, what's the finished result, and who receives it?"
+      why: "Clear start and end points stop the work from growing as it's built."
+      example: "It starts when the night shift closes. The result is a file emailed to the day leads."
     probes:
       - "What kicks it off, what's the finished output, and who gets it?"
     critical: false
@@ -33,6 +41,10 @@ areas:
 
   - id: manual_process.volume
     must_capture: Frequency, count per run, time per run, peaks
+    packet:
+      ask: "How often is it done, how many each time, and how long does each take? Any busy peaks?"
+      why: "Volume times time is what the work costs, and peaks decide what it must handle."
+      example: "Daily, about 200 lines, an hour each time. Double in November."
     probes:
       - "How often, how many each time, how long each? Any peaks?"
     critical: false
@@ -43,6 +55,10 @@ areas:
 
   - id: manual_process.variation
     must_capture: Whether it's done the same way every time, and the cases that need thought
+    packet:
+      ask: "Is it done the same way every time? Which cases make someone stop and think?"
+      why: "Steps that always run the same way are easy to automate; judgment calls aren't."
+      example: "Mostly the same. Returns and split shipments need someone to decide."
     probes:
       - "Is it done the same way every time? What cases make you stop and think?"
     critical: false
@@ -55,6 +71,10 @@ areas:
 
   - id: manual_process.rules
     must_capture: How decisions are made and whether the rule can be written down
+    packet:
+      ask: "How are the decisions made? Could the rule be written down?"
+      why: "A rule that can be written down can be automated; one that can't needs a person or AI help."
+      example: "If the order is over $500 and the customer is new, it goes to the supervisor. That's written in our SOP."
     probes:
       - "How do you decide that? Could you write the rule down?"
     critical: false
@@ -65,6 +85,10 @@ areas:
 
   - id: manual_process.documentation
     must_capture: Whether an SOP exists and whether real examples can be had
+    packet:
+      ask: "Is there a written procedure, and could we get real examples from last month?"
+      why: "Real examples are how a build gets tested before anyone relies on it."
+      example: "There's an SOP from 2023, a bit out of date. We can export last month's files."
     probes:
       - "Is there an SOP? Could we get last month's real examples?"
     critical: false

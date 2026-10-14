@@ -1,0 +1,71 @@
+[
+  {
+    "answers": [
+      {
+        "item": "item-1",
+        "area": "core.constraints",
+        "status": "answered",
+        "value": "Report must be ready by 6am Monday.",
+        "quotes": [
+          "wants report by 6am, not 7 - night shift leads leave at 6:30"
+        ],
+        "conflict": true
+      },
+      {
+        "item": "item-1",
+        "area": "data_report.delivery",
+        "status": "answered",
+        "value": "Report must be ready by 6am Monday.",
+        "quotes": [
+          "wants report by 6am, not 7 - night shift leads leave at 6:30"
+        ],
+        "conflict": true
+      },
+      {
+        "item": "item-1",
+        "area": "data_report.grain",
+        "status": "answered",
+        "value": "The report is per picker, per shift, per day.",
+        "quotes": [
+          "per picker per shift per day"
+        ],
+        "conflict": true
+      },
+      {
+        "item": "item-1",
+        "area": "data_report.definition",
+        "status": "answered",
+        "value": "A short pick is confirmed quantity less than task quantity; cancelled lines don't count; wrong-location scans do count.",
+        "quotes": [
+          "short pick: wrong-location scans YES count them"
+        ],
+        "conflict": true
+      },
+      {
+        "item": "item-1",
+        "area": "data_report.truth",
+        "status": "answered",
+        "value": "WMS pick confirmations win if dashboard and report disagree.",
+        "quotes": [
+          "if dashboard and report disagree, WMS pick confirmations win"
+        ],
+        "conflict": false
+      }
+    ],
+    "checks": [],
+    "terms": [],
+    "definitions": [
+      {
+        "term": "short pick",
+        "definition": "A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; wrong-location scans do count.",
+        "quotes": [
+          "short pick: wrong-location scans YES count them"
+        ],
+        "certain": true,
+        "measurable": "yes",
+        "examples": [],
+        "conflict": false
+      }
+    ]
+  }
+]

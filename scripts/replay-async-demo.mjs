@@ -19,6 +19,7 @@ export function replay(root = ".") {
   const early = `${main}-early`;
   const sources = resolve(root, DEMO, "sources");
   const results = [];
+  let packet = "";
   try {
     for (const step of STEPS) {
       const dir = step.branch === "early" ? early : main;
@@ -30,9 +31,10 @@ export function replay(root = ".") {
       const body = JSON.parse(r.stdout);
       if (r.status !== 0) throw new Error(`${step.id}: exit ${r.status}: ${JSON.stringify(body).slice(0, 400)}`);
       results.push({ step, body });
+      if (body.result === "triaged") packet = readFileSync(join(dir, ".intake-kit", "packet.md"), "utf8");
     }
     const pack = (dir) => Object.fromEntries(PACK.filter((f) => existsSync(join(dir, f))).map((f) => [f, readFileSync(join(dir, f), "utf8")]));
-    return { results, final: pack(main), early: pack(early) };
+    return { results, packet, final: pack(main), early: pack(early) };
   } finally {
     rmSync(main, { recursive: true, force: true });
     rmSync(early, { recursive: true, force: true });
@@ -57,7 +59,7 @@ export function walkthrough(results) {
 }
 
 if (import.meta.url === `file://${process.argv[1].replace(/\\/g, "/").replace(/^\/?/, "/")}` || process.argv[1]?.endsWith("replay-async-demo.mjs")) {
-  const { results, final, early } = replay();
+  const { results, packet, final, early } = replay();
   for (const { step, body } of results) console.log(`${step.id}: ${body.result}`);
   if (process.argv.includes("--write")) {
     const out = join(DEMO, "output");
@@ -67,6 +69,7 @@ if (import.meta.url === `file://${process.argv[1].replace(/\\/g, "/").replace(/^
       for (const [f, text] of Object.entries(files)) writeFileSync(join(out, name, f), text);
     }
     writeFileSync(join(DEMO, "walkthrough.md"), walkthrough(results) + "\n");
+    writeFileSync(join(DEMO, "packet.md"), packet);
     console.log(`wrote ${DEMO}/walkthrough.md and ${out}/{final,early}`);
   }
 }

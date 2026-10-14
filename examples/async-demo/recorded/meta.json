@@ -1,0 +1,6 @@
+{
+  "recorded_at": "2026-10-14T17:31:52.016Z",
+  "commit": "d9144fe",
+  "model": "gpt-4.1",
+  "note": "Model answers to every call the async demo makes, recorded once. Sources are synthetic."
+}

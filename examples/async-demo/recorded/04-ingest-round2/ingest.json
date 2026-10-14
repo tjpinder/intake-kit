@@ -1,0 +1,123 @@
+[
+  {
+    "answers": [
+      {
+        "item": "item-1",
+        "area": "core.constraints",
+        "status": "answered",
+        "value": "Report must be ready by 6am Monday.",
+        "quotes": [
+          "Priya's right, it has to be there by 6am."
+        ],
+        "conflict": true
+      },
+      {
+        "item": "item-1",
+        "area": "data_report.definition",
+        "status": "answered",
+        "value": "A short pick is a pick confirmed with fewer units than the task asked for; cancelled lines don't count; wrong-location scans do count.",
+        "quotes": [
+          "Short pick, in my words: a pick confirmed with fewer units than the task asked for. Cancelled lines don't count, and wrong-location scans do count."
+        ],
+        "conflict": true
+      },
+      {
+        "item": "item-1",
+        "area": "data_report.grain",
+        "status": "answered",
+        "value": "The report is per picker, per shift, per day.",
+        "quotes": [
+          "Yes, per picker, per shift, per day is right."
+        ],
+        "conflict": true
+      },
+      {
+        "item": "item-1",
+        "area": "data_report.truth",
+        "status": "answered",
+        "value": "WMS pick confirmations win if the dashboard and the report disagree.",
+        "quotes": [
+          "if the dashboard and the report disagree, the WMS pick confirmations win."
+        ],
+        "conflict": false
+      },
+      {
+        "item": "item-1",
+        "area": "core.constraints",
+        "status": "answered",
+        "value": "No other rules or approvals beyond Priya signing off on retraining.",
+        "quotes": [
+          "No other rules or approvals beyond Priya signing off on retraining."
+        ],
+        "conflict": false
+      },
+      {
+        "item": "item-1",
+        "area": "data_report.delivery",
+        "status": "answered",
+        "value": "Report must be ready by 6am Monday.",
+        "quotes": [
+          "Priya's right, it has to be there by 6am."
+        ],
+        "conflict": true
+      },
+      {
+        "item": "item-2",
+        "area": "manual_process.walkthrough",
+        "status": "answered",
+        "value": "Sam exports last week's pick confirmations from WMS, pastes into Excel template, filters out cancelled lines, builds a pivot table of exceptions per picker, and emails it to three shift leads.",
+        "quotes": [
+          "I export last week's pick confirmations from the WMS, paste them into my Excel template, filter out the cancelled lines, then build a pivot table of exceptions per picker and email it to the three shift leads."
+        ],
+        "conflict": false
+      },
+      {
+        "item": "item-2",
+        "area": "manual_process.volume",
+        "status": "answered",
+        "value": "Once a week, about four hours.",
+        "quotes": [
+          "Once a week, about four hours."
+        ],
+        "conflict": false
+      }
+    ],
+    "checks": [
+      {
+        "item": "item-1",
+        "check": "existing_asset",
+        "result": "yes",
+        "value": "Sam builds a manual Excel report; WMS dashboard only shows building totals.",
+        "quote": null
+      },
+      {
+        "item": "item-1",
+        "check": "kill_criteria",
+        "result": "unclear",
+        "value": null,
+        "quote": null
+      },
+      {
+        "item": "item-2",
+        "check": "manual_work",
+        "result": "yes",
+        "value": "Sam builds the report manually in Excel from WMS export.",
+        "quote": "I export last week's pick confirmations from the WMS, paste them into my Excel template, filter out the cancelled lines, then build a pivot table of exceptions per picker and email it to the three shift leads."
+      }
+    ],
+    "terms": [],
+    "definitions": [
+      {
+        "term": "short pick",
+        "definition": "A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; wrong-location scans do count. Example: order 88's task said 5 and the picker confirmed 4, so that's 1 short pick.",
+        "quotes": [
+          "Short pick, in my words: a pick confirmed with fewer units than the task asked for. Cancelled lines don't count, and wrong-location scans do count. Example: order 88's task said 5 and the picker confirmed 4, so that's 1 short pick."
+        ],
+        "certain": true,
+        "measurable": "yes",
+        "examples": [],
+        "conflict": false
+      }
+    ]
+  }
+]

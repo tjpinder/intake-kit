@@ -1,0 +1,205 @@
+[
+  {
+    "facts": [
+      {
+        "item": "item-1",
+        "fact": "rule_clarity",
+        "band": "written",
+        "evidence": [
+          "data_report.definition"
+        ],
+        "quote": "a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."
+      },
+      {
+        "item": "item-1",
+        "fact": "input_digital",
+        "band": "fully",
+        "evidence": [
+          "core.data"
+        ],
+        "quote": "everything comes from WMS pick confirmations. We can read the reporting copy. No customer or pricing data in it, just badge numbers and locations."
+      },
+      {
+        "item": "item-1",
+        "fact": "input_structured",
+        "band": "80+",
+        "evidence": [
+          "core.data"
+        ],
+        "quote": "everything comes from WMS pick confirmations. We can read the reporting copy."
+      },
+      {
+        "item": "item-1",
+        "fact": "ways_done",
+        "band": "one",
+        "evidence": [
+          "data_report.existing"
+        ],
+        "quote": "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export."
+      },
+      {
+        "item": "item-1",
+        "fact": "stability",
+        "band": "none",
+        "evidence": [
+          "core.systems"
+        ],
+        "quote": "everything comes from WMS pick confirmations. We can read the reporting copy."
+      },
+      {
+        "item": "item-1",
+        "fact": "documentation",
+        "band": "partial",
+        "evidence": [
+          "data_report.definition"
+        ],
+        "quote": "a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."
+      },
+      {
+        "item": "item-1",
+        "fact": "steps_apps",
+        "band": "under_20",
+        "evidence": [
+          "data_report.existing"
+        ],
+        "quote": "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export."
+      },
+      {
+        "item": "item-1",
+        "fact": "access",
+        "band": "programmatic",
+        "evidence": [
+          "core.data"
+        ],
+        "quote": "We can read the reporting copy."
+      },
+      {
+        "item": "item-1",
+        "fact": "value",
+        "band": "high",
+        "evidence": [
+          "core.outcome"
+        ],
+        "quote": "I'd like short picks per picker down by a third within two months."
+      },
+      {
+        "item": "item-1",
+        "fact": "ai_applies",
+        "band": "no",
+        "evidence": [
+          "data_report.existing"
+        ],
+        "quote": "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export."
+      },
+      {
+        "item": "item-1",
+        "fact": "existing_asset",
+        "band": "none",
+        "evidence": [
+          "data_report.existing"
+        ],
+        "quote": "The WMS dashboard only shows building totals, nothing per picker."
+      },
+      {
+        "item": "item-1",
+        "fact": "decision_depends",
+        "band": "yes",
+        "evidence": [
+          "data_report.decision"
+        ],
+        "quote": "the shift leads would use it every Tuesday to pick which pickers get pulled for retraining."
+      },
+      {
+        "item": "item-1",
+        "fact": "success_metric",
+        "band": "measurable_with_baseline",
+        "evidence": [
+          "data_report.existing",
+          "core.outcome"
+        ],
+        "quote": "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export."
+      }
+    ],
+    "prose": [
+      {
+        "item": "item-1",
+        "field": "problem_statement",
+        "text": "Building shift leads need a daily report showing short picks per picker so they can target retraining and reduce errors."
+      },
+      {
+        "item": "item-1",
+        "field": "current_state",
+        "text": "Sam manually builds a weekly Excel report from WMS exports; WMS dashboard only shows totals, not per picker."
+      },
+      {
+        "item": "item-1",
+        "field": "mvp",
+        "text": "Automate a daily report per picker, ready by 6am, using WMS pick confirmation data and clear short-pick rules."
+      },
+      {
+        "item": "item-1",
+        "field": "out_of_scope",
+        "text": "Over picks and customer/pricing data are not included; only short picks per picker per shift per day."
+      },
+      {
+        "item": "item-1",
+        "field": "mitigation",
+        "text": "If the report disagrees with WMS two weeks in a row, Sam will revert to the manual spreadsheet."
+      }
+    ],
+    "acceptance": [
+      {
+        "item": "item-1",
+        "kind": "criterion",
+        "given": "WMS pick confirmation data is available and the report is generated by 6am each day",
+        "when": "Shift leads receive a per picker, per shift, per day short-pick report with wrong-location scans included",
+        "then": "They can use it to select pickers for retraining each Tuesday",
+        "evidence": [
+          "core.data",
+          "data_report.delivery",
+          "data_report.definition",
+          "data_report.decision"
+        ]
+      },
+      {
+        "item": "item-1",
+        "kind": "error_case",
+        "given": "The report disagrees with WMS pick confirmation numbers for two consecutive weeks",
+        "when": "Sam checks the numbers against WMS",
+        "then": "He switches off the new report and returns to the manual spreadsheet",
+        "evidence": [
+          "core.trust",
+          "data_report.truth"
+        ]
+      }
+    ],
+    "guardrails": [
+      {
+        "item": "item-1",
+        "kind": "kill_criterion",
+        "text": "If the report disagrees with WMS two weeks in a row, switch it off and revert to manual spreadsheet.",
+        "evidence": [
+          "core.trust",
+          "data_report.truth"
+        ]
+      }
+    ],
+    "open_questions": [
+      {
+        "item": "item-1",
+        "area": "data_report.definition",
+        "question": "Should wrong-location scans always count as short picks, or are there exceptions?",
+        "who_can_answer": "Priya (DC manager)",
+        "artifact_needed": "Written rule or confirmation from Priya"
+      },
+      {
+        "item": "item-1",
+        "area": "data_report.grain",
+        "question": "Should the report be per picker per shift per day, or weekly?",
+        "who_can_answer": "Priya (DC manager)",
+        "artifact_needed": "Clarified reporting requirement"
+      }
+    ],
+    "reflect_back_text": "You want a daily short-pick report per picker, built from WMS confirmations, ready by 6am so shift leads can target retraining. Today you do this manually in Excel, but it takes four hours and only gives weekly results. If the new report disagrees with WMS for two weeks, you'll switch it off and go back to your spreadsheet."
+  }
+]

@@ -42,7 +42,7 @@ const runs = Number(values.runs);
 const budget = Number(values.budget);
 const concurrency = Number(values.concurrency);
 
-const dirty = execSync("git status --porcelain", { encoding: "utf8" }).trim();
+const dirty = execSync("git status --porcelain --untracked-files=no", { encoding: "utf8" }).trim();
 if (dirty) {
   console.error(`Commit first: every gate run is tied to a commit hash.
 ${dirty}`);

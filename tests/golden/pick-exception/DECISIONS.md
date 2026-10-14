@@ -16,7 +16,7 @@ Scores: Automation potential 5, ease 4.5 (prioritize).
 ### Monday Excel exception summary (`item-2`): Don't build
 
 - Superseded by item-1, which reaches Go
-- (also matched gather_more) Nobody has said what decision or outcome depends on it
+- (also matched gather_more) Nobody has said what decision or outcome depends on it (core.outcome)
 - (also matched gather_more) Too few known criteria to score automation potential
 - (also matched gather_more) Too few known criteria to score ease
 

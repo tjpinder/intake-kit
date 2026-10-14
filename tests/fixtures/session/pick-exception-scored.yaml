@@ -161,7 +161,7 @@ items:
       decision: dont_build
       reasons:
         - Superseded by item-1, which reaches Go
-        - (also matched gather_more) Nobody has said what decision or outcome depends on it
+        - (also matched gather_more) Nobody has said what decision or outcome depends on it (core.outcome)
         - (also matched gather_more) Too few known criteria to score automation potential
         - (also matched gather_more) Too few known criteria to score ease
       revisit_trigger: Revisit if item-1 isn't built, or doesn't replace this

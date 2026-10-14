@@ -5,7 +5,7 @@
 // area. Nothing here calls a model.
 
 import type { Area, Framework } from "../lib/framework.ts";
-import { criticalAreas } from "../lib/gates.ts";
+import { criticalAreas, gateFactSource } from "../lib/gates.ts";
 import { normalize, type TranscriptEntry } from "../lib/grounding.ts";
 import { said } from "../lib/guide.ts";
 import { hasNumber, sessionQuotes } from "../lib/score.ts";
@@ -41,6 +41,11 @@ export function requiredAreas(item: Item, fw: Framework): Set<string> {
   const applies = new Set(areas.map((a) => a.id));
   for (const c of Object.values(fw.scoring.criteria)) {
     const src = c.usually_from.find((id) => applies.has(id));
+    if (src) ids.add(src);
+  }
+  // A gate reason must rest on an area that was asked, so each gate fact's source is required.
+  for (const fact of Object.keys(fw.scoring.gate_facts)) {
+    const src = gateFactSource(fact, item, fw);
     if (src) ids.add(src);
   }
   const feeders = new Map<string, string[]>();

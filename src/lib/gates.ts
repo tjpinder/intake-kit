@@ -6,7 +6,7 @@
 
 import type { Framework } from "./framework.ts";
 import { aiOverlayPasses, bandOf, scoreItem, scoringView } from "./score.ts";
-import { coverageFor, isCaptured, type Gate, type GateDecision, type Item, type Session } from "./session.ts";
+import { askedKey, coverageFor, isCaptured, type Gate, type GateDecision, type Item, type Session } from "./session.ts";
 
 type Stage = "fix_not_build" | "dont_build_definitive" | "gather_more" | "dont_build_quadrant" | "go";
 
@@ -27,6 +27,33 @@ export function criticalAreas(item: Item, fw: Framework): string[] {
   for (const name of modules) for (const area of fw.modules[name]?.areas ?? []) if (area.critical) ids.add(area.id);
   return [...ids];
 }
+
+/** The area a gate fact comes from for this item: the first of its sources that applies. */
+export function gateFactSource(fact: string, item: Item, fw: Framework): string | null {
+  const applies = new Set(["core", item.type, ...item.modifiers.map((m) => `mod.${m}`)].flatMap((m) => fw.modules[m]?.areas.map((a) => a.id) ?? []));
+  return (fw.scoring.gate_fact_sources?.[fact] ?? []).find((id) => applies.has(id)) ?? null;
+}
+
+/** The user was asked about this area (or answered it unprompted). */
+function wasAsked(session: Session, item: Item, id: string): boolean {
+  const key = askedKey(item.id, id);
+  if (key && session.session.asked?.[key]) return true;
+  const e = coverageFor(session, item, id);
+  return !!e && e.status !== "unknown";
+}
+
+/** A gate reason names the area it rests on, and says so plainly when that area was never asked. */
+function sourced(session: Session, item: Item, fw: Framework, fact: string, reason: string): string {
+  const src = gateFactSource(fact, item, fw);
+  if (!src) return reason;
+  return wasAsked(session, item, src) ? `${reason} (${src})` : `${reason}: ${src} was never asked`;
+}
+
+const SUCCESS_REASON: Record<string, string> = {
+  measurable_no_baseline: "Success is measurable, but there's no baseline for how things are today",
+  vague: "Success is described, but not as something measurable, and there's no baseline",
+  unknown: "Nobody has said how success would be measured",
+};
 
 function areaSettled(session: Session, item: Item, id: string): boolean {
   const entry = coverageFor(session, item, id);
@@ -92,7 +119,7 @@ function evaluate(session: Session, item: Item, fw: Framework, gateOf: (id: stri
   if (gm.stability.includes(band("stability"))) m.gather_more.reasons.push("A major change is expected within six months");
   const depends = band("decision_depends");
   if ((gm.decision_depends ?? []).includes(depends) && !(decisive && d.decision_depends.includes(depends))) {
-    m.gather_more.reasons.push(depends === "unknown" ? "Nobody has said what decision or outcome depends on it" : "No decision or outcome depends on it yet");
+    m.gather_more.reasons.push(sourced(session, item, fw, "decision_depends", depends === "unknown" ? "Nobody has said what decision or outcome depends on it" : "No decision or outcome depends on it yet"));
   }
   if (gm.review_without_mitigation && scoring.quadrant === "review" && !item.prose.mitigation) {
     m.gather_more.reasons.push("Review quadrant with no written mitigation");
@@ -134,7 +161,7 @@ function evaluate(session: Session, item: Item, fw: Framework, gateOf: (id: stri
   const unmet: string[] = [];
   if (go.reflect_back_confirmed && session.session.reflect_back?.confirmed !== true) unmet.push("Reflect-back not confirmed");
   for (const id of unsettled) unmet.push(`Critical area ${id} isn't covered`);
-  if (!go.success_metric.includes(band("success_metric"))) unmet.push("No measurable success metric with a baseline");
+  if (!go.success_metric.includes(band("success_metric"))) unmet.push(sourced(session, item, fw, "success_metric", SUCCESS_REASON[band("success_metric")] ?? "No measurable success metric with a baseline"));
   const quadrantOk =
     (scoring.quadrant != null && go.quadrants.includes(scoring.quadrant) && (scoring.quadrant !== "review" || !go.review_needs_mitigation || !!item.prose.mitigation)) ||
     (go.ai_candidate_from_defer && scoring.quadrant === "defer" && aiOverlayPasses(scoring));
@@ -167,6 +194,11 @@ export function gateItem(session: Session, item: Item, fw: Framework, gateOf: (i
     return { decision: "gather_more", reasons: unmetForGo, revisit_trigger: null, rules_version: fw.scoring.rules_version };
   }
 
+  // Gather more lists every unmet Go requirement too, so the brief covers everything that stands
+  // between this item and Go (enablement live test: the vague success metric went unlisted).
+  if (winner === "gather_more") {
+    for (const r of unmetForGo) if (!matches.gather_more.reasons.includes(r)) matches.gather_more.reasons.push(r);
+  }
   const also = order
     .filter((stage) => stage !== winner && stage !== "go" && matches[stage].reasons.length > 0)
     .flatMap((stage) => matches[stage].reasons.map((r) => `(also matched ${DECISION[stage]}) ${r}`));

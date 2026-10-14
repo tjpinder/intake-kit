@@ -58,6 +58,8 @@ export interface Scoring {
   adoption: { applies_to: ItemType[]; forces: string[]; bands: Band[]; risk_when: Record<string, Band[]>; usually_from?: Record<string, string[]> };
   gate_facts: Record<string, Band[]>;
   gate_fact_notes?: Record<string, string>;
+  /** For each gate fact, the areas it comes from; the first one that applies to an item is asked. */
+  gate_fact_sources?: Record<string, string[]>;
   gates: {
     go_requires_core: string[];
     precedence: string[];
@@ -273,6 +275,10 @@ export function buildFramework(sources: FrameworkSources, options: BuildOptions 
     for (const id of def.usually_from) if (!areas.has(id)) issues.push(`scoring.yaml: ${c}.usually_from names unknown area ${id}`);
     for (const b of Object.keys(def.describe)) if (!(b in def.bands)) issues.push(`scoring.yaml: ${c}.describe names unknown band ${b}`);
     for (const b of Object.keys(def.bands)) if (b !== "unknown" && !(b in def.describe)) issues.push(`scoring.yaml: ${c} band ${b} has no description`);
+  }
+  for (const [fact, ids] of Object.entries(scoring.gate_fact_sources ?? {})) {
+    if (!scoring.gate_facts[fact]) issues.push(`scoring.yaml: gate_fact_sources names unknown gate fact ${fact}`);
+    for (const id of ids) if (!areas.has(id)) issues.push(`scoring.yaml: gate_fact_sources.${fact} names unknown area ${id}`);
   }
   if (scoring.thresholds.low_below_pct >= scoring.thresholds.high_min_pct) issues.push("scoring.yaml: low_below_pct must be below high_min_pct");
   for (const c of scoring.ai_overlay.dont_build_on_fail) if (!scoring.ai_overlay.checks[c]) issues.push(`scoring.yaml: dont_build_on_fail names unknown check ${c}`);

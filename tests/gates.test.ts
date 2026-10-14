@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
 import { loadFramework } from "../src/lib/framework-fs.ts";
-import { scoreAndGate, criticalAreas, gateItem, GateError } from "../src/lib/gates.ts";
+import { scoreAndGate, criticalAreas, gateFactSource, gateItem, GateError } from "../src/lib/gates.ts";
+import { requiredAreas } from "../src/engine/plan.ts";
 import { validateSession } from "../src/lib/schemas.ts";
 import { scoreItem } from "../src/lib/score.ts";
 import type { Gate, Item, Session } from "../src/lib/session.ts";
@@ -251,7 +252,7 @@ describe("precedence: first match wins, every match is recorded", () => {
 describe("fall-through to Gather more", () => {
   test("no gate matches but Go isn't met: the unmet requirements are the reasons", () => {
     const g = gateOf({ facts: { success_metric: "measurable_no_baseline" } });
-    expectGate(g, "gather_more", "No measurable success metric with a baseline");
+    expectGate(g, "gather_more", "Success is measurable, but there's no baseline");
     assert.equal(g.revisit_trigger, null);
   });
 });
@@ -296,7 +297,7 @@ describe("Don't build needs evidence; missing information means Gather more (fir
     assert.equal(gateFor("data_report", "no").decision, "dont_build");
     const idea = gateFor("known_idea", "no");
     assert.equal(idea.decision, "gather_more");
-    assert.ok(idea.reasons.includes("No decision or outcome depends on it yet"));
+    assert.ok(idea.reasons.some((r) => r.startsWith("No decision or outcome depends on it yet")), idea.reasons.join(" | "));
     assert.equal(gateFor("manual_process", "no").decision, "gather_more");
   });
 
@@ -304,7 +305,44 @@ describe("Don't build needs evidence; missing information means Gather more (fir
     for (const type of ["data_report", "known_idea"] as const) {
       const g = gateFor(type, "unknown");
       assert.equal(g.decision, "gather_more", type);
-      assert.ok(g.reasons.includes("Nobody has said what decision or outcome depends on it"), type);
+      assert.ok(g.reasons.some((r) => r.startsWith("Nobody has said what decision or outcome depends on it")), type);
+    }
+  });
+});
+
+describe("gate reasons (enablement live test)", () => {
+  const fwR = loadFramework(".");
+  const gateWith = (facts: Record<string, string>, asked: Record<string, string> = {}) => {
+    const s = makeSession([makeItem("item-1", { type: "known_idea", facts })]);
+    s.session.asked = asked;
+    return scoreAndGate(s, fwR).session.items[0].gate!;
+  };
+
+  test("Gather more lists every unmet Go requirement, not only its own reasons", () => {
+    const g = gateWith({ decision_depends: "unknown", success_metric: "vague" }, { "core.outcome": "2026-10-14T00:00:00Z" });
+    assert.equal(g.decision, "gather_more");
+    assert.ok(g.reasons.includes("Nobody has said what decision or outcome depends on it (core.outcome)"), g.reasons.join(" | "));
+    assert.ok(g.reasons.includes("Success is described, but not as something measurable, and there's no baseline (core.outcome)"), g.reasons.join(" | "));
+  });
+
+  test("a reason names the area it rests on, and says when that area was never asked", () => {
+    const s = makeSession([makeItem("item-1", { type: "known_idea", facts: { decision_depends: "unknown" } })]);
+    s.session.asked = {};
+    delete (s.core as Record<string, unknown>).outcome;
+    const g = scoreAndGate(s, fwR).session.items[0].gate!;
+    assert.ok(g.reasons.some((r) => r.endsWith("core.outcome was never asked")), g.reasons.join(" | "));
+  });
+
+  test("every gate fact's source area is asked for every type that has one", () => {
+    for (const type of Object.keys(fwR.router.types) as ItemType[]) {
+      const item = makeItem("item-1", { type });
+      const req = requiredAreas(item, fwR);
+      for (const fact of Object.keys(fwR.scoring.gate_facts)) {
+        const src = gateFactSource(fact, item, fwR);
+        if (src) assert.ok(req.has(src), `${type}: ${fact} comes from ${src}, which isn't required`);
+      }
+      assert.ok(gateFactSource("decision_depends", item, fwR), `${type}: decision_depends has no source`);
+      assert.ok(gateFactSource("success_metric", item, fwR), `${type}: success_metric has no source`);
     }
   });
 });

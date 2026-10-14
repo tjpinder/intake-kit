@@ -130,8 +130,23 @@ gate_facts:
   workaround_permanent: ["yes", "no", unknown]
   success_metric: [measurable_with_baseline, measurable_no_baseline, vague, unknown]
 
+# Where each gate fact comes from: the first area listed that applies to the item. The plan always
+# asks it, so every gate reason rests on an area the user was asked (enablement live test: the
+# gate cited decision_depends for a known idea, which no area ever asked).
+gate_fact_sources:
+  existing_asset: [data_report.existing, known_idea.existing]
+  decision_depends: [data_report.decision, core.outcome]
+  broken_cause: [broken.cause]
+  workaround_permanent: [broken.workaround]
+  success_metric: [core.outcome]
+
 # How to pick gate facts the band names don't explain on their own. Shown in the guide.
 gate_fact_notes:
+  decision_depends: >-
+    For a report or dataset: "yes" when they named a decision someone makes with it, "no" when
+    they said nobody acts on it. For anything else: "yes" when they named an outcome or decision
+    that depends on it (what they'd do with it, or what it lets someone do), "no" when they said
+    nothing does. Cite the area that holds it, usually core.outcome.
   success_metric: >-
     A time, count or cost the user gave for how things are today ("four hours every Monday",
     "about 50 a day") is a baseline. Use measurable_with_baseline when they also said what would

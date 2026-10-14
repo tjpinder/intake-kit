@@ -500,7 +500,7 @@ Found by the second v2 gate on commit 89cde19, which missed the ship bar (4 of 6
    - one line on why it matters
    - a short example of a good answer
 
-   The manual-work and existing-asset checks are included word for word. Areas that help but aren't required go in an "if you know" section at the end. The packet should fit on one page, about 10 to 14 questions. It comes in two formats: text ready to paste into an email, and a meeting agenda with space for notes.
+   The manual-work and existing-asset checks are included word for word. Areas that help but aren't required go in an "if you know" section at the end, included by default. The packet should fit on one page, about 10 to 14 questions. It comes in two formats: text ready to paste into an email, and a meeting agenda with space for notes.
 3. **Ingest (interviewer pastes).** The interviewer pastes whatever comes back: the user's email reply, their own meeting notes, or a call transcript. Each paste is a **source**, with a kind (`reply`, `notes` or `transcript`), who it's from, and when it was added.
    - A new model call, `ingest`, reads the whole source against every area of the item and returns each area it answers, with a status, a value and verbatim quotes, plus the check results.
    - Long sources are split into chunks, and code merges the results.
@@ -517,10 +517,10 @@ Found by the second v2 gate on commit 89cde19, which missed the ship bar (4 of 6
 5. **Summary and gate.** The interviewer opens the summary whenever they're ready. It's the same code-rendered summary.
    - Corrections are made per area, by editing that area's line, never as free text, so a correction can't land on the wrong area.
    - Each definitive Don't-build reason gets its own confirm, so one yes can't confirm them all.
-   - The interviewer can also send the summary to the user. Their reply is ingested as one more source.
+   - The interviewer signs off on the summary, once it meets their expectations and they understand the work. The end user doesn't confirm it in the tool. If the interviewer wants the user to check something, they put it in a follow-up packet, and the reply is ingested as one more source.
    - Confirming scores and gates, then renders the spec pack, as now.
 
-**Whose words count.** Every quote records its source. The summary and the spec pack show where each answer came from: the user's reply, a transcript, or the interviewer's notes. Notes are second-hand. A critical area that rests only on notes is listed on the summary for the interviewer to confirm, and stays labelled as from notes in DECISIONS.md.
+**Whose words count.** Every quote records its source. The summary and the spec pack show where each answer came from: the user's reply, a transcript, or the interviewer's notes. An answer from the interviewer's notes counts as answered, the same as one from the user's reply. It stays labelled as from notes in the summary and in DECISIONS.md, so a reader can see it's second-hand.
 
 **Model contract.** One new strict-mode call:
 - `ingest(source_text, areas with must_capture, checks)` returns `answers[]`: area, status, value and quotes.
@@ -566,10 +566,10 @@ The follow-up packet must contain every gap and nothing already answered.
 
 Fixes from the Oct 14 live test that apply to both modes still go first: re-render must regenerate acceptance criteria and guardrails rather than append, and the designated checks must run for known ideas.
 
-**Open decisions (Tom)**
-- Does an answer from the interviewer's notes count as covered, or as assumed until confirmed? Drafted above as covered, labelled, with critical-only confirmation.
-- Who confirms the summary by default: the interviewer, or the end user, by sending it to them?
-- The packet length cap, and whether "if you know" questions are included by default.
+**Decided (Tom, Oct 14)**
+- Answers from the interviewer's notes count as answered, labelled as from notes.
+- The interviewer signs off on the summary; the end user doesn't confirm it in the tool.
+- "If you know" questions are included in the packet by default.
 
 ## Build decisions
 

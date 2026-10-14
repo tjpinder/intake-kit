@@ -92,6 +92,11 @@ export function documentPrompt(persona: Persona, format: AsyncFormat | "confirm"
     persona.situation.trim(),
     "",
     ask[format],
+    "",
+    "Strict rules about facts (async persona 7 invented a baseline and a manual process that weren't in its situation):",
+    "- Every fact you state must be in your situation above. Never add numbers, times, costs, counts, people, tools, systems, processes or past events that it doesn't state.",
+    "- If a question asks for something your situation doesn't cover, say plainly that you don't know or don't have it (\"I don't have a number for that\", \"Nothing's done by hand today\"). That's a good answer.",
+    "- The example answers in the questions are only examples. Never copy or adapt them into your answer.",
     "Never mention that you are an AI, a simulation or a persona.",
   ].join("\n");
 }

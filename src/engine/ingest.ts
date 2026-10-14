@@ -103,7 +103,11 @@ export function applyIngest(session: Session, source: Source, r: IngestResult, f
   const asked = session.session.asked ?? (session.session.asked = {});
 
   for (const a of r.answers) {
-    const item = session.items.find((i) => i.id === a.item && !i.dropped) ?? (a.area.startsWith("core.") ? session.items.find((i) => !i.spawned_from) : undefined);
+    // The item named, or, if the model named something else (the type, say), the one live item the
+    // area belongs to: each area belongs to one item's type (smoke test: "data_report" for "item-1").
+    const live = session.items.filter((i) => !i.dropped);
+    const fits = live.filter((i) => areaFits(i, a.area, fw));
+    const item = live.find((i) => i.id === a.item) ?? (a.area.startsWith("core.") ? live.find((i) => !i.spawned_from) : fits.length === 1 ? fits[0] : undefined);
     if (!item || !areaFits(item, a.area, fw)) { events.push(`${a.item}:${a.area}: doesn't apply, ignored`); continue; }
     const quotes = [...new Set(a.quotes.map((q) => grounded(q, transcript)).filter((q): q is string => !!q))];
     const key = areaKey(item, a.area);

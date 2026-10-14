@@ -16334,7 +16334,7 @@ var INGEST_CHECKS = {
 var termLines = (session) => {
   const terms = (session.terms ?? []).filter((t) => t.status !== "not_a_term");
   if (!terms.length) return [];
-  return ["Terms so far:", ...terms.map((t) => `- ${t.term}: ${t.status === "confirmed" ? `defined as "${t.definition}"${t.conflict ? ` and also as "${t.conflict.definition}" (a definition here settles which is right; conflict false)` : ""}` : "not yet defined"}`), ""];
+  return ["Terms so far:", ...terms.map((t) => `- ${t.term}: ${t.status === "confirmed" ? `defined as "${t.definition}"${t.conflict ? ` and also as "${t.conflict.definition}" (a definition here settles which is right; conflict false)` : ""}` : t.draft ? `drafted as "${t.draft.definition}", not yet certain` : "not yet defined"}`), "A definition for a term already listed must be the complete definition: what was already recorded or drafted, with whatever this document settles or adds. Never just the part this document adds.", ""];
 };
 function ingestRequest(fw, session, x) {
   const sections2 = x.items.map((it) => {
@@ -16358,7 +16358,7 @@ function ingestRequest(fw, session, x) {
         "value: what the document says, as one short plain sentence. Null if nothing usable.",
         "quotes: one or more exact spans copied character for character from the document that carry the answer. Never paraphrase, never join two places into one quote.",
         `conflict: true only if the answer contradicts what is recorded so far for that area (shown after "recorded so far"): both can't be true at once, like "by 7am" and "by 6am". Adding detail, narrowing it down, or saying the same thing another way is never a conflict: "per picker" then "per picker, per shift, per day" is conflict false.`,
-        "item: the item the area is listed under. A shared core area belongs to the first item listed.",
+        'item: the exact item ID the area is listed under, like "item-1" (never the type). A shared core area belongs to the first item listed.',
         "checks: one entry for each check listed under an item, with the document's words in quote (null if none).",
         "terms: business terms the document uses whose meaning is local to this business or could be read more than one way (over pick, fill rate, on-time, exception), each with the words where it appears. Not generic words, and not terms already listed below.",
         `definitions: for any term (listed below or new), a definition the document gives: what counts and what doesn't, in its words, with quotes; whether it says the thing can be seen in the system's data; any worked example with the right result. certain: false if the document hedges any part of it ("I think", "not sure", "check with"). If the document settles or adds to part of a term already listed ("wrong-location scans do count"), return a definition for that same term, using its listed name, with the full updated definition and conflict false; never make a separate term out of part of one. conflict: true only if it contradicts a definition already recorded.`
@@ -16960,7 +16960,9 @@ function applyIngest(session, source, r, fw, now2) {
   const engine = session.session.engine;
   const asked = session.session.asked ?? (session.session.asked = {});
   for (const a of r.answers) {
-    const item = session.items.find((i) => i.id === a.item && !i.dropped) ?? (a.area.startsWith("core.") ? session.items.find((i) => !i.spawned_from) : void 0);
+    const live = session.items.filter((i) => !i.dropped);
+    const fits = live.filter((i) => areaFits(i, a.area, fw));
+    const item = live.find((i) => i.id === a.item) ?? (a.area.startsWith("core.") ? live.find((i) => !i.spawned_from) : fits.length === 1 ? fits[0] : void 0);
     if (!item || !areaFits(item, a.area, fw)) {
       events.push(`${a.item}:${a.area}: doesn't apply, ignored`);
       continue;

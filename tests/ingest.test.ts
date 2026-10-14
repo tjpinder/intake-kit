@@ -217,3 +217,18 @@ describe("ingest fixes after the real-model smoke test", () => {
     assert.match(provider.requests[0].context, /"yes" even if it only does part/);
   });
 });
+
+describe("ingest fixes after the second smoke test", () => {
+  test("an answer filed under the type instead of the item ID still lands on the one item it belongs to", async () => {
+    const out = await runIngest({ provider: scripted([ingestOut([{ item: "data_report", area: "data_report.delivery", status: "answered", value: "By 6am", quotes: ["wants report by 6am"], conflict: false }])]), fw, session: triaged(), source: { kind: "notes", from: "Tom", text: "- wants report by 6am, not 7" }, now: LATER });
+    assert.equal(out.session.items[0].coverage["data_report.delivery"].status, "covered");
+  });
+
+  test("the model sees a term's draft, and is told to give the complete definition", async () => {
+    const first = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "short pick", quote: "short pick", kind: "metric" }], [{ term: "short pick", definition: "Below the task quantity; maybe wrong-location scans", quotes: ["short pick is below the task quantity"], certain: false, measurable: "yes", examples: [], conflict: false }])]), fw, session: triaged(), source: { kind: "reply", from: "Sam", text: "A short pick is below the task quantity, I think." }, now: LATER });
+    const provider = scripted([ingestOut([])]);
+    await runIngest({ provider, fw, session: first.session, source: { kind: "notes", from: "Tom", text: "wrong-location scans count" }, now: LATER });
+    assert.match(provider.requests[0].context, /- short pick: drafted as "Below the task quantity; maybe wrong-location scans", not yet certain/);
+    assert.match(provider.requests[0].context, /must be the complete definition/);
+  });
+});

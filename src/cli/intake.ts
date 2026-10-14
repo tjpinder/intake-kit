@@ -57,7 +57,10 @@ const out = (exitCode: number, body: Record<string, unknown>): never => {
   process.exit(exitCode);
 };
 
-const now = () => new Date().toISOString();
+// INTAKE_KIT_NOW and INTAKE_KIT_SESSION_ID pin the clock and session ID, so a recorded demo replays
+// byte for byte (scripts/replay-async-demo.mjs and its test). Unset in normal use.
+const now = () => process.env.INTAKE_KIT_NOW ?? new Date().toISOString();
+const sessionId = (at: string) => process.env.INTAKE_KIT_SESSION_ID ?? `${at.slice(0, 10)}-${randomBytes(2).toString("hex")}`;
 
 function start(dir: string, opts: { mode: string; provider: string; grounding: string; new: boolean; resume: boolean }) {
   const p = paths(dir);
@@ -102,7 +105,7 @@ function start(dir: string, opts: { mode: string; provider: string; grounding: s
     schema_version: 1,
     framework_version: fw.router.framework_version,
     session: {
-      id: `${startedAt.slice(0, 10)}-${randomBytes(2).toString("hex")}`,
+      id: sessionId(startedAt),
       started_at: startedAt,
       mode: opts.mode as Session["session"]["mode"],
       provider: opts.provider as Session["session"]["provider"],
@@ -383,7 +386,7 @@ function triage(dir: string, o: { request?: string; type?: string; modifiers: st
   }
   const at = now();
   const fw = loadFramework(pluginRoot());
-  const session = startAsync(fw, { id: `${at.slice(0, 10)}-${randomBytes(2).toString("hex")}`, request: o.request.trim(), type: o.type as ItemType, modifiers: o.modifiers as Modifier[], title: o.title, from: o.from ?? "the requester", provider: o.provider as Session["session"]["provider"], now: at });
+  const session = startAsync(fw, { id: sessionId(at), request: o.request.trim(), type: o.type as ItemType, modifiers: o.modifiers as Modifier[], title: o.title, from: o.from ?? "the requester", provider: o.provider as Session["session"]["provider"], now: at });
   writeSession(dir, session);
   const files = writePacket(dir, session);
   return out(0, { result: "triaged", session_id: session.session.id, session_file: p.session, packet: files.email, agenda: files.agenda, readiness: readinessLines(findGaps(session, fw)) });

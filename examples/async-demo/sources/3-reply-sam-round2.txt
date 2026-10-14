@@ -1,0 +1,13 @@
+Hi Tom,
+
+On the time: Priya's right, it has to be there by 6am. The night shift leads need it before they leave at 6:30.
+
+Short pick, in my words: a pick confirmed with fewer units than the task asked for. Cancelled lines don't count, and wrong-location scans do count. Example: order 88's task said 5 and the picker confirmed 4, so that's 1 short pick.
+
+Yes, per picker, per shift, per day is right. And yes, if the dashboard and the report disagree, the WMS pick confirmations win.
+
+The Monday sheet, last time step by step: I export last week's pick confirmations from the WMS, paste them into my Excel template, filter out the cancelled lines, then build a pivot table of exceptions per picker and email it to the three shift leads. Once a week, about four hours.
+
+No other rules or approvals beyond Priya signing off on retraining.
+
+Sam

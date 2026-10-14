@@ -1,0 +1,24 @@
+Hi Tom,
+
+Answers below, sorry it's a bit of a ramble.
+
+What we'd do with it: the shift leads would use it every Tuesday to pick which pickers get pulled for retraining. Right now they mostly guess.
+
+Who: I build the current version, the three shift leads use it, and Priya (DC manager) signs off on any retraining.
+
+Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export. If it works, I'd like short picks per picker down by a third within two months.
+
+Data: everything comes from WMS pick confirmations. We can read the reporting copy. No customer or pricing data in it, just badge numbers and locations.
+
+Timing: it needs to be there by 7am when I get in.
+
+Counting: a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know.
+
+We also get over picks. An over pick is when someone physically takes more than the ticket says - the system never sees it because they confirm the ticket quantity. Last week order 5521's ticket said 12 and 14 came off the slot, so that's 2 over picked.
+
+The WMS dashboard only shows building totals, nothing per picker.
+
+If the numbers in the new report disagreed with the WMS two weeks in a row I'd switch it off and go back to my spreadsheet.
+
+Thanks,
+Sam

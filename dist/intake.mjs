@@ -17923,7 +17923,8 @@ var out = (exitCode, body) => {
   process.stdout.write(JSON.stringify(body, null, 2) + "\n");
   process.exit(exitCode);
 };
-var now = () => (/* @__PURE__ */ new Date()).toISOString();
+var now = () => process.env.INTAKE_KIT_NOW ?? (/* @__PURE__ */ new Date()).toISOString();
+var sessionId = (at) => process.env.INTAKE_KIT_SESSION_ID ?? `${at.slice(0, 10)}-${randomBytes(2).toString("hex")}`;
 function start(dir, opts) {
   const p = paths(dir);
   const fw = loadFramework(pluginRoot());
@@ -17963,7 +17964,7 @@ function start(dir, opts) {
     schema_version: 1,
     framework_version: fw.router.framework_version,
     session: {
-      id: `${startedAt.slice(0, 10)}-${randomBytes(2).toString("hex")}`,
+      id: sessionId(startedAt),
       started_at: startedAt,
       mode: opts.mode,
       provider: opts.provider,
@@ -18214,7 +18215,7 @@ function triage(dir, o) {
   }
   const at = now();
   const fw = loadFramework(pluginRoot());
-  const session = startAsync(fw, { id: `${at.slice(0, 10)}-${randomBytes(2).toString("hex")}`, request: o.request.trim(), type: o.type, modifiers: o.modifiers, title: o.title, from: o.from ?? "the requester", provider: o.provider, now: at });
+  const session = startAsync(fw, { id: sessionId(at), request: o.request.trim(), type: o.type, modifiers: o.modifiers, title: o.title, from: o.from ?? "the requester", provider: o.provider, now: at });
   writeSession(dir, session);
   const files = writePacket(dir, session);
   return out(0, { result: "triaged", session_id: session.session.id, session_file: p.session, packet: files.email, agenda: files.agenda, readiness: readinessLines(findGaps(session, fw)) });

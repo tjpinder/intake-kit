@@ -1,0 +1,5 @@
+Call w/ Priya (DC mgr), 15 min
+- wants report by 6am, not 7 - night shift leads leave at 6:30
+- if dashboard and report disagree, WMS pick confirmations win
+- short pick: wrong-location scans YES count them
+- per picker per shift per day

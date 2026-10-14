@@ -17484,6 +17484,7 @@ function sectionRenderers(session, fw, file, checks) {
     return text ? [`> ${text}`, ...lines.length ? ["", ...lines] : []] : lines;
   });
   const prose = (field) => (items) => perItem(items, (i) => i.prose[field] ? [`> ${i.prose[field]}`] : []);
+  const hasTerms = (session.terms ?? []).some((t) => t.status !== "not_a_term");
   const notYet = "_Not set up yet. Run the intake-kit guardrails command (`/intake-kit:guardrails` in Claude Code, `$intake-guardrails` in Codex) to choose these._";
   switch (file) {
     case "SPEC.md":
@@ -17506,11 +17507,13 @@ function sectionRenderers(session, fw, file, checks) {
       };
     case "CLAUDE.md":
       return {
-        pointers: () => ["- `SPEC.md`: what we're building and why", "- `ACCEPTANCE.md`: what done means; write tests from it", "- `GUARDRAILS.md`: kill criteria, fallback, review points, data handling", "- `DECISIONS.md`: gate decisions and open assumptions", "- `intake-answers.yaml`: the source every file above is rendered from"].join("\n"),
+        pointers: () => ["- `SPEC.md`: what we're building and why", "- `ACCEPTANCE.md`: what done means; write tests from it", "- `GUARDRAILS.md`: kill criteria, fallback, review points, data handling", "- `DECISIONS.md`: gate decisions and open assumptions", ...hasTerms ? ["- `DEFINITIONS.md`: the owner's definition of every business term"] : [], "- `intake-answers.yaml`: the source every file above is rendered from"].join("\n"),
         stack: fed("stack"),
         commands: () => "_None yet. Add build, test and run commands here as soon as they exist._",
         never_do: (items) => [
           "- Don't break a constraint in SPEC.md or a guardrail in GUARDRAILS.md.",
+          // Definitions: the owner's meaning sits next to the logic, so a reviewer can see they match.
+          ...hasTerms ? ["- Don't interpret a business term yourself. Wherever a term from DEFINITIONS.md becomes SQL, a rule or a metric, put the owner's definition in a comment or acceptance check next to it, citing DEFINITIONS.md. A term that isn't there gets added as unconfirmed, and asked about."] : [],
           ...items.flatMap((i) => guardrailLines(session, i, "data_rule"))
         ].join("\n")
       };

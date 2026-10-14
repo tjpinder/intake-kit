@@ -356,3 +356,12 @@ describe("SOW_DRAFT.md and DEFINITIONS.md (HANDOFF.md: SOW draft, Definitions)",
     assert.match(out.get("DECISIONS.md")!, /"over pick"\*\* can not be seen in the system's data/);
   });
 });
+
+test("with terms, CLAUDE.md points to DEFINITIONS.md and tells the builder to keep each definition next to its logic", () => {
+  const fwC = loadFramework(".");
+  const s: Session = parseYaml(readFileSync("tests/fixtures/session/pick-exception-scored.yaml", "utf8"));
+  s.terms = [{ id: "term-1", term: "short pick", items: ["item-1"], found_in: { quote: "short picks", source: null }, status: "confirmed", kind: "metric", definition: "Fewer units than the task", quotes: ["short picks"], given_by: "Ops", source: null, measurable: "yes", examples: [], starter: null }];
+  const claude = renderAll(s, fwC, readTemplates(".")).get("CLAUDE.md")!;
+  assert.match(claude, /`DEFINITIONS.md`: the owner's definition/);
+  assert.match(claude, /put the owner's definition in a comment or acceptance check next to it/);
+});

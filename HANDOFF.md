@@ -520,6 +520,30 @@ Found by the second v2 gate on commit 89cde19, which missed the ship bar (4 of 6
    - The interviewer signs off on the summary, once it meets their expectations and they understand the work. The end user doesn't confirm it in the tool. If the interviewer wants the user to check something, they put it in a follow-up packet, and the reply is ingested as one more source.
    - Confirming scores and gates, then renders the spec pack, as now.
 
+**SOW draft (decided Oct 14).** When the interviewer signs off on the summary, the spec pack also gets `SOW_DRAFT.md`, rendered by code from the session like every other file. There's no model call. It's a draft for the interviewer to finish, never a finished contract.
+
+- **Which SOW.** An item that reaches **Go** gets a build SOW. An item at **Gather more** gets a **discovery SOW**: a short, paid discovery phase whose deliverable is answers to the open questions in its discovery brief. Items at Don't build or Fix, not build get no SOW; they're listed under out of scope, each with its reason and revisit trigger. A session with no Go or Gather more items renders no SOW.
+- **Sections, and where each comes from.** Every line traces to the session, with the same evidence tags as SPEC.md:
+
+  | Section | Source |
+  | --- | --- |
+  | Background and objective | `problem_statement`, and `core.outcome` in the user's words |
+  | Scope and deliverables | `mvp` and the Go items (build); the open questions (discovery) |
+  | Out of scope | `out_of_scope`, plus every Don't-build or Fix-not-build item with its reason |
+  | Acceptance criteria | ACCEPTANCE criteria and error cases (build); "each open question answered, with who answered it" (discovery) |
+  | Assumptions | DECISIONS assumptions with owners, plus every answer that rests only on the interviewer's notes, labelled |
+  | Dependencies and constraints | `core.systems`, `core.data`, `core.constraints`, and who signs off (`core.users`) |
+  | Risks | adoption risks, guardrails and kill criteria |
+  | Success measures | the success metric, its baseline and target; for a vague metric, "to be agreed", listed as a risk |
+  | Change control | the revisit triggers: what would reopen scope |
+
+- **Never generated.** Pricing, timeline, payment terms, legal terms and signatures. They render as clearly marked blanks (`[To be completed: ...]`), so nothing commercial or legal is ever invented. The template is generic, not tied to any company's contract format, so it works as a blank copy.
+- **Tests.**
+  - Every scope, acceptance and assumption line in the SOW traces to a line in SPEC, ACCEPTANCE or DECISIONS.
+  - No number appears in pricing or timeline.
+  - The discovery SOW lists exactly the brief's open questions.
+  - No SOW renders for a session with no Go or Gather more items.
+
 **Whose words count.** Every quote records its source. The summary and the spec pack show where each answer came from: the user's reply, a transcript, or the interviewer's notes. An answer from the interviewer's notes counts as answered, the same as one from the user's reply. It stays labelled as from notes in the summary and in DECISIONS.md, so a reader can see it's second-hand.
 
 **Model contract.** One new strict-mode call:
@@ -562,7 +586,8 @@ The follow-up packet must contain every gap and nothing already answered.
 3. Gaps and the follow-up packet.
 4. Web screens and plugin commands.
 5. Persona evals in async: packet reply, notes and transcript.
-6. Re-run the worked example (the enablement kit) in async mode.
+6. `SOW_DRAFT.md`: build SOW for Go items, discovery SOW for Gather more. It works in live mode too.
+7. Re-run the worked example (the enablement kit) in async mode.
 
 Fixes from the Oct 14 live test that apply to both modes still go first: re-render must regenerate acceptance criteria and guardrails rather than append, and the designated checks must run for known ideas.
 
@@ -570,6 +595,7 @@ Fixes from the Oct 14 live test that apply to both modes still go first: re-rend
 - Answers from the interviewer's notes count as answered, labelled as from notes.
 - The interviewer signs off on the summary; the end user doesn't confirm it in the tool.
 - "If you know" questions are included in the packet by default.
+- At sign-off the spec pack includes a SOW draft (build or discovery), with commercial and legal terms left as marked blanks.
 
 ## Build decisions
 

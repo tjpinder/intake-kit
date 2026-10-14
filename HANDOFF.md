@@ -476,6 +476,16 @@ How v2 was built. Where these conflict with an earlier section, these win; the v
 - **Retired:** the v1 turn applier and turn schema (with empty-turn rejection, area-naming retries and raw-reply capture), the v1 prompt and turn loop, spawn hints, model-proposed reflect-back and model-reported `next_target`.
 - **Evals** refuse to run on a dirty tree and record the commit hash in the results and the report. `--runs-for id:n` sets runs per persona; `--extract-model` sends only extract calls to another deployment.
 - **Fix round after the first v2 gate (Oct 14).** The summary can't loop: the turn budget applies at the summary; "yes, plus a note" applies the note and confirms; after two correction rounds the summary is confirmed with the notes attached. When the opening's classification isn't high confidence, or the signal phrases don't back it (another type's phrase, or none for the chosen type), the user is asked once: "Do you already have something specific in mind to build, or are you looking for where to start?", and the opening is classified again with their answer. The manual-work check asks a fixed question: "Is any part of this done by hand today, like a spreadsheet you build?". Every definitive Don't-build reason the gates would apply appears in the summary as a question the user confirms; existing_asset is covers / partial / none (unknown when unsaid), and only covers can force Don't build.
+- **Fixes after the enablement live test (Oct 14).**
+  - **Gate reasons.** Gather more lists every unmet Go requirement, and each reason names the area it rests on. Every gate fact has a source area (`gate_fact_sources`) that the plan always asks.
+  - **Open questions.** Code adds one per unknown or vague critical fact (`gap_questions`), with who can answer it and what would settle it. The decision card's line is built from what the brief actually contains.
+  - **Re-writes.** A re-write replaces acceptance criteria, guardrails and open questions rather than appending to them.
+  - **Checks.** After the required areas, every check is asked once:
+    - the existing-asset check, even when its area was answered early
+    - the manual-work check, with no trigger phrase needed
+    - a new kill-criteria check, asked word for word: "What would make you stop this, or switch it off?"
+
+    The kill-criteria answer joins `core.trust` and always becomes a kill criterion.
 - **Repo hygiene** stores the forbidden outside-framework names encoded, so the test itself contains none, and scans every file, docs and this spec included. The StartVest brand isn't a framework reference.
 
 ## Known issues (Oct 14, 2026, not fixed)
@@ -500,7 +510,7 @@ Found by the second v2 gate on commit 89cde19, which missed the ship bar (4 of 6
    - one line on why it matters
    - a short example of a good answer
 
-   The manual-work and existing-asset checks are included word for word. Areas that help but aren't required go in an "if you know" section at the end, included by default. The packet should fit on one page, about 10 to 14 questions. It comes in two formats: text ready to paste into an email, and a meeting agenda with space for notes.
+   The manual-work, existing-asset and kill-criteria checks are included word for word. Areas that help but aren't required go in an "if you know" section at the end, included by default. The packet should fit on one page, about 10 to 14 questions. It comes in two formats: text ready to paste into an email, and a meeting agenda with space for notes.
 3. **Ingest (interviewer pastes).** The interviewer pastes whatever comes back: the user's email reply, their own meeting notes, or a call transcript. Each paste is a **source**, with a kind (`reply`, `notes` or `transcript`), who it's from, and when it was added.
    - A new model call, `ingest`, reads the whole source against every area of the item and returns each area it answers, with a status, a value and verbatim quotes, plus the check results.
    - Long sources are split into chunks, and code merges the results.

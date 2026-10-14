@@ -153,20 +153,25 @@ export async function runEngineTurn(input: EngineTurnInput): Promise<EngineTurnO
         // A fixed, concrete question: a phrased one drifted to "updated every shift?" and the
         // user's clear yes was read as no (first v2 gate, persona 1 run 2).
         question = MANUAL_QUESTION;
+      } else if (target.check === "kill_criteria") {
+        question = fw.router.checks!.kill_criteria.question;
       } else {
-        const partial = stateOf(engine(), key).partial;
+        // An existing-asset check on an area already answered quotes that answer back.
+        const early = target.check === "existing_asset" ? entryOf(s, item, target.area)?.quotes.at(-1) ?? null : null;
+        const partial = early ? { value: null, quote: early } : stateOf(engine(), key).partial;
         const p = await call<{ question: string }>("phrase", phraseRequest(fw, { target, item, transcript, replies: [...input.replies, ""], partial: partial?.quote ?? partial?.value ?? null }), validatePhrase);
         question = p.question.trim();
       }
       // A probe counts when it's asked, not when it's answered.
       if (target.kind === "probe") engine().areas[key] = { ...stateOf(engine(), key), probed: true };
-      if (target.kind === "check" && target.check === "manual_work") {
-        const ck = `${item.id}:manual_work`;
+      // Every check counts its asks, so an unclear answer is asked once more and then settled.
+      if (target.kind === "check" && target.check) {
+        const ck = `${item.id}:${target.check}`;
         const c = engine().checks[ck] ?? { asks: 0, result: null };
         engine().checks[ck] = { ...c, asks: c.asks + 1 };
       }
     }
-    if (target.kind !== "check" || target.check !== "manual_work") s.session.asked![key] ??= now;
+    if (target.kind !== "check" || target.check === "existing_asset") s.session.asked![key] ??= now;
     engine().pending = { item: target.item, area: target.area, kind: target.kind, check: target.check, question } satisfies Pending;
     events.push(`next: ${target.kind} ${target.item}:${target.area}${target.check ? ` (${target.check})` : ""}${target.purpose ? ` (${target.purpose})` : ""}`);
     return done(question);

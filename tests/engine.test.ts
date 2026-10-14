@@ -16,7 +16,7 @@ import { applyOpening, keepModifier, signalCheck, TYPE_QUESTION } from "../src/e
 import { nextTarget, queueFor, requiredAreas } from "../src/engine/plan.ts";
 import { newEngine, SEND_AGAIN, TURN_BUDGET, type Extraction, type OpeningResult, type Pending } from "../src/engine/types.ts";
 import { runEngineTurn, SUMMARY_REPLY } from "../src/engine/turn.ts";
-import { enterSummary } from "../src/engine/writeup.ts";
+import { applyWriteUp, enterSummary } from "../src/engine/writeup.ts";
 import type { Provider, TurnRequest } from "../src/llm/types.ts";
 
 const fw = loadFramework(".");
@@ -248,15 +248,31 @@ describe("Spawn", () => {
     assert.deepEqual([twice.items.length, twice.session.engine!.checks["item-1:manual_work"].result], [1, "no"]);
   });
 
-  test("the manual-work check is planned only when work by hand was mentioned, not negated, after the required areas", () => {
+  test("after the required areas, every check is asked once: existing-asset (even if answered early), manual work (no trigger phrase needed), then kill criteria (enablement live test)", () => {
     const s = started();
     for (const id of queueFor(s.items[0], fw)) s.session.asked![id.startsWith("core.") ? id : `item-1:${id}`] = NOW;
     for (const id of queueFor(s.items[0], fw)) {
       const e = { status: "covered" as const, value: "v", quotes: ["about four hours every Monday morning"], probe_count: 0, updated_at: NOW };
       if (id.startsWith("core.")) s.core[id.slice(5) as keyof Session["core"]] = e; else s.items[0].coverage[id] = e;
     }
-    assert.deepEqual(nextTarget(s, fw, T), { item: "item-1", area: "data_report.decision", kind: "check", check: "manual_work" });
-    assert.equal(nextTarget(s, fw, [user(OPENING), user("Nothing is done by hand; it's all automated.", 1)]), null);
+    const noHand = [user(OPENING), user("Nothing is done by hand; it's all automated.", 1)];
+    assert.deepEqual(nextTarget(s, fw, noHand), { item: "item-1", area: "data_report.existing", kind: "check", check: "existing_asset" });
+    s.session.engine!.checks["item-1:existing_asset"] = { asks: 1, result: "no" };
+    assert.deepEqual(nextTarget(s, fw, noHand), { item: "item-1", area: "data_report.decision", kind: "check", check: "manual_work" });
+    s.session.engine!.checks["item-1:manual_work"] = { asks: 1, result: "no" };
+    assert.deepEqual(nextTarget(s, fw, noHand), { item: "item-1", area: "core.trust", kind: "check", check: "kill_criteria" });
+    s.session.engine!.checks["item-1:kill_criteria"] = { asks: 2, result: null };
+    assert.equal(nextTarget(s, fw, noHand), null, "an unclear check is settled after its second ask");
+  });
+
+  test("the kill-criteria answer joins its area and always becomes a kill criterion", () => {
+    const Tk = [...T, user("If the numbers disagreed with the WMS two weeks running, I'd switch it off.", 3)];
+    const s0 = started();
+    const out = applyCheck(s0, { item: "item-1", area: "core.trust", kind: "check", check: "kill_criteria", question: "q?" }, x({ check: "yes", value: "WMS disagreement two weeks running", quote: "If the numbers disagreed with the WMS two weeks running" }), { fw, transcript: Tk, now: NOW }).session;
+    assert.deepEqual(out.session.engine!.checks["item-1:kill_criteria"], { asks: 0, result: "yes", quote: "If the numbers disagreed with the WMS two weeks running", value: "WMS disagreement two weeks running" });
+    assert.ok(out.core.trust.quotes.includes("If the numbers disagreed with the WMS two weeks running"));
+    applyWriteUp(out, "item-1", { facts: [], prose: [], acceptance: [], guardrails: [{ item: "item-1", kind: "fallback", text: "Back to the sheet", evidence: ["core.trust"] }], open_questions: [], reflect_back_text: "" }, fw, Tk);
+    assert.deepEqual(out.items[0].guardrails.filter((g) => g.kind === "kill_criterion").map((g) => g.text), ["WMS disagreement two weeks running"]);
   });
 
   test("a follow-on item gets only its light pass, after the primary", () => {

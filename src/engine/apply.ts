@@ -153,6 +153,22 @@ export function applyCheck(original: Session, pending: Pending, x: Extraction, c
   if (x.check === "yes" && !quote) events.push(`${pending.check}: yes without the user's words, treated as unclear`);
   if (result === "unclear" && state.asks >= 2) result = "no";
   engine.checks[key] = { asks: state.asks, result: result === "unclear" ? null : (result as "yes" | "no") };
+  if (pending.check === "kill_criteria") {
+    // The answer joins its area's quotes and is kept on the check, so the write-up can't lose it.
+    engine.checks[key] = { ...engine.checks[key], quote: result === "yes" ? quote : null, value: result === "yes" ? (x.value?.trim() || quote) : null };
+    const item = session.items.find((i) => i.id === pending.item);
+    if (result === "yes" && item && quote) {
+      const prev = entryOf(session, item, pending.area);
+      const known = prev && prev.status !== "unknown" && prev.value;
+      setEntry(session, item, pending.area, {
+        status: known ? prev.status : "covered",
+        value: known ? prev.value : (x.value?.trim() || quote),
+        quotes: [...new Set([...(prev?.quotes ?? []), quote])],
+        probe_count: prev?.probe_count ?? 0,
+        updated_at: ctx.now,
+      });
+    }
+  }
   events.push(`${pending.check}: ${result}${result === "unclear" ? ", asked once more" : ""}`);
 
   const primary = session.items.find((i) => i.id === pending.item);

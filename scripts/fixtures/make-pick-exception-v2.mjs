@@ -92,7 +92,12 @@ const steps = [
   },
   {
     user: "Yes, I built it last Monday. If I had the daily report every morning I'd stop doing the Monday thing.",
-    model: [extract(ans("The Monday Excel sheet, built by hand weekly", "I built it last Monday", { check: "yes" })), phrase("Roughly how long does the Monday sheet take, and how often do you do it?")],
+    // The kill-criteria question is fixed text too.
+    model: [extract(ans("The Monday Excel sheet, built by hand weekly", "I built it last Monday", { check: "yes" }))],
+  },
+  {
+    user: "If the numbers disagreed with the WMS two weeks running, I'd switch it off and go back to the sheet.",
+    model: [extract(ans("Counts disagreeing with the WMS two weeks running", "If the numbers disagreed with the WMS two weeks running, I'd switch it off", { check: "yes" })), phrase("Roughly how long does the Monday sheet take, and how often do you do it?")],
   },
   {
     user: "About four hours, once a week, every Monday morning.",

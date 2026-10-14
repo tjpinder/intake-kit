@@ -89,15 +89,29 @@ export function areaDone(session: Session, item: Item, area: string, fw: Framewo
   return true;
 }
 
-/** The manual-work check applies: work done by hand was mentioned (not negated), and nothing covers it yet. */
-export function manualCheckDue(session: Session, item: Item, fw: Framework, transcript: TranscriptEntry[]): boolean {
+/** A check is settled once it has a yes or no, or has been asked twice. */
+function checkSettled(session: Session, item: Item, name: string): boolean {
+  const c = session.session.engine!.checks[`${item.id}:${name}`];
+  return !!c && (c.result === "yes" || c.result === "no" || c.asks >= 2);
+}
+
+/**
+ * The manual-work check: asked once on the primary item of its types whenever no manual-process
+ * item exists. No trigger phrase is needed (enablement live test: an opening with no "by hand"
+ * or "in Excel" never got it).
+ */
+export function manualCheckDue(session: Session, item: Item, fw: Framework): boolean {
   const c = fw.router.checks?.manual_work;
   if (!c || !c.applies_to.includes(item.type) || item.spawned_from) return false;
   if (session.items.some((i) => i.type === c.spawns)) return false;
-  const check = session.session.engine!.checks[`${item.id}:manual_work`];
-  if (check && (check.result === "yes" || check.result === "no" || check.asks >= 2)) return false;
-  const text = normalize(transcript.filter((t) => t.role === "user").map((t) => t.text).join("\n"));
-  return fw.router.types[c.spawns].signals.some((s) => said(s, text));
+  return !checkSettled(session, item, "manual_work");
+}
+
+/** The kill-criteria check: asked once on the primary item of its types, word for word. */
+export function killCheckDue(session: Session, item: Item, fw: Framework): boolean {
+  const c = fw.router.checks?.kill_criteria;
+  if (!c || !c.applies_to.includes(item.type) || item.spawned_from) return false;
+  return !checkSettled(session, item, "kill_criteria");
 }
 
 /** The next question, chosen by code. Null when the interview has nothing left to ask. */
@@ -115,7 +129,12 @@ export function nextTarget(session: Session, fw: Framework, transcript: Transcri
         const e = coverageFor(session, item, area);
         if (!st.probed && e?.status !== "not_applicable" && e?.status !== "declined" && !sessionQuotes(session).some(hasNumber)) return { item: item.id, area, kind: "probe", check: null, purpose: "baseline" };
       }
-      if (areaDone(session, item, area, fw)) continue;
+      if (areaDone(session, item, area, fw)) {
+        // A check rides on its area, but answering the area early doesn't settle the check: its
+        // own question is still asked (enablement live test: an unprompted answer skipped it).
+        if (existing.has(area) && !item.spawned_from && !checkSettled(session, item, "existing_asset")) return { item: item.id, area, kind: "check", check: "existing_asset" };
+        continue;
+      }
       const st = stateOf(engine, areaKey(item, area));
       const e = coverageFor(session, item, area);
       // A probe or confirmation jumps the queue for its own area.
@@ -129,7 +148,8 @@ export function nextTarget(session: Session, fw: Framework, transcript: Transcri
   if (primary) {
     const t = forItem(primary);
     if (t) return t;
-    if (manualCheckDue(session, primary, fw, transcript)) return { item: primary.id, area: fw.modules[primary.type]?.anchor as string, kind: "check", check: "manual_work" };
+    if (manualCheckDue(session, primary, fw)) return { item: primary.id, area: fw.modules[primary.type]?.anchor as string, kind: "check", check: "manual_work" };
+    if (killCheckDue(session, primary, fw)) return { item: primary.id, area: fw.router.checks!.kill_criteria.area, kind: "check", check: "kill_criteria" };
   }
   for (const item of live.filter((i) => i.spawned_from && !i.dropped)) {
     const t = forItem(item);

@@ -51,6 +51,12 @@ export function applyWriteUp(session: Session, itemId: string, w: WriteUp, fw: F
     if (!evidence.length || !g.text.trim()) { dropped.push(`guardrail "${g.text}": no answered evidence`); continue; }
     if (!item.guardrails.some((x) => x.kind === g.kind && x.text === g.text)) item.guardrails.push({ kind: g.kind, text: g.text, evidence });
   }
+  // The kill-criteria check's answer is always a kill criterion, even if the write-up missed it
+  // (enablement live test: a go/no-go answer came out as three fallbacks).
+  const kill = session.session.engine?.checks[`${item.id}:kill_criteria`];
+  if (kill?.result === "yes" && kill.value && !item.guardrails.some((g) => g.kind === "kill_criterion")) {
+    item.guardrails.push({ kind: "kill_criterion", text: kill.value, evidence: [fw.router.checks!.kill_criteria.area] });
+  }
   for (const q of w.open_questions) {
     if (!fw.areas.has(q.area) || !q.question.trim()) continue;
     if (!item.open_questions.some((o) => o.area === q.area)) item.open_questions.push({ area: q.area, question: q.question, who_can_answer: q.who_can_answer, artifact_needed: q.artifact_needed });

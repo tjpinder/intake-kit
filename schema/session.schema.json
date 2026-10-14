@@ -110,7 +110,9 @@
                 "required": ["asks", "result"],
                 "properties": {
                   "asks": { "type": "integer", "minimum": 0, "maximum": 2 },
-                  "result": { "enum": ["yes", "no", "unclear", null] }
+                  "result": { "enum": ["yes", "no", "unclear", null] },
+                  "quote": { "type": ["string", "null"] },
+                  "value": { "type": ["string", "null"] }
                 }
               }
             }

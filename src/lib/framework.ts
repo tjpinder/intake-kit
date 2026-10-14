@@ -39,6 +39,7 @@ export interface Router {
   checks?: {
     manual_work: { applies_to: ItemType[]; must_capture: string; spawns: ItemType; light_pass: string[] };
     existing_asset: { areas: string[]; spawns: ItemType | null; light_pass: string[] };
+    kill_criteria: { applies_to: ItemType[]; area: string; question: string };
   };
 }
 export interface Scoring {
@@ -235,7 +236,7 @@ export function buildFramework(sources: FrameworkSources, options: BuildOptions 
   }
   for (const id of scoring.gates.go_requires_core) if (!areas.has(id)) issues.push(`scoring.yaml: go_requires_core names unknown area ${id}`);
   const checks = router.checks;
-  for (const id of [...(checks?.manual_work.light_pass ?? []), ...(checks?.existing_asset.areas ?? []), ...(checks?.existing_asset.light_pass ?? [])]) {
+  for (const id of [...(checks?.manual_work.light_pass ?? []), ...(checks?.existing_asset.areas ?? []), ...(checks?.existing_asset.light_pass ?? []), ...(checks?.kill_criteria ? [checks.kill_criteria.area] : [])]) {
     if (!areas.has(id)) issues.push(`router.yaml: checks name unknown area ${id}`);
   }
   for (const mod of Object.values(modules)) {

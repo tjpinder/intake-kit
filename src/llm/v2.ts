@@ -60,6 +60,8 @@ export function phraseRequest(fw: Framework, p: PhraseInput): TurnRequest {
   const purpose =
     p.target.check === "manual_work"
       ? `Ask whether ${fw.router.checks!.manual_work.must_capture.charAt(0).toLowerCase()}${fw.router.checks!.manual_work.must_capture.slice(1)}. One question.`
+      : p.target.check === "existing_asset"
+        ? `Ask whether anything they already have, or could get, does all or part of this${p.partial ? ` (they've mentioned: "${p.partial}")` : ""}. One question.`
       : p.target.purpose === "baseline"
         ? `They've said how they'd judge success but gave no number for today. Ask what it costs now, in hours, errors or money ("What's it costing now, in hours, errors or chargebacks?").`
         : p.target.kind === "probe"
@@ -119,6 +121,7 @@ export function extractRequest(fw: Framework, x: ExtractInput): TurnRequest {
 export const CHECK_TEXT = {
   manual_work: '"yes" if they describe doing that work today (not only as a fallback if the new thing failed), "no" if they don\'t, "unclear" if you can\'t tell. Put their words in quote.',
   existing_asset: '"yes" if something they have or could get already does all or part of this, "no" if nothing does, "unclear" if you can\'t tell.',
+  kill_criteria: '"yes" if they name anything that would make them stop it or switch it off, "no" if they say nothing would, "unclear" if you can\'t tell. Put their words in quote and the condition in value.',
   confirm: '"yes" if they agree, "no" if they say it\'s wrong, "unclear" otherwise.',
   summary: '"yes" if they say the summary is right, even if they add a note or a detail; "no" only if they say something in it is wrong; "unclear" otherwise. Put each change or added detail they give in also_answers, under the area it belongs to.',
 };

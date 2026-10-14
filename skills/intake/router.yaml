@@ -65,8 +65,8 @@ rules:
 # with a grounded quote. Unclear is asked once more, then treated as no.
 checks:
   manual_work:
-    # Asked once on the primary item, after its required areas, when the user mentioned work done
-    # by hand (a manual_process signal, not negated) and no manual-process item exists.
+    # Asked once on the primary item, after its required areas, whenever no manual-process item
+    # exists. No trigger phrase is needed: phrase lists miss paraphrases (enablement live test).
     applies_to: [data_report, known_idea, broken]
     must_capture: Whether the manual work they mentioned happens today (not only as a fallback if the new thing failed), when it last happened, and whether the new thing would replace it
     spawns: manual_process
@@ -77,3 +77,10 @@ checks:
     areas: [data_report.existing, known_idea.existing]
     spawns: null
     light_pass: []
+  kill_criteria:
+    # Asked word for word once on the primary item, after the manual-work check. It creates no
+    # item: the answer is added to its area and always becomes a kill criterion (enablement live
+    # test: a go/no-go answer inside the trust reply came out as three fallbacks and no kill criterion).
+    applies_to: [data_report, known_idea, manual_process, broken]
+    area: core.trust
+    question: What would make you stop this, or switch it off?

@@ -256,6 +256,22 @@
             "wrap_up": false,
             "also_answers": []
           }
+        }
+      ]
+    },
+    {
+      "user": "If the numbers disagreed with the WMS two weeks running, I'd switch it off and go back to the sheet.",
+      "model": [
+        {
+          "call": "extract",
+          "output": {
+            "status": "answered",
+            "value": "Counts disagreeing with the WMS two weeks running",
+            "quote": "If the numbers disagreed with the WMS two weeks running, I'd switch it off",
+            "check": "yes",
+            "wrap_up": false,
+            "also_answers": []
+          }
         },
         {
           "call": "phrase",

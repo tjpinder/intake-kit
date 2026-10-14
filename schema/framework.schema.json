@@ -67,7 +67,7 @@
           "description": "Interview engine v2: the only questions that can create an item.",
           "type": "object",
           "additionalProperties": false,
-          "required": ["manual_work", "existing_asset"],
+          "required": ["manual_work", "existing_asset", "kill_criteria"],
           "properties": {
             "manual_work": {
               "type": "object",
@@ -88,6 +88,16 @@
                 "areas": { "type": "array", "items": { "type": "string" } },
                 "spawns": { "oneOf": [{ "$ref": "#/$defs/item_type" }, { "type": "null" }] },
                 "light_pass": { "type": "array", "items": { "type": "string" } }
+              }
+            },
+            "kill_criteria": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["applies_to", "area", "question"],
+              "properties": {
+                "applies_to": { "type": "array", "items": { "$ref": "#/$defs/item_type" } },
+                "area": { "type": "string" },
+                "question": { "type": "string", "minLength": 1 }
               }
             }
           }

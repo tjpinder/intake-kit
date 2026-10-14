@@ -6,7 +6,7 @@ import type { ItemType, Modifier } from "../lib/framework.ts";
 
 export type Phase = "opening" | "interview" | "summary" | "confirmed";
 export type PendingKind = "ask" | "probe" | "confirm" | "check" | "disambiguate" | "summary";
-export type CheckName = "manual_work" | "existing_asset";
+export type CheckName = "manual_work" | "existing_asset" | "kill_criteria";
 export type CheckResult = "yes" | "no" | "unclear";
 
 /** The one question waiting for the user's reply. */
@@ -37,7 +37,7 @@ export interface EngineState {
   /** Keyed like session.asked: "core.users" or "item-1:known_idea.push". */
   areas: Record<string, AreaState>;
   /** Keyed "<item>:<check>". */
-  checks: Record<string, { asks: number; result: CheckResult | null }>;
+  checks: Record<string, { asks: number; result: CheckResult | null; quote?: string | null; value?: string | null }>;
   /** The opening's one disambiguating probe has been asked. */
   disambiguated: boolean;
   /** Replies to the summary that weren't a plain yes (corrections, or a no). */

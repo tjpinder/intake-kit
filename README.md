@@ -49,6 +49,8 @@ The spec pack: `SPEC.md`, `ACCEPTANCE.md`, `GUARDRAILS.md`, `DECISIONS.md`, `DEF
 
 [How we tested it](docs/evals/how-we-tested-it.md): the failures, the fixes and the numbers, each tied to a commit.
 
+Why it works this way: [How to turn a vague automation request into a build-ready spec](https://startvest.ai/blog/vague-request-to-build-ready-spec), the method behind intake-kit and the two decisions that changed it.
+
 > **Status:** in development. The async intake (`/intake-kit:collect`) and the live interview (`/intake-kit:intake`) both work in Claude Code. The web app plays a [recorded sample](https://agreeable-hill-0ede1650f.5.azurestaticapps.net/?sample); live web intakes are paused, and the web app has no async screens yet. The Codex packaging is built but not yet tested in Codex. See [HANDOFF.md](HANDOFF.md) for the full spec.
 
 ## Prerequisites

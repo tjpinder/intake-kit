@@ -648,7 +648,7 @@ A new guardrail check, `definitions`, enforces this. A changed file that names a
 
 **6. Acceptance checks with known answers.** Each term that becomes a number (a metric) gets one or two known-answer cases in ACCEPTANCE.md, built from the owner's examples. For example: "Given an order whose pick ticket said 20 units and 22 left the slot, the over-pick count for that line is 2."
 - A wrong definition fails the check even when the SQL runs.
-- A metric term with no example is an open question. Go requires at least one known-answer case for each metric term.
+- A metric term with no example is a strong recommendation, not a Go requirement (Tom, Oct 14). It shows as a warning in the summary and as a recommended open question in the brief and DECISIONS.md. Go still requires the confirmed definition.
 
 **7. Domain starter pack (optional, later).** `framework/glossaries/warehouse.yaml`: common warehouse terms with their usual meanings and a typical known-answer case. These are offered as suggestions when a term matches, never applied silently, and DEFINITIONS.md records whether the owner accepted, edited or replaced each one. The same file doubles as a recipes-repo entry.
 

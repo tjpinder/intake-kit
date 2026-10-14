@@ -58,7 +58,13 @@
                 "text": { "type": "string", "minLength": 1 },
                 "confirmed": { "type": "boolean" },
                 "corrections": { "type": "array", "items": { "type": "string", "minLength": 1 } },
-                "proposed_at": { "type": "string", "format": "date-time" }
+                "proposed_at": { "type": "string", "format": "date-time" },
+                "dont_build_confirmed": {
+                  "description": "Async sign-off: the definitive Don't-build reasons the interviewer confirmed, each as <item>:<reason>. Absent in live sessions, where confirming the summary confirms them all.",
+                  "type": "array",
+                  "items": { "type": "string", "pattern": "^item-\\d+:(existing_asset|decision_depends|value|superseded)$" }
+                },
+                "signed_off_by": { "type": "string", "minLength": 1 }
               }
             }
           ]

@@ -131,27 +131,26 @@ function evaluate(session: Session, item: Item, fw: Framework, gateOf: (id: stri
     }
   }
 
-  // 2. Don't build, definitive reasons
+  // 2. Don't build, definitive reasons. At an async sign-off each reason is confirmed on its own
+  // (reflect_back.dont_build_confirmed); one the interviewer didn't confirm routes to Gather more
+  // (second v2 gate: one "yes" confirmed every Don't-build question at once).
+  const confirmedKeys = session.session.reflect_back?.dont_build_confirmed;
+  const definitive = (key: string, reason: string, trigger: string) => {
+    if (!confirmedKeys || confirmedKeys.includes(`${item.id}:${key}`)) {
+      m.dont_build_definitive.reasons.push(reason);
+      triggers.dont_build_definitive.push(trigger);
+    } else m.gather_more.reasons.push(`${reason}, but that wasn't confirmed at sign-off`);
+  };
   const d = g.dont_build_definitive;
-  if (d.existing_asset.includes(band("existing_asset"))) {
-    m.dont_build_definitive.reasons.push("An existing report or feature already covers it");
-    triggers.dont_build_definitive.push("the existing report or feature stops covering this need");
-  }
+  if (d.existing_asset.includes(band("existing_asset"))) definitive("existing_asset", "An existing report or feature already covers it", "the existing report or feature stops covering this need");
   // Don't build needs evidence. "No decision depends on it" is that evidence only for a report or
   // dataset; for other types it's a gap, so it routes to Gather more below (first live test: a
   // portfolio repo was killed twice on it).
   const decisive = d.decision_depends_applies_to.includes(item.type);
-  if (decisive && d.decision_depends.includes(band("decision_depends"))) {
-    m.dont_build_definitive.reasons.push("No decision depends on it");
-    triggers.dont_build_definitive.push("a decision comes to depend on it");
-  }
-  if (d.value.includes(band("value"))) {
-    m.dont_build_definitive.reasons.push("The user describes its value as trivial");
-    triggers.dont_build_definitive.push("the cost of the current way grows enough to matter");
-  }
+  if (decisive && d.decision_depends.includes(band("decision_depends"))) definitive("decision_depends", "No decision depends on it", "a decision comes to depend on it");
+  if (d.value.includes(band("value"))) definitive("value", "The user describes its value as trivial", "the cost of the current way grows enough to matter");
   if (d.superseded_by_go_item && item.superseded_by && gateOf(item.superseded_by)?.decision === "go") {
-    m.dont_build_definitive.reasons.push(`Superseded by ${item.superseded_by}, which reaches Go`);
-    triggers.dont_build_definitive.push(`${item.superseded_by} isn't built, or doesn't replace this`);
+    definitive("superseded", `Superseded by ${item.superseded_by}, which reaches Go`, `${item.superseded_by} isn't built, or doesn't replace this`);
   }
 
   // 3. Gather more discovery

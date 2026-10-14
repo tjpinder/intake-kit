@@ -155,7 +155,15 @@ export interface Session {
     sources?: Source[];
     provider: "claude" | "azure-openai" | "openai" | "codex";
     grounding: "transcript" | "unverified";
-    reflect_back: { text: string; confirmed: boolean; corrections: string[]; proposed_at?: string } | null;
+    reflect_back: {
+      text: string;
+      confirmed: boolean;
+      corrections: string[];
+      proposed_at?: string;
+      /** Async sign-off: the Don't-build reasons confirmed one by one ("item-2:existing_asset"). Absent in live sessions. */
+      dont_build_confirmed?: string[];
+      signed_off_by?: string;
+    } | null;
     /**
      * The area the last applied turn asked about and the reply that asked it, so an answer the
      * model fails to record can be captured, but only if that reply is the one the user saw.

@@ -153,6 +153,14 @@ const STATUS_NOTE: Record<CoverageEntry["status"], string> = {
 
 /** The definitive Don't-build reasons the gates would apply if the user confirmed now, as questions. */
 export function dontBuildQuestions(session: Session, fw: Framework): string[] {
+  return dontBuildChecks(session, fw).map((c) => c.question);
+}
+
+/**
+ * The same, each with the key an async sign-off confirms it by ("item-2:existing_asset"). A reason
+ * not confirmed at sign-off routes the item to Gather more instead.
+ */
+export function dontBuildChecks(session: Session, fw: Framework): Array<{ key: string; question: string }> {
   if (!session.items.length) return [];
   let preview: Session;
   try {
@@ -160,16 +168,17 @@ export function dontBuildQuestions(session: Session, fw: Framework): string[] {
   } catch {
     return [];
   }
-  const out: string[] = [];
+  const out: Array<{ key: string; question: string }> = [];
   for (const item of preview.items) {
     if (item.gate?.decision !== "dont_build" || item.dropped) continue;
     for (const reason of item.gate.reasons) {
       if (reason.startsWith("(also")) continue;
       const by = item.superseded_by ? preview.items.find((i) => i.id === item.superseded_by)?.title : null;
-      if (reason.startsWith("An existing report or feature already covers it")) out.push(`You said something you already have does what "${item.title}" would do, so it wouldn't be built. Is that right?`);
-      else if (reason.startsWith("No decision depends on it")) out.push(`No decision depends on "${item.title}", so it wouldn't be built. Is that right?`);
-      else if (reason.startsWith("The user describes its value as trivial")) out.push(`You described "${item.title}" as low value, so it wouldn't be built. Is that right?`);
-      else if (reason.startsWith("Superseded by") && by) out.push(`"${item.title}" would go away once "${by}" exists, so it wouldn't be built on its own. Is that right?`);
+      const add = (k: string, question: string) => out.push({ key: `${item.id}:${k}`, question });
+      if (reason.startsWith("An existing report or feature already covers it")) add("existing_asset", `You said something you already have does what "${item.title}" would do, so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("No decision depends on it")) add("decision_depends", `No decision depends on "${item.title}", so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("The user describes its value as trivial")) add("value", `You described "${item.title}" as low value, so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("Superseded by") && by) add("superseded", `"${item.title}" would go away once "${by}" exists, so it wouldn't be built on its own. Is that right?`);
     }
   }
   return out;

@@ -13866,6 +13866,7 @@ function validate59(data, { instancePath = "", parentData, parentDataProperty, r
   return errors === 0;
 }
 validate59.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
+var validateIngest = validate70;
 var schema31 = { "type": "object", "additionalProperties": false, "required": ["item", "area", "status", "value", "quotes", "conflict"], "properties": { "item": { "type": "string", "description": "The item ID the area belongs to, from the list given." }, "area": { "type": "string", "description": "A coverage ID from the list given." }, "status": { "type": "string", "enum": ["answered", "partial", "not_applicable", "declined"] }, "value": { "type": ["string", "null"], "description": "What the source says, in a short plain sentence. Null when not_applicable or declined with nothing usable." }, "quotes": { "type": "array", "items": { "type": "string" }, "description": "Exact spans copied from the source that carry the answer." }, "conflict": { "type": "boolean", "description": "True only if this answer disagrees with what is already recorded for the area." } } };
 function validate71(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   let vErrors = null;
@@ -14722,6 +14723,7 @@ function formatErrors(errors) {
 var validateOpening2 = (data) => run(validateOpening, data);
 var validatePhrase2 = (data) => run(validatePhrase, data);
 var validateExtract2 = (data) => run(validateExtract, data);
+var validateIngest2 = (data) => run(validateIngest, data);
 var validateWriteUp2 = (data) => run(validateWriteUp, data);
 
 // schema/v2/opening.schema.json
@@ -15196,6 +15198,234 @@ var writeup_schema_default = {
   }
 };
 
+// schema/v2/ingest.schema.json
+var ingest_schema_default = {
+  $schema: "https://json-schema.org/draft/2020-12/schema",
+  $id: "https://github.com/tjpinder/intake-kit/schema/v2/ingest.schema.json",
+  title: "Source ingestion (async intake, schema version 2)",
+  description: "Which areas one pasted source (a reply, meeting notes or a transcript) answers, each with verbatim quotes, plus the check results. Code applies it; the model never chooses what to ask, creates items, scores or gates.",
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "answers",
+    "checks",
+    "terms",
+    "definitions"
+  ],
+  properties: {
+    answers: {
+      type: "array",
+      items: {
+        $ref: "#/$defs/answer"
+      }
+    },
+    checks: {
+      type: "array",
+      items: {
+        $ref: "#/$defs/check"
+      }
+    },
+    terms: {
+      type: "array",
+      description: "Business terms the document uses whose meaning is local to the business or could be read more than one way. Not generic words.",
+      items: {
+        $ref: "#/$defs/term"
+      }
+    },
+    definitions: {
+      type: "array",
+      description: "Definitions the document gives for any term, in the owner's words.",
+      items: {
+        $ref: "#/$defs/definition"
+      }
+    }
+  },
+  $defs: {
+    answer: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "item",
+        "area",
+        "status",
+        "value",
+        "quotes",
+        "conflict"
+      ],
+      properties: {
+        item: {
+          type: "string",
+          description: "The item ID the area belongs to, from the list given."
+        },
+        area: {
+          type: "string",
+          description: "A coverage ID from the list given."
+        },
+        status: {
+          type: "string",
+          enum: [
+            "answered",
+            "partial",
+            "not_applicable",
+            "declined"
+          ]
+        },
+        value: {
+          type: [
+            "string",
+            "null"
+          ],
+          description: "What the source says, in a short plain sentence. Null when not_applicable or declined with nothing usable."
+        },
+        quotes: {
+          type: "array",
+          items: {
+            type: "string"
+          },
+          description: "Exact spans copied from the source that carry the answer."
+        },
+        conflict: {
+          type: "boolean",
+          description: "True only if this answer disagrees with what is already recorded for the area."
+        }
+      }
+    },
+    check: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "item",
+        "check",
+        "result",
+        "value",
+        "quote"
+      ],
+      properties: {
+        item: {
+          type: "string"
+        },
+        check: {
+          type: "string",
+          enum: [
+            "manual_work",
+            "existing_asset",
+            "kill_criteria"
+          ]
+        },
+        result: {
+          type: "string",
+          enum: [
+            "yes",
+            "no",
+            "unclear"
+          ]
+        },
+        value: {
+          type: [
+            "string",
+            "null"
+          ]
+        },
+        quote: {
+          type: [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    term: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "term",
+        "quote",
+        "kind"
+      ],
+      properties: {
+        term: {
+          type: "string"
+        },
+        quote: {
+          type: "string",
+          description: "Exact words from the document where the term appears."
+        },
+        kind: {
+          type: "string",
+          enum: [
+            "metric",
+            "rule",
+            "label"
+          ],
+          description: "metric: something counted or measured. rule: a condition that decides something. label: a name for a thing."
+        }
+      }
+    },
+    definition: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "term",
+        "definition",
+        "quotes",
+        "measurable",
+        "examples",
+        "conflict"
+      ],
+      properties: {
+        term: {
+          type: "string"
+        },
+        definition: {
+          type: "string",
+          description: "What counts and what doesn't, as the document says it, in one or two plain sentences."
+        },
+        quotes: {
+          type: "array",
+          items: {
+            type: "string"
+          },
+          description: "Exact spans from the document that give the definition."
+        },
+        measurable: {
+          type: "string",
+          enum: [
+            "yes",
+            "partly",
+            "no",
+            "unknown"
+          ],
+          description: "Whether the document says it can be seen in the system's data."
+        },
+        examples: {
+          type: "array",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "case",
+              "expected"
+            ],
+            properties: {
+              case: {
+                type: "string"
+              },
+              expected: {
+                type: "string"
+              }
+            }
+          },
+          description: "Worked examples the document gives, each with the right result."
+        },
+        conflict: {
+          type: "boolean",
+          description: "True only if it disagrees with the definition already recorded."
+        }
+      }
+    }
+  }
+};
+
 // src/lib/session.ts
 var isCaptured = (e) => e?.source === "captured";
 var askedKey = (item, area) => area.startsWith("core.") ? area : item ? `${item}:${area}` : null;
@@ -15393,23 +15623,20 @@ function evaluate(session, item, fw, gateOf) {
       m.fix_not_build.reasons.push("The workaround is acceptable as permanent");
     }
   }
+  const confirmedKeys = session.session.reflect_back?.dont_build_confirmed;
+  const definitive = (key, reason, trigger) => {
+    if (!confirmedKeys || confirmedKeys.includes(`${item.id}:${key}`)) {
+      m.dont_build_definitive.reasons.push(reason);
+      triggers.dont_build_definitive.push(trigger);
+    } else m.gather_more.reasons.push(`${reason}, but that wasn't confirmed at sign-off`);
+  };
   const d = g.dont_build_definitive;
-  if (d.existing_asset.includes(band("existing_asset"))) {
-    m.dont_build_definitive.reasons.push("An existing report or feature already covers it");
-    triggers.dont_build_definitive.push("the existing report or feature stops covering this need");
-  }
+  if (d.existing_asset.includes(band("existing_asset"))) definitive("existing_asset", "An existing report or feature already covers it", "the existing report or feature stops covering this need");
   const decisive = d.decision_depends_applies_to.includes(item.type);
-  if (decisive && d.decision_depends.includes(band("decision_depends"))) {
-    m.dont_build_definitive.reasons.push("No decision depends on it");
-    triggers.dont_build_definitive.push("a decision comes to depend on it");
-  }
-  if (d.value.includes(band("value"))) {
-    m.dont_build_definitive.reasons.push("The user describes its value as trivial");
-    triggers.dont_build_definitive.push("the cost of the current way grows enough to matter");
-  }
+  if (decisive && d.decision_depends.includes(band("decision_depends"))) definitive("decision_depends", "No decision depends on it", "a decision comes to depend on it");
+  if (d.value.includes(band("value"))) definitive("value", "The user describes its value as trivial", "the cost of the current way grows enough to matter");
   if (d.superseded_by_go_item && item.superseded_by && gateOf(item.superseded_by)?.decision === "go") {
-    m.dont_build_definitive.reasons.push(`Superseded by ${item.superseded_by}, which reaches Go`);
-    triggers.dont_build_definitive.push(`${item.superseded_by} isn't built, or doesn't replace this`);
+    definitive("superseded", `Superseded by ${item.superseded_by}, which reaches Go`, `${item.superseded_by} isn't built, or doesn't replace this`);
   }
   const gm = g.gather_more;
   const unsettled = criticalAreas(item, fw).filter((id) => !areaSettled(session, item, id));
@@ -16074,6 +16301,50 @@ function writeUpRequest(fw, session, item, transcript) {
     format: { name: "write_up", schema: writeup_schema_default }
   };
 }
+var INGEST_CHECKS = {
+  manual_work: 'manual_work: is any part of this done by hand today (not only as a fallback if the new thing failed)? "yes", "no", or "unclear".',
+  existing_asset: 'existing_asset: does anything they have, or could get, already do all or part of this? "yes", "no", or "unclear".',
+  kill_criteria: 'kill_criteria: did they say what would make them stop it or switch it off? "yes" with the condition in value, "no" if they said nothing would, "unclear" otherwise.'
+};
+var termLines = (session) => {
+  const terms = (session.terms ?? []).filter((t) => t.status !== "not_a_term");
+  if (!terms.length) return [];
+  return ["Terms so far:", ...terms.map((t) => `- ${t.term}: ${t.status === "confirmed" ? `defined as "${t.definition}"${t.conflict ? ` and also as "${t.conflict.definition}" (a definition here settles which is right; conflict false)` : ""}` : "not yet defined"}`), ""];
+};
+function ingestRequest(fw, session, x) {
+  const sections2 = x.items.map((it) => {
+    const item = session.items.find((i) => i.id === it.id);
+    const areas = it.areas.map((id) => {
+      const e = entryOf(session, item, id);
+      const conflict = session.session.engine?.areas[id.startsWith("core.") ? id : `${item.id}:${id}`]?.conflict;
+      const known = e && e.status !== "unknown" && e.value ? ` | recorded so far: ${e.value}${conflict ? ` | another source said: ${conflict.value ?? conflict.quote} (an answer here settles which is right; conflict false)` : ""}` : "";
+      return `- ${id}: ${fw.areas.get(id)?.must_capture ?? ""}${known}`;
+    });
+    const checks = it.checks.map((c) => `- ${INGEST_CHECKS[c]}`);
+    return [`Item ${it.id}: ${it.title} (${it.type})`, "Areas:", ...areas, ...checks.length ? ["Checks:", ...checks] : []].join("\n");
+  });
+  const who = x.kind === "notes" ? `the interviewer's notes from talking to ${x.from}` : x.kind === "transcript" ? `a transcript of a conversation with ${x.from}` : `a reply from ${x.from}`;
+  return {
+    system: [
+      "You read one document gathered during an intake and record what it says about each area. You only classify; you never decide what to ask next, create items, score or judge.",
+      [
+        "answers: one entry for each area the document actually says something about. Leave out areas it doesn't mention.",
+        `status: "answered" when it answers what the area needs; "partial" when it answers only some of it, or vaguely ("usually", "I think", no example); "not_applicable" when it says the area doesn't apply; "declined" when it says they don't know or won't say.`,
+        "value: what the document says, as one short plain sentence. Null if nothing usable.",
+        "quotes: one or more exact spans copied character for character from the document that carry the answer. Never paraphrase, never join two places into one quote.",
+        `conflict: true only if the answer disagrees with what is recorded so far for that area (shown after "recorded so far"). Adding detail isn't a conflict.`,
+        "item: the item the area is listed under. A shared core area belongs to the first item listed.",
+        "checks: one entry for each check listed under an item, with the document's words in quote (null if none).",
+        "terms: business terms the document uses whose meaning is local to this business or could be read more than one way (over pick, fill rate, on-time, exception), each with the words where it appears. Not generic words, and not terms already listed below.",
+        "definitions: for any term (listed below or new), a definition the document gives: what counts and what doesn't, in its words, with quotes; whether it says the thing can be seen in the system's data; any worked example with the right result. conflict: true only if it disagrees with a definition already recorded."
+      ].join("\n"),
+      "Only use what the document says. Don't infer or fill gaps."
+    ].join("\n\n"),
+    history: [],
+    context: [`The document is ${who}.`, "", ...sections2, "", ...termLines(session), "The document:", "<<<", x.text, ">>>"].join("\n"),
+    format: { name: "ingest", schema: ingest_schema_default }
+  };
+}
 
 // src/llm/types.ts
 var ProviderError = class extends Error {
@@ -16259,6 +16530,9 @@ var STATUS_NOTE = {
   declined: " (they preferred not to say)"
 };
 function dontBuildQuestions(session, fw) {
+  return dontBuildChecks(session, fw).map((c) => c.question);
+}
+function dontBuildChecks(session, fw) {
   if (!session.items.length) return [];
   let preview;
   try {
@@ -16272,10 +16546,11 @@ function dontBuildQuestions(session, fw) {
     for (const reason of item.gate.reasons) {
       if (reason.startsWith("(also")) continue;
       const by = item.superseded_by ? preview.items.find((i) => i.id === item.superseded_by)?.title : null;
-      if (reason.startsWith("An existing report or feature already covers it")) out2.push(`You said something you already have does what "${item.title}" would do, so it wouldn't be built. Is that right?`);
-      else if (reason.startsWith("No decision depends on it")) out2.push(`No decision depends on "${item.title}", so it wouldn't be built. Is that right?`);
-      else if (reason.startsWith("The user describes its value as trivial")) out2.push(`You described "${item.title}" as low value, so it wouldn't be built. Is that right?`);
-      else if (reason.startsWith("Superseded by") && by) out2.push(`"${item.title}" would go away once "${by}" exists, so it wouldn't be built on its own. Is that right?`);
+      const add = (k, question) => out2.push({ key: `${item.id}:${k}`, question });
+      if (reason.startsWith("An existing report or feature already covers it")) add("existing_asset", `You said something you already have does what "${item.title}" would do, so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("No decision depends on it")) add("decision_depends", `No decision depends on "${item.title}", so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("The user describes its value as trivial")) add("value", `You described "${item.title}" as low value, so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("Superseded by") && by) add("superseded", `"${item.title}" would go away once "${by}" exists, so it wouldn't be built on its own. Is that right?`);
     }
   }
   return out2;
@@ -16575,6 +16850,463 @@ async function runEngineTurn(input) {
     await toSummary();
     engine().summary_rounds = keep;
   }
+}
+
+// src/engine/ingest.ts
+var CHUNK_CHARS = 12e3;
+function startAsync(fw, t) {
+  const unknown = () => ({ status: "unknown", value: null, quotes: [], probe_count: 0 });
+  const engine = newEngine();
+  engine.phase = "collecting";
+  return {
+    schema_version: 2,
+    framework_version: fw.router.framework_version,
+    session: {
+      id: t.id,
+      started_at: t.now,
+      mode: "stakeholder",
+      channel: "async",
+      provider: t.provider,
+      grounding: "transcript",
+      reflect_back: null,
+      asked: {},
+      engine,
+      sources: [{ id: "src-1", kind: "request", from: t.from, added_at: t.now, text: t.request }]
+    },
+    core: { users: unknown(), outcome: unknown(), data: unknown(), systems: unknown(), constraints: unknown(), trust: unknown() },
+    items: [{
+      id: "item-1",
+      title: (t.title ?? t.request).trim().slice(0, 80),
+      type: t.type,
+      confidence: "high",
+      trigger_quote: t.request,
+      modifiers: t.modifiers ?? [],
+      spawned_from: null,
+      superseded_by: null,
+      type_history: [{ from: null, to: t.type, reason: "triage", quote: t.request, at: t.now }],
+      core_overrides: {},
+      coverage: {},
+      facts: {},
+      prose: {},
+      acceptance: [],
+      guardrails: [],
+      scoring: null,
+      gate: null,
+      open_questions: []
+    }]
+  };
+}
+function sourceTranscript(session) {
+  return (session.session.sources ?? []).map((s) => ({ role: "user", text: s.text, at: s.added_at }));
+}
+function chunks(text, max = CHUNK_CHARS) {
+  if (text.length <= max) return [text];
+  const out2 = [];
+  let cur = "";
+  for (const para of text.split(/\n\s*\n/)) {
+    if (cur && cur.length + para.length + 2 > max) {
+      out2.push(cur);
+      cur = "";
+    }
+    cur = cur ? `${cur}
+
+${para}` : para;
+  }
+  if (cur) out2.push(cur);
+  return out2;
+}
+function readTargets(session, fw) {
+  const c = fw.router.checks;
+  return session.items.filter((i) => !i.dropped).map((i) => {
+    const mods = ["core", i.type, ...i.modifiers.map((m) => `mod.${m}`)];
+    const areas = [...new Set(mods.flatMap((m) => fw.modules[m]?.areas.map((a) => a.id) ?? []))].filter((id) => !(i.spawned_from && id.startsWith("core.")));
+    const checks = [];
+    if (!i.spawned_from) {
+      if (c.manual_work.applies_to.includes(i.type) && !session.items.some((x) => x.type === c.manual_work.spawns)) checks.push("manual_work");
+      if (areas.some((a) => c.existing_asset.areas.includes(a))) checks.push("existing_asset");
+      if (c.kill_criteria.applies_to.includes(i.type)) checks.push("kill_criteria");
+    }
+    return { id: i.id, title: i.title, type: i.type, areas, checks };
+  });
+}
+function applyIngest(session, source, r, fw, now2) {
+  const events = [];
+  const transcript = [{ role: "user", text: source.text, at: source.added_at }];
+  const engine = session.session.engine;
+  const asked = session.session.asked ?? (session.session.asked = {});
+  for (const a of r.answers) {
+    const item = session.items.find((i) => i.id === a.item && !i.dropped) ?? (a.area.startsWith("core.") ? session.items.find((i) => !i.spawned_from) : void 0);
+    if (!item || !areaFits(item, a.area, fw)) {
+      events.push(`${a.item}:${a.area}: doesn't apply, ignored`);
+      continue;
+    }
+    const quotes = [...new Set(a.quotes.map((q) => grounded(q, transcript)).filter((q) => !!q))];
+    const key = areaKey(item, a.area);
+    const prev = entryOf(session, item, a.area);
+    const known = !!prev && (prev.status === "covered" || prev.status === "assumed") && !!prev.value;
+    const sources = (qs) => ({ ...prev?.quote_sources ?? {}, ...Object.fromEntries(qs.map((q) => [q, source.id])) });
+    if (a.status === "not_applicable" || a.status === "declined") {
+      if (known) {
+        events.push(`${key}: ${a.status} ignored, an answer is already recorded`);
+        continue;
+      }
+      setEntry(session, item, a.area, { status: a.status, value: a.value, quotes, probe_count: 0, updated_at: now2, ...quotes.length ? { quote_sources: sources(quotes) } : {} });
+      asked[key] ??= now2;
+      events.push(`${key}: ${a.status}`);
+      continue;
+    }
+    if (!quotes.length) {
+      events.push(`${key}: no quote from the source, not recorded`);
+      continue;
+    }
+    asked[key] ??= now2;
+    const open = stateOf(engine, key).conflict;
+    if (open && a.status === "answered") {
+      setEntry(session, item, a.area, { status: "covered", value: a.value ?? quotes[0], quotes: [.../* @__PURE__ */ new Set([...prev?.quotes ?? [], open.quote, ...quotes])], probe_count: prev?.probe_count ?? 0, updated_at: now2, quote_sources: { ...sources(quotes), [open.quote]: open.source, ...Object.fromEntries(quotes.map((q) => [q, source.id])) } });
+      engine.areas[key] = { ...stateOf(engine, key), conflict: null, partial: null };
+      events.push(`${key}: disagreement settled`);
+      continue;
+    }
+    if (known && a.conflict) {
+      engine.areas[key] = { ...stateOf(engine, key), conflict: { value: a.value, quote: quotes[0], source: source.id } };
+      events.push(`${key}: conflicts with what's recorded; kept both for the follow-up`);
+      continue;
+    }
+    const allQuotes = [.../* @__PURE__ */ new Set([...prev?.quotes ?? [], ...quotes])];
+    if (a.status === "answered") {
+      const value = known && prev.status === "covered" ? prev.value : a.value ?? quotes[0];
+      setEntry(session, item, a.area, { status: "covered", value, quotes: allQuotes, probe_count: prev?.probe_count ?? 0, updated_at: now2, quote_sources: sources(quotes) });
+      engine.areas[key] = { ...stateOf(engine, key), partial: null };
+      events.push(`${key}: covered`);
+    } else {
+      if (known && prev.status === "covered") {
+        setEntry(session, item, a.area, { ...prev, quotes: allQuotes, updated_at: now2, quote_sources: sources(quotes) });
+        events.push(`${key}: partial detail added to a covered answer`);
+        continue;
+      }
+      setEntry(session, item, a.area, { status: "assumed", value: a.value ?? quotes[0], quotes: allQuotes, probe_count: prev?.probe_count ?? 0, updated_at: now2, quote_sources: sources(quotes) });
+      engine.areas[key] = { ...stateOf(engine, key), partial: { value: a.value, quote: quotes[0] } };
+      events.push(`${key}: partial, assumed until followed up`);
+    }
+  }
+  for (const c of r.checks) {
+    const engine2 = session.session.engine;
+    const item = session.items.find((i) => i.id === c.item && !i.spawned_from && !i.dropped);
+    if (!item) continue;
+    const ck = `${item.id}:${c.check}`;
+    const state = engine2.checks[ck] ?? { asks: 0, result: null };
+    if (state.result === "yes" || state.result === "no") continue;
+    engine2.checks[ck] = { ...state, asks: Math.min(2, state.asks + 1) };
+    if (c.check === "existing_asset") {
+      const quote = grounded(c.quote, transcript);
+      const result = c.result === "yes" && !quote ? "unclear" : c.result;
+      engine2.checks[ck] = { ...engine2.checks[ck], result: result === "unclear" ? engine2.checks[ck].asks >= 2 ? "no" : null : result };
+      events.push(`existing_asset: ${result}`);
+      continue;
+    }
+    const area = c.check === "manual_work" ? fw.modules[item.type]?.anchor : fw.router.checks.kill_criteria.area;
+    const ctx = { fw, transcript, now: now2 };
+    const out2 = applyCheck(session, { item: item.id, area, kind: "check", check: c.check, question: "packet" }, { status: "answered", value: c.value, quote: c.quote, check: c.result, wrap_up: false, also_answers: [] }, ctx);
+    Object.assign(session, out2.session);
+    events.push(...out2.events);
+  }
+  events.push(...applyTerms(session, source, r, transcript));
+  return events;
+}
+var termKey = (t) => t.trim().toLowerCase().replace(/[\s_-]+/g, " ");
+function applyTerms(session, source, r, transcript) {
+  const events = [];
+  const terms = session.terms ?? (session.terms = []);
+  const primary = session.items.find((i) => !i.spawned_from && !i.dropped);
+  const find = (t) => terms.find((x) => termKey(x.term) === termKey(t));
+  const add = (term, quote, kind) => {
+    const t = { id: `term-${terms.length + 1}`, term: term.trim(), items: primary ? [primary.id] : [], found_in: { quote, source: source.id }, status: "unconfirmed", kind, definition: null, quotes: [], given_by: null, source: null, measurable: "unknown", examples: [], starter: null };
+    terms.push(t);
+    return t;
+  };
+  for (const t of r.terms) {
+    const quote = grounded(t.quote, transcript);
+    if (!quote || !t.term.trim()) {
+      events.push(`term "${t.term}": not in the source, ignored`);
+      continue;
+    }
+    if (find(t.term)) continue;
+    add(t.term, quote, t.kind);
+    events.push(`term "${t.term}": found, unconfirmed`);
+  }
+  for (const d of r.definitions) {
+    const quotes = [...new Set(d.quotes.map((q) => grounded(q, transcript)).filter((q) => !!q))];
+    if (!quotes.length || !d.definition.trim()) {
+      events.push(`definition of "${d.term}": no words from the source, not recorded`);
+      continue;
+    }
+    const t = find(d.term) ?? add(d.term, quotes[0], "label");
+    if (t.status === "confirmed" && t.conflict && !d.conflict) {
+      Object.assign(t, { definition: d.definition.trim(), quotes: [.../* @__PURE__ */ new Set([...t.quotes, ...quotes])], given_by: source.from, source: source.id, conflict: null });
+      events.push(`definition of "${t.term}": disagreement settled`);
+      continue;
+    }
+    if (t.status === "confirmed" && d.conflict) {
+      t.conflict = { definition: d.definition.trim(), quote: quotes[0], source: source.id };
+      events.push(`definition of "${t.term}": conflicts with the recorded one; kept both for the follow-up`);
+      continue;
+    }
+    if (t.status === "confirmed") {
+      t.quotes = [.../* @__PURE__ */ new Set([...t.quotes, ...quotes])];
+    } else {
+      Object.assign(t, { status: "confirmed", definition: d.definition.trim(), quotes, given_by: source.from, source: source.id });
+      events.push(`definition of "${t.term}": confirmed`);
+    }
+    if (d.measurable !== "unknown") t.measurable = d.measurable;
+    for (const e of d.examples) if (e.case.trim() && e.expected.trim() && !t.examples.some((x) => x.case === e.case)) t.examples.push({ case: e.case.trim(), expected: e.expected.trim() });
+  }
+  return events;
+}
+async function runIngest(input) {
+  const { fw, provider, now: now2 } = input;
+  const calls = [];
+  const events = [];
+  if (input.source.kind === "request") throw new Error("the request is added at triage");
+  const s = structuredClone(input.session);
+  const list2 = s.session.sources ?? (s.session.sources = []);
+  const source = { ...input.source, id: `src-${list2.length + 1}`, added_at: now2 };
+  list2.push(source);
+  for (const [n, text] of chunks(source.text).entries()) {
+    const req = ingestRequest(fw, s, { kind: source.kind, from: source.from, text, items: readTargets(s, fw) });
+    let data = null;
+    for (let attempt = 0; attempt < 3 && !data; attempt++) {
+      try {
+        const r = await provider.complete(req, input.signal);
+        let parsed;
+        try {
+          parsed = JSON.parse(r.text);
+        } catch {
+          parsed = void 0;
+        }
+        const v = parsed === void 0 ? { ok: false, errors: ["not JSON"] } : validateIngest2(parsed);
+        calls.push({ name: "ingest", model: r.model, usage: r.usage, text: r.text, ok: v.ok, problem: v.ok ? null : v.errors.slice(0, 3).join("; ") });
+        if (v.ok) data = parsed;
+      } catch (err) {
+        if (err instanceof ProviderError && (err.kind === "config" || err.status === 400 || err.status === 401)) throw err;
+        calls.push({ name: "ingest", model: "", usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 }, text: "", ok: false, problem: err.message });
+      }
+    }
+    if (!data) return { session: input.session, result: "failed", calls, events: [...events, `chunk ${n + 1}: calls failed three times; nothing recorded from this source`] };
+    events.push(...applyIngest(s, source, data, fw, now2));
+  }
+  return { session: s, result: "applied", calls, events };
+}
+
+// src/engine/gaps.ts
+var settled = (s, item, check2) => {
+  const c = s.session.engine.checks[`${item.id}:${check2}`];
+  return !!c && (c.result === "yes" || c.result === "no" || c.asks >= 2);
+};
+function findGaps(session, fw) {
+  const engine = session.session.engine;
+  const gaps = [];
+  const readiness = [];
+  const live = session.items.filter((i) => !i.dropped);
+  const primary = live.find((i) => !i.spawned_from);
+  for (const item of [...live.filter((i) => !i.spawned_from), ...live.filter((i) => i.spawned_from)]) {
+    const queue = queueFor(item, fw);
+    const critical = new Set(criticalAreas(item, fw));
+    let answered = 0;
+    const open = [];
+    for (const area of queue) {
+      const e = entryOf(session, item, area);
+      const st = stateOf(engine, areaKey(item, area));
+      const def = fw.areas.get(area);
+      if (st.conflict) {
+        gaps.push({ kind: "conflict", item: item.id, target: area, question: `We have two different answers here: "${e?.value ?? ""}" and "${st.conflict.value ?? st.conflict.quote}". Which is right? (${def.packet.ask})` });
+        open.push(`${area}: two answers disagree`);
+        continue;
+      }
+      if (!e || e.status === "unknown") {
+        gaps.push({ kind: "unknown", item: item.id, target: area, question: def.packet.ask });
+        open.push(`${area}: not answered`);
+        continue;
+      }
+      if (e.status === "assumed" && st.partial) {
+        gaps.push({ kind: "partial", item: item.id, target: area, question: `You mentioned "${st.partial.quote ?? st.partial.value}". Could you say more? ${def.packet.ask}` });
+        open.push(`${area}: only partly answered`);
+        continue;
+      }
+      if (e.status === "assumed" && critical.has(area)) {
+        gaps.push({ kind: "confirm", item: item.id, target: area, question: `We have: "${e.quotes.at(-1) ?? e.value}". Is that right?` });
+        open.push(`${area}: needs confirming`);
+        continue;
+      }
+      answered++;
+    }
+    if (!item.spawned_from) {
+      const outcome = entryOf(session, item, "core.outcome");
+      if (outcome && outcome.status !== "unknown" && !sessionQuotes(session).some(hasNumber)) {
+        const q = fw.scoring.gap_questions?.success_metric?.question ?? "What number would show this worked, and what is that number today?";
+        gaps.push({ kind: "baseline", item: item.id, target: "core.outcome", question: q });
+        open.push("core.outcome: no number for how things are today");
+      }
+    }
+    if (item === primary) {
+      for (const area of fw.router.checks?.existing_asset.areas ?? []) {
+        const e = entryOf(session, item, area);
+        if (queue.includes(area) && e && e.status !== "unknown" && !settled(session, item, "existing_asset")) {
+          gaps.push({ kind: "check", item: item.id, target: "existing_asset", question: fw.areas.get(area).packet.ask });
+          open.push("existing-asset check: no clear yes or no");
+        }
+      }
+      if (manualCheckDue(session, item, fw)) {
+        gaps.push({ kind: "check", item: item.id, target: "manual_work", question: MANUAL_QUESTION });
+        open.push("manual-work check: no clear yes or no");
+      }
+      if (killCheckDue(session, item, fw)) {
+        gaps.push({ kind: "check", item: item.id, target: "kill_criteria", question: fw.router.checks.kill_criteria.question });
+        open.push("kill criteria: not said");
+      }
+    }
+    readiness.push({ item: item.id, title: item.title, required: queue.length, answered, open });
+  }
+  for (const t of (session.terms ?? []).filter((x) => x.status !== "not_a_term")) {
+    if (t.status === "unconfirmed") gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `In your own words, what counts as "${t.term}", and what doesn't? Give one real example and the right ${t.kind === "metric" ? "count" : "result"}.` });
+    else if (t.conflict) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `"${t.term}" was defined two ways: "${t.definition}" and "${t.conflict.definition}". Which is right?` });
+    else continue;
+    for (const r of readiness.filter((x) => t.items.includes(x.item))) r.open.push(`"${t.term}": ${t.status === "unconfirmed" ? "no confirmed definition" : "two definitions disagree"}`);
+  }
+  return { gaps, readiness };
+}
+function readinessLines(r) {
+  return r.readiness.map((x) => `${x.title}: ${x.answered} of ${x.required} required answered${x.open.length ? `; still open: ${x.open.join("; ")}` : "; ready for the summary"}.`);
+}
+function followUpEmail(session, r) {
+  if (!r.gaps.length) return "";
+  const request = session.session.sources?.find((s) => s.kind === "request")?.text ?? session.items[0]?.title ?? "";
+  const lines = [`# A few follow-up questions about: ${request}`, "", "Thanks for your answers. These are the only things still open. Rough answers and real examples help most.", ""];
+  r.gaps.forEach((g, i) => lines.push(`${i + 1}. ${g.question}`, ""));
+  return lines.join("\n").trimEnd() + "\n";
+}
+
+// src/engine/async.ts
+var AsyncError = class extends Error {
+};
+async function runAsyncSummary(input) {
+  const { fw, provider, now: now2 } = input;
+  if (input.session.session.channel !== "async") throw new AsyncError("not an async intake");
+  if (input.session.session.engine?.phase === "confirmed") throw new AsyncError("this intake is signed off");
+  let s = structuredClone(input.session);
+  const transcript = sourceTranscript(s);
+  const calls = [];
+  const events = [];
+  for (const item of s.items.filter((i) => !i.dropped && !i.spawned_from)) {
+    const req = writeUpRequest(fw, s, item, transcript);
+    let w = null;
+    for (let attempt = 0; attempt < 3 && !w; attempt++) {
+      const r = await provider.complete(req, input.signal);
+      let parsed;
+      try {
+        parsed = JSON.parse(r.text);
+      } catch {
+        parsed = void 0;
+      }
+      const v = parsed === void 0 ? { ok: false, errors: ["not JSON"] } : validateWriteUp2(parsed);
+      calls.push({ name: "write_up", model: r.model, usage: r.usage, text: r.text, ok: v.ok, problem: v.ok ? null : v.errors.slice(0, 3).join("; ") });
+      if (v.ok) w = parsed;
+    }
+    if (!w) {
+      events.push(`write-up for ${item.id} failed; the summary renders without it`);
+      continue;
+    }
+    item.facts = {};
+    events.push(...applyWriteUp(s, item.id, w, fw, transcript).map((d) => `write-up dropped ${d}`));
+  }
+  s = enterSummary(s, fw, now2);
+  return { session: s, calls, events, summary: summaryText(buildSummary(s, fw)), confirm: dontBuildChecks(s, fw) };
+}
+function correct(original, fw, c) {
+  const s = structuredClone(original);
+  if (s.session.channel !== "async") throw new AsyncError("not an async intake");
+  if (s.session.engine?.phase === "confirmed") throw new AsyncError("this intake is signed off");
+  const text = c.text.trim();
+  if (!text) throw new AsyncError("the correction is empty");
+  if (!!c.area === !!c.term) throw new AsyncError("correct one area or one term");
+  const list2 = s.session.sources ?? (s.session.sources = []);
+  const id = `src-${list2.length + 1}`;
+  list2.push({ id, kind: "notes", from: c.by, added_at: c.now, text });
+  if (c.area) {
+    const item = s.items.find((i) => i.id === (c.item ?? "item-1") && !i.dropped);
+    if (!item || !areaFits(item, c.area, fw)) throw new AsyncError(`${c.area} isn't an area of ${c.item ?? "item-1"}`);
+    const prev = entryOf(s, item, c.area);
+    setEntry(s, item, c.area, { status: "covered", value: text, quotes: [text], probe_count: prev?.probe_count ?? 0, updated_at: c.now, quote_sources: { [text]: id } });
+    const key = areaKey(item, c.area);
+    s.session.engine.areas[key] = { ...stateOf(s.session.engine, key), conflict: null, partial: null };
+    (s.session.asked ??= {})[key] ??= c.now;
+  } else {
+    const t = (s.terms ?? []).find((x) => x.term.toLowerCase() === c.term.trim().toLowerCase());
+    if (!t) throw new AsyncError(`no term "${c.term}"`);
+    Object.assign(t, { status: "confirmed", definition: text, quotes: [text], given_by: c.by, source: id, conflict: null });
+  }
+  const rb = s.session.reflect_back;
+  if (rb) s.session.reflect_back = { ...rb, corrections: [...rb.corrections, `${c.area ?? `term "${c.term}"`}: ${text}`] };
+  s.session.engine.phase = "collecting";
+  s.session.engine.pending = null;
+  return s;
+}
+function signOff(original, fw, o) {
+  const s = structuredClone(original);
+  if (s.session.channel !== "async") throw new AsyncError("not an async intake");
+  if (s.session.engine?.phase !== "summary" || !s.session.reflect_back) throw new AsyncError("write the summary first, and check it, before signing off");
+  const allowed = new Set(dontBuildChecks(s, fw).map((c) => c.key));
+  const unknown = o.confirm.filter((k) => !allowed.has(k));
+  if (unknown.length) throw new AsyncError(`nothing to confirm for ${unknown.join(", ")}; the summary lists ${[...allowed].join(", ") || "none"}`);
+  s.session.reflect_back = { ...s.session.reflect_back, confirmed: true, dont_build_confirmed: [...new Set(o.confirm)], signed_off_by: o.by };
+  s.session.engine.phase = "confirmed";
+  s.session.engine.pending = null;
+  return scoreAndGate(s, fw).session;
+}
+
+// src/lib/packet.ts
+function buildPacket(fw, input) {
+  const modifiers = input.modifiers ?? [];
+  const item = { id: "item-1", type: input.type, modifiers, spawned_from: null };
+  const queue = queueFor(item, fw);
+  const fromArea = (id) => {
+    const a = fw.areas.get(id);
+    return { area: id, check: null, ask: a.packet.ask, why: a.packet.why, example: a.packet.example };
+  };
+  const questions = queue.map(fromArea);
+  const checks = fw.router.checks;
+  if (checks?.manual_work.applies_to.includes(input.type)) {
+    questions.push({ area: fw.modules[input.type]?.anchor, check: "manual_work", ask: MANUAL_QUESTION, why: "Work done by hand today is often worth fixing first, or is what the new thing would replace.", example: "Yes: every Monday I rebuild the sheet from an export, about four hours." });
+  }
+  if (checks?.kill_criteria.applies_to.includes(input.type)) {
+    questions.push({ area: checks.kill_criteria.area, check: "kill_criteria", ask: checks.kill_criteria.question, why: "Agreeing up front when to stop protects everyone if it doesn't work out.", example: "If its numbers disagreed with the WMS two weeks running, we'd switch it off." });
+  }
+  const asked = new Set(queue);
+  const all = ["core", input.type, ...modifiers.map((m) => `mod.${m}`)].flatMap((m) => fw.modules[m]?.areas.map((a) => a.id) ?? []);
+  const if_you_know = [...new Set(all)].filter((id) => !asked.has(id)).map(fromArea);
+  return { request: input.request, type: input.type, modifiers, questions, if_you_know };
+}
+var INTRO = [
+  `Please answer what you can, in your own words. Rough numbers are better than none, and "I don't know" is a fine answer.`,
+  "Real examples help most: the last time it happened, what you saw, who was involved."
+];
+function packetEmail(p) {
+  const lines = [`# Questions about: ${p.request}`, "", ...INTRO, ""];
+  p.questions.forEach((q, i) => lines.push(`${i + 1}. **${q.ask}**`, `   _Why: ${q.why}_${q.example ? `  
+   _For example: "${q.example}"_` : ""}`, ""));
+  if (p.if_you_know.length) {
+    lines.push("## If you know", "", "These help, but skip any you're not sure about.", "");
+    p.if_you_know.forEach((q, i) => lines.push(`${p.questions.length + i + 1}. ${q.ask}`, ""));
+  }
+  return lines.join("\n").trimEnd() + "\n";
+}
+function packetAgenda(p) {
+  const lines = [`# Intake meeting: ${p.request}`, "", `About ${Math.max(15, Math.round(p.questions.length * 3 / 5) * 5)} minutes. Ask for a real, recent example on each.`, ""];
+  p.questions.forEach((q, i) => lines.push(`## ${i + 1}. ${q.ask}`, "", `_Why: ${q.why}_`, "", "Notes:", "", ""));
+  if (p.if_you_know.length) {
+    lines.push("## If there's time", "");
+    p.if_you_know.forEach((q, i) => lines.push(`${p.questions.length + i + 1}. ${q.ask}`, "", "   Notes:", ""));
+  }
+  return lines.join("\n").trimEnd() + "\n";
 }
 
 // src/lib/check-meta.ts
@@ -17143,8 +17875,54 @@ var VALIDATE = {
   classify_opening: validateOpening2,
   phrase: validatePhrase2,
   extract: validateExtract2,
-  write_up: validateWriteUp2
+  write_up: validateWriteUp2,
+  ingest: validateIngest2
 };
+function readCallQueues(dir) {
+  const p = paths(dir);
+  const queues = {};
+  if (!existsSync4(p.calls)) return queues;
+  for (const file of readdirSync3(p.calls).filter((f) => f.endsWith(".json"))) {
+    const name = file.slice(0, -5);
+    if (!VALIDATE[name]) return out(4, { result: "bad_call_file", message: `${file} isn't a call this engine makes` });
+    let data;
+    try {
+      data = JSON.parse(readFileSync4(join4(p.calls, file), "utf8"));
+    } catch (err) {
+      return out(2, { result: "invalid", call: name, errors: [`not JSON: ${err.message}`] });
+    }
+    const list2 = Array.isArray(data) ? data : [data];
+    for (const [i, d] of list2.entries()) {
+      const v = VALIDATE[name](d);
+      if (!v.ok) return out(2, { result: "invalid", call: name, entry: i, errors: v.errors, message: `Fix ${file} and run the command again.` });
+    }
+    queues[name] = list2;
+  }
+  return queues;
+}
+function queueProvider(queues) {
+  return {
+    name: "claude",
+    async complete(request) {
+      const name = request.format.name;
+      const next = queues[name]?.shift();
+      if (next === void 0) throw new NeedCall(name, request);
+      return { text: JSON.stringify(next), model: "claude", usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 } };
+    }
+  };
+}
+function needsCall(dir, err, command) {
+  const already = queuesUsed(paths(dir).calls, err.call);
+  return out(6, {
+    result: "needs",
+    call: err.call,
+    write_to: join4(".intake-kit", "calls", `${err.call}.json`),
+    how: already ? `Add your answer as one more entry to the JSON array already in that file (it holds ${already}), then run ${command} again.` : `Write a JSON array holding your one answer, then run ${command} again.`,
+    instructions: err.request.system,
+    input: err.request.context,
+    schema: err.request.format?.name
+  });
+}
 async function turnCommand(dir, message) {
   const p = paths(dir);
   const session = readSession(dir);
@@ -17219,6 +17997,131 @@ async function turnCommand(dir, message) {
     events: outcome.events
   });
 }
+var TYPES = ["broken", "manual_process", "known_idea", "exploratory", "data_report"];
+var MODIFIERS = ["integration", "compliance", "migration"];
+function asyncSession(dir) {
+  const s = readSession(dir);
+  if (!s) return out(4, { result: "no_session", message: "No intake in progress. Run triage first." });
+  if (s.session.channel !== "async") return out(4, { result: "not_async", message: "This intake is a live interview. Use turn, or start an async one with triage --new." });
+  return s;
+}
+function writePacket(dir, s) {
+  const fw = loadFramework(pluginRoot());
+  const item = s.items.find((i) => !i.spawned_from);
+  const request = s.session.sources?.find((x) => x.kind === "request")?.text ?? item.title;
+  const p = buildPacket(fw, { request, type: item.type, modifiers: item.modifiers });
+  const email = join4(paths(dir).stateDir, "packet.md");
+  const agenda = join4(paths(dir).stateDir, "agenda.md");
+  writeFileSync2(email, packetEmail(p));
+  writeFileSync2(agenda, packetAgenda(p));
+  return { email, agenda };
+}
+function triage(dir, o) {
+  if (!o.request?.trim()) return out(4, { result: "bad_option", message: "--request is required: the request in one line, in the words it came in." });
+  if (!o.type || !TYPES.includes(o.type)) return out(4, { result: "bad_option", message: `--type must be one of ${TYPES.join(", ")}` });
+  for (const m of o.modifiers) if (!MODIFIERS.includes(m)) return out(4, { result: "bad_option", message: `--modifier must be one of ${MODIFIERS.join(", ")}` });
+  const p = paths(dir);
+  ensureStateDir(dir);
+  const existing = readSession(dir);
+  if (existing) {
+    if (!o.new) return out(4, { result: "needs_decision", session_id: existing.session.id, message: `${p.session} holds an intake already. Run triage --new to start another; the old file is archived, not deleted.` });
+    process.stderr.write(`archived the previous intake to ${archive(dir, p.session, `intake-answers-${existing.session.id}.yaml`)}
+`);
+  }
+  const at = now();
+  const fw = loadFramework(pluginRoot());
+  const session = startAsync(fw, { id: `${at.slice(0, 10)}-${randomBytes(2).toString("hex")}`, request: o.request.trim(), type: o.type, modifiers: o.modifiers, title: o.title, from: o.from ?? "the requester", provider: "claude", now: at });
+  writeSession(dir, session);
+  const files = writePacket(dir, session);
+  return out(0, { result: "triaged", session_id: session.session.id, session_file: p.session, packet: files.email, agenda: files.agenda, readiness: readinessLines(findGaps(session, fw)) });
+}
+function packetCommand(dir, format) {
+  const s = asyncSession(dir);
+  const files = writePacket(dir, s);
+  const file = format === "agenda" ? files.agenda : files.email;
+  return out(0, { result: "packet", file, text: readFileSync4(file, "utf8") });
+}
+async function ingestCommand(dir, o) {
+  const s = asyncSession(dir);
+  if (s.session.engine?.phase === "confirmed") return out(4, { result: "signed_off", message: "This intake is signed off. Start another with triage --new." });
+  if (!o.file || !existsSync4(o.file)) return out(4, { result: "bad_option", message: "--file must name the file holding the pasted reply, notes or transcript." });
+  if (!o.kind || !["reply", "notes", "transcript"].includes(o.kind)) return out(4, { result: "bad_option", message: "--kind must be reply, notes or transcript" });
+  if (!o.from?.trim()) return out(4, { result: "bad_option", message: "--from is required: who the answers came from." });
+  const text = readFileSync4(o.file, "utf8").trim();
+  if (!text) return out(4, { result: "bad_option", message: `${o.file} is empty` });
+  const fw = loadFramework(pluginRoot());
+  let outcome;
+  try {
+    outcome = await runIngest({ provider: queueProvider(readCallQueues(dir)), fw, session: s, source: { kind: o.kind, from: o.from.trim(), text }, now: now() });
+  } catch (err) {
+    if (err instanceof NeedCall) return needsCall(dir, err, "ingest with the same options");
+    throw err;
+  }
+  if (outcome.result !== "applied") return out(3, { result: "failed", message: "The answers in .intake-kit/calls didn't fit, so nothing from this source was recorded. Run ingest again.", events: outcome.events });
+  if (outcome.session.session.engine.phase === "summary") outcome.session.session.engine.phase = "collecting";
+  writeSession(dir, outcome.session);
+  if (existsSync4(paths(dir).calls)) rmSync(paths(dir).calls, { recursive: true, force: true });
+  return gapsOut(dir, outcome.session, { result: "ingested", events: outcome.events });
+}
+function gapsOut(dir, s, extra = {}) {
+  const fw = loadFramework(pluginRoot());
+  const r = findGaps(s, fw);
+  const followup = followUpEmail(s, r);
+  const file = join4(paths(dir).stateDir, "followup.md");
+  if (followup) writeFileSync2(file, followup);
+  else if (existsSync4(file)) rmSync(file);
+  return out(0, {
+    result: "gaps",
+    ...extra,
+    readiness: readinessLines(r),
+    open: r.gaps.length,
+    ...followup ? { followup: file, followup_text: followup } : { next: "Nothing is open. Run summary when you're ready to check it." }
+  });
+}
+async function summaryCommand(dir) {
+  const s = asyncSession(dir);
+  const fw = loadFramework(pluginRoot());
+  let outcome;
+  try {
+    outcome = await runAsyncSummary({ provider: queueProvider(readCallQueues(dir)), fw, session: s, now: now() });
+  } catch (err) {
+    if (err instanceof NeedCall) return needsCall(dir, err, "summary");
+    if (err instanceof AsyncError) return out(4, { result: "not_now", message: err.message });
+    throw err;
+  }
+  writeSession(dir, outcome.session);
+  if (existsSync4(paths(dir).calls)) rmSync(paths(dir).calls, { recursive: true, force: true });
+  return out(0, {
+    result: "summary",
+    summary: outcome.summary,
+    confirm: outcome.confirm,
+    readiness: readinessLines(findGaps(outcome.session, fw)),
+    next: outcome.confirm.length ? "Check the summary. Correct anything with correct, then sign off with signoff, adding --confirm <key> for each Don't-build reason you agree with." : "Check the summary. Correct anything with correct, then sign off with signoff.",
+    events: outcome.events
+  });
+}
+function correctCommand(dir, o) {
+  const s = asyncSession(dir);
+  try {
+    const next = correct(s, loadFramework(pluginRoot()), { item: o.item, area: o.area, term: o.term, text: o.text ?? "", by: o.by ?? "the interviewer", now: now() });
+    writeSession(dir, next);
+    return out(0, { result: "corrected", next: "Run summary to see the summary written up again." });
+  } catch (err) {
+    if (err instanceof AsyncError) return out(4, { result: "bad_correction", message: err.message });
+    throw err;
+  }
+}
+function signoffCommand(dir, o) {
+  const s = asyncSession(dir);
+  try {
+    const next = signOff(s, loadFramework(pluginRoot()), { confirm: o.confirm, by: o.by ?? "the interviewer" });
+    writeSession(dir, next);
+    return out(0, { result: "signed_off", gates: next.items.map((i) => ({ item: i.id, title: i.title, decision: i.gate?.decision, reasons: i.gate?.reasons, revisit_trigger: i.gate?.revisit_trigger })), next: "Run render to write the spec pack." });
+  } catch (err) {
+    if (err instanceof AsyncError) return out(4, { result: "not_now", message: err.message });
+    throw err;
+  }
+}
 function queuesUsed(dir, call) {
   const file = join4(dir, `${call}.json`);
   if (!existsSync4(file)) return 0;
@@ -17242,7 +18145,21 @@ async function main() {
       new: { type: "boolean", default: false },
       resume: { type: "boolean", default: false },
       overwrite: { type: "string", multiple: true, default: [] },
-      keep: { type: "string", multiple: true, default: [] }
+      keep: { type: "string", multiple: true, default: [] },
+      request: { type: "string" },
+      type: { type: "string" },
+      modifier: { type: "string", multiple: true, default: [] },
+      from: { type: "string" },
+      title: { type: "string" },
+      format: { type: "string", default: "email" },
+      file: { type: "string" },
+      kind: { type: "string" },
+      item: { type: "string" },
+      area: { type: "string" },
+      term: { type: "string" },
+      text: { type: "string" },
+      by: { type: "string" },
+      confirm: { type: "string", multiple: true, default: [] }
     }
   });
   const dir = values.dir ?? process.cwd();
@@ -17269,8 +18186,23 @@ async function main() {
     case "guide":
       process.stdout.write(guide(loadFramework(pluginRoot())));
       return;
+    case "triage":
+      return triage(dir, { request: values.request, type: values.type, modifiers: values.modifier, from: values.from, title: values.title, new: values.new });
+    case "packet":
+      choice("format", values.format, ["email", "agenda"]);
+      return packetCommand(dir, values.format);
+    case "ingest":
+      return await ingestCommand(dir, { file: values.file, kind: values.kind, from: values.from });
+    case "gaps":
+      return gapsOut(dir, asyncSession(dir));
+    case "summary":
+      return await summaryCommand(dir);
+    case "correct":
+      return correctCommand(dir, { item: values.item, area: values.area, term: values.term, text: values.text, by: values.by });
+    case "signoff":
+      return signoffCommand(dir, { confirm: values.confirm, by: values.by });
     default:
-      return out(4, { result: "bad_command", message: "usage: intake.mjs start | turn [--message text] | render | status | guide  (see the header of src/cli/intake.ts)" });
+      return out(4, { result: "bad_command", message: "usage: intake.mjs start | turn [--message text] | render | status | guide | triage | packet | ingest | gaps | summary | correct | signoff  (see the header of src/cli/intake.ts)" });
   }
 }
 main().catch((err) => {

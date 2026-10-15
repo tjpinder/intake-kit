@@ -295,7 +295,7 @@ describe("config endpoint and helpers", () => {
     assert.deepEqual(res.body, {
       ready: true, kitModel: "gpt-4.1", byok: true,
       claudeModels: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"], defaultClaudeModel: "claude-opus-5-5",
-      turnstileSiteKey: "ts-site", sessionMaxTurns: 60, maxMessageChars: 4000, liveIntakeNote: null,
+      turnstileSiteKey: "ts-site", sessionMaxTurns: 60, maxMessageChars: 4000, maxSourceChars: 30000, liveIntakeNote: null,
     });
     assert.doesNotMatch(JSON.stringify(res.body), /kit-key|ts-secret|salt/);
   });

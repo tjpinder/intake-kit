@@ -12,6 +12,10 @@ export interface ServerConfig {
   ipTurnsPerDay: number;
   maxMessageChars: number;
   maxBodyBytes: number;
+  /** Async intake: the longest pasted source (reply, notes or transcript) accepted, in characters. */
+  maxSourceChars: number;
+  /** Async intake: the most sources one intake may paste. */
+  maxSources: number;
   turnstile: { secretKey: string; siteKey: string } | null;
   ipHashSalt: string | null;
   allowByok: boolean;
@@ -61,6 +65,8 @@ export function readServerConfig(env: Record<string, string | undefined>): Serve
     ipTurnsPerDay: num(env, "IP_TURNS_PER_DAY", 300, warnings),
     maxMessageChars: num(env, "MAX_MESSAGE_CHARS", 4000, warnings),
     maxBodyBytes: num(env, "MAX_BODY_BYTES", 1_000_000, warnings),
+    maxSourceChars: num(env, "MAX_SOURCE_CHARS", 30_000, warnings),
+    maxSources: num(env, "MAX_SOURCES", 12, warnings),
     turnstile,
     ipHashSalt,
     allowByok: env.ALLOW_BYOK !== "false",

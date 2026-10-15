@@ -1,5 +1,6 @@
 // Azure Functions (v4 programming model) entry for the Static Web Apps managed API:
 //   POST /api/turn    one user turn (see src/server/handler.ts)
+//   POST /api/async   async intake: ingest a pasted source, or write the summary
 //   GET  /api/config  what the UI can offer
 // Everything Azure-specific is here; the logic lives in src/server and is tested without Azure.
 
@@ -8,7 +9,7 @@ import { parse as parseYaml } from "yaml";
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from "@azure/functions";
 import { buildFramework } from "../../src/lib/framework.ts";
 import { readServerConfig } from "../../src/server/config.ts";
-import { configResponse, handleTurn, type ApiResponse } from "../../src/server/handler.ts";
+import { configResponse, handleAsync, handleTurn, type ApiResponse } from "../../src/server/handler.ts";
 import type { CounterStore } from "../../src/server/store.ts";
 import { sources, skill } from "./bundled.ts";
 import { TableStore, UnavailableStore } from "./table-store.ts";
@@ -43,6 +44,24 @@ app.http("turn", {
       headers[name.toLowerCase()] = value;
     });
     const res = await handleTurn(
+      { method: request.method, headers, body: await request.text() },
+      { config, store, fw, skill, log: (message, data) => context.log(`intake-kit: ${message}`, data ?? {}) },
+    );
+    return toHttp(res);
+  },
+});
+
+app.http("async", {
+  route: "async",
+  methods: ["POST"],
+  authLevel: "anonymous",
+  handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
+    warnOnce(context);
+    const headers: Record<string, string> = {};
+    request.headers.forEach((value, name) => {
+      headers[name.toLowerCase()] = value;
+    });
+    const res = await handleAsync(
       { method: request.method, headers, body: await request.text() },
       { config, store, fw, skill, log: (message, data) => context.log(`intake-kit: ${message}`, data ?? {}) },
     );

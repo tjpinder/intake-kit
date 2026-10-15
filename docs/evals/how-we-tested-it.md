@@ -90,6 +90,7 @@ Ingest stays on gpt-4.1: mini missed the anchor area for a report.
 | Persona 7 (email, notes) | async | `3e7de4b` | 1 of 2: the simulated requester invented a baseline the persona doesn't have | 0 |
 | Persona 7, after tightening the simulated requester | async | `52e84c3` | **2 of 2** | 0 |
 | Held-out personas 2–6 | live | `42a2e1c` | **5 of 5** gates; persona 5's single item is a [known limitation](persona-report-heldout.md#known-limitations-not-passes), not a pass | 0 |
+| Held-out personas 2–6, on the commit deployed when live web intakes reopened (Oct 15) | live | `5666667` | **5 of 5** gates, all completed | 0 |
 
 Reports: [async-report-p7.md](async-report-p7.md), [persona-report-heldout.md](persona-report-heldout.md). Full findings for that round: [2026-10-14-findings.md](2026-10-14-findings.md).
 
@@ -108,4 +109,5 @@ A test replays it on every run and fails if the output changes.
 - **Exploratory intakes** produce one item where three or more are expected, because the existing-asset check creates no items. The design is deferred.
 - **Paraphrased values can add a detail** ("ready by 6am **Monday**" for a daily report). Quotes are always exact.
 - **Term-finding still flags some loose terms** in notes-only intakes.
-- **Live web intakes stay paused.** The full held-out set reruns on the commit being deployed before they reopen.
+
+Live web intakes reopened on Oct 15, with async screens, after the held-out rerun on the deployed commit.

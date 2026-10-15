@@ -51,7 +51,7 @@ The spec pack: `SPEC.md`, `ACCEPTANCE.md`, `GUARDRAILS.md`, `DECISIONS.md`, `DEF
 
 Why it works this way: [How to turn a vague automation request into a build-ready spec](https://startvest.ai/blog/vague-request-to-build-ready-spec), the method behind intake-kit and the two decisions that changed it.
 
-> **Status:** in development. The async intake (`/intake-kit:collect`) and the live interview (`/intake-kit:intake`) both work in Claude Code. The web app plays a [recorded sample](https://agreeable-hill-0ede1650f.5.azurestaticapps.net/?sample); live web intakes are paused, and the web app has no async screens yet. The Codex packaging is built but not yet tested in Codex. See [HANDOFF.md](HANDOFF.md) for the full spec.
+> **Status:** in development. The async intake (`/intake-kit:collect`) and the live interview (`/intake-kit:intake`) both work in Claude Code. The [web app](https://agreeable-hill-0ede1650f.5.azurestaticapps.net) runs both: an async intake (start one from the welcome page) and the live interview, plus a [recorded sample](https://agreeable-hill-0ede1650f.5.azurestaticapps.net/?sample) with no model calls. The Codex packaging is built but not yet tested in Codex. See [HANDOFF.md](HANDOFF.md) for the full spec.
 
 ## Prerequisites
 

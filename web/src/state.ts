@@ -15,6 +15,10 @@ export interface IntakeState {
   mode: "live" | "sample";
   /** Per turn: the model's raw output, rejections and warnings, for the downloadable debug log. */
   debug?: TurnDebug[];
+  /** Async intake: the triage form is open (no session yet). */
+  setup?: "async";
+  /** Async intake: the Don't-build reasons the last summary asked to confirm, one by one. */
+  confirm?: Array<{ key: string; question: string }> | null;
 }
 
 const STORAGE_KEY = "intake-kit:intake";
@@ -58,3 +62,4 @@ export function debugLog(state: IntakeState): string {
 }
 
 export const isComplete = (state: IntakeState) => state.session.session.reflect_back?.confirmed === true;
+export const isAsync = (state: IntakeState) => state.session.session.channel === "async";

@@ -11,6 +11,8 @@ export interface AppConfig {
   turnstileSiteKey: string | null;
   sessionMaxTurns: number;
   maxMessageChars: number;
+  /** Async intake: the longest pasted source accepted. */
+  maxSourceChars?: number;
   /** Live intakes are paused when set; only the sample runs. */
   liveIntakeNote?: string | null;
 }
@@ -63,6 +65,63 @@ export async function fetchConfig(): Promise<AppConfig> {
   return (await res.json()) as AppConfig;
 }
 
+/** The headers that carry a bring-your-own key, never the body. */
+function keyHeaders(p: ProviderSettings): Record<string, string> {
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (p.kind === "azure") {
+    headers["x-intake-azure-endpoint"] = p.endpoint;
+    headers["x-intake-azure-deployment"] = p.deployment;
+    headers["x-intake-azure-key"] = p.key;
+  } else if (p.kind === "claude") {
+    headers["x-intake-claude-key"] = p.key;
+  }
+  return headers;
+}
+
+export interface AsyncResponse {
+  /** applied: saved. failed: the model calls failed three times; nothing from the source was recorded. */
+  result: "applied" | "failed";
+  session: Session;
+  /** After a summary: the Don't-build reasons to confirm one by one at sign-off. */
+  confirm?: Array<{ key: string; question: string }>;
+  usage: TurnResponse["usage"];
+  debug?: { calls: TurnDebug["calls"]; events: string[] };
+}
+
+/** Async intake: ingest one pasted source, or write the summary. Everything else runs in the browser. */
+export async function sendAsync(args: {
+  action: "ingest" | "summary";
+  session: Session;
+  source?: { kind: "reply" | "notes" | "transcript"; from: string; text: string };
+  provider: ProviderSettings;
+  turnstileToken?: string;
+}): Promise<AsyncResponse> {
+  const p = args.provider;
+  let res: Response;
+  try {
+    res = await fetch("/api/async", {
+      method: "POST",
+      headers: keyHeaders(p),
+      body: JSON.stringify({
+        action: args.action,
+        session: args.session,
+        ...(args.source ? { source: args.source } : {}),
+        provider: p.kind,
+        ...(p.kind === "claude" ? { claudeModel: p.model } : {}),
+        ...(args.turnstileToken ? { turnstileToken: args.turnstileToken } : {}),
+      }),
+    });
+  } catch {
+    throw new ApiError(0, "network", "Couldn't reach the server. Check your connection and try again.");
+  }
+  const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) {
+    const retry = Number(res.headers.get("retry-after"));
+    throw new ApiError(res.status, String(body.error ?? "error"), String(body.message ?? `The server returned ${res.status}.`), Number.isFinite(retry) && retry > 0 ? retry : null);
+  }
+  return body as unknown as AsyncResponse;
+}
+
 export async function sendTurn(args: {
   session: Session;
   transcript: TranscriptEntry[];
@@ -73,15 +132,8 @@ export async function sendTurn(args: {
   /** The summary's Confirm button. */
   action?: "confirm";
 }): Promise<TurnResponse> {
-  const headers: Record<string, string> = { "content-type": "application/json" };
   const p = args.provider;
-  if (p.kind === "azure") {
-    headers["x-intake-azure-endpoint"] = p.endpoint;
-    headers["x-intake-azure-deployment"] = p.deployment;
-    headers["x-intake-azure-key"] = p.key;
-  } else if (p.kind === "claude") {
-    headers["x-intake-claude-key"] = p.key;
-  }
+  const headers = keyHeaders(p);
   let res: Response;
   try {
     res = await fetch("/api/turn", {

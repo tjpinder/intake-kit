@@ -34,3 +34,13 @@ export { runEngineTurn, SUMMARY_REPLY, DONE_REPLY } from "./engine/turn.ts";
 export type { EngineTurnInput, EngineTurnOutcome, EngineCall } from "./engine/turn.ts";
 export { newEngine, TURN_BUDGET, SEND_AGAIN } from "./engine/types.ts";
 export type { EngineState, Pending, Extraction, OpeningResult } from "./engine/types.ts";
+
+// Async intake: triage, the packet, ingest, gaps, corrections and sign-off.
+export { startAsync, runIngest, sourceTranscript } from "./engine/ingest.ts";
+export type { TriageInput, IngestOutcome } from "./engine/ingest.ts";
+export { findGaps, followUpEmail, readinessLines } from "./engine/gaps.ts";
+export type { Gap, GapReport, Readiness } from "./engine/gaps.ts";
+export { correct, signOff, runAsyncSummary, AsyncError } from "./engine/async.ts";
+export { buildPacket, packetEmail, packetAgenda } from "./lib/packet.ts";
+export { dontBuildChecks } from "./lib/summary.ts";
+export type { Source, Term } from "./lib/session.ts";

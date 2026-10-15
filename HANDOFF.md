@@ -501,9 +501,9 @@ Found by the second v2 gate on commit 89cde19, which missed the ship bar (4 of 6
 - **Before live reopens:** rerun the full held-out set (personas 2–6) on the commit being deployed.
 - **Lead for cost work.** With only `extract` routed to gpt-4.1-mini (phrasing, classification and write-up on gpt-4.1), the same gate on the same commit matched 5 of 6 runs, at about three-quarters of the cost. That's worth measuring further before the next gate.
 
-## Feature freeze (Oct 14, 2026)
+## Feature freeze (Oct 14, 2026; lifted Oct 15)
 
-No new features until Tom lifts the freeze. Done, in order: small fixes, the persona 7 async rerun, the merge to main (live stays paused), the recorded worked example and its replay (`examples/async-example`, showing the 6am conflict and the kit refusing to guess "short pick"), and the README. A demo script was written and then dropped (Oct 14): no demo or video is planned.
+**Lifted Oct 15** (Tom) to build the async web screens, since the web app is where intakes are tested. Before it was lifted, done in order: small fixes, the persona 7 async rerun, the merge to main (live stays paused), the recorded worked example and its replay (`examples/async-example`, showing the 6am conflict and the kit refusing to guess "short pick"), and the README. A demo script was written and then dropped (Oct 14): no demo or video is planned.
 
 ## Async intake mode: collect, ingest, follow up (Oct 14, 2026)
 

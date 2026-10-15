@@ -1,11 +1,13 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildSummary, summaryIndex } from "../../src/core.ts";
-import { ApiError, fetchConfig, sendTurn, type AppConfig, type ProviderSettings } from "./api.ts";
+import { ApiError, fetchConfig, sendAsync, sendTurn, type AppConfig, type ProviderSettings } from "./api.ts";
+import { correct, signOff } from "../../src/core.ts";
+import { CollectView, TriageView, type TriageForm } from "./components/Collect.tsx";
 import { Chat } from "./components/Chat.tsx";
 import { Settings, loadProvider } from "./components/Settings.tsx";
 import { Sidebar } from "./components/Sidebar.tsx";
-import { fw } from "./kit.ts";
-import { clearState, debugLog, freshState, isComplete, loadState, saveState, type IntakeState } from "./state.ts";
+import { fw, newAsyncSession } from "./kit.ts";
+import { clearState, debugLog, freshState, isAsync, isComplete, loadState, saveState, type IntakeState } from "./state.ts";
 import { getTurnstileToken } from "./turnstile.ts";
 
 // The review panel builds the spec pack (YAML writer, zip), so it loads only when an intake is done.
@@ -102,6 +104,88 @@ export function App() {
     }
   }
 
+  /** An API error as a notice, pointing at the key settings when that would help. */
+  function showError(err: unknown) {
+    if (err instanceof ApiError) {
+      const wait = err.retryAfterSeconds ? ` (about ${Math.ceil(err.retryAfterSeconds / 60)} min)` : "";
+      const ownKeyHelps = err.suggestsOwnKey && config?.byok !== false && provider.kind === "kit";
+      const keyProblem = provider.kind !== "kit" && (err.status === 502 || err.status === 400);
+      setNotice({ text: err.message + wait, settings: ownKeyHelps ? "Use your own key" : keyProblem ? "Check your key settings" : undefined });
+    } else {
+      setNotice({ text: (err as Error).message || "Something went wrong. Please try again." });
+    }
+  }
+
+  /** Async: Turnstile is checked once per intake, on its first model call. */
+  async function tokenIfFirst(): Promise<string | undefined> {
+    if ((state.debug ?? []).length || !config?.turnstileSiteKey || !turnstileBox.current) return undefined;
+    return getTurnstileToken(config.turnstileSiteKey, turnstileBox.current);
+  }
+
+  function startAsyncIntake(f: TriageForm) {
+    playing.current = false;
+    clearState();
+    setState({ ...freshState("live", provider.kind), session: newAsyncSession(f, provider.kind) });
+    setNotice(null);
+  }
+
+  /** Async: read one pasted source. Returns true when it was recorded. */
+  async function ingest(source: { kind: "reply" | "notes" | "transcript"; from: string; text: string }): Promise<boolean> {
+    if (provider.kind === "kit" && config && !config.kitModel) {
+      setNotice({ text: "The built-in model isn't available right now. Use your own API key.", settings: "Use your own key" });
+      return false;
+    }
+    setBusy(true);
+    setNotice(null);
+    try {
+      const res = await sendAsync({ action: "ingest", session: state.session, source, provider, turnstileToken: await tokenIfFirst() });
+      const turn = { at: new Date().toISOString(), result: res.result === "applied" ? "applied" as const : "send_again" as const, calls: res.debug?.calls ?? [], events: res.debug?.events ?? [] };
+      setState((s) => ({ ...s, session: res.session, confirm: null, debug: [...(s.debug ?? []), turn] }));
+      if (res.result !== "applied") {
+        setNotice({ text: "Nothing from that text was recorded: the model's answers didn't check out three times over. Try again, or split it into smaller parts." });
+        return false;
+      }
+      return true;
+    } catch (err) {
+      showError(err);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function writeSummary() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const res = await sendAsync({ action: "summary", session: state.session, provider, turnstileToken: await tokenIfFirst() });
+      const turn = { at: new Date().toISOString(), result: "applied" as const, calls: res.debug?.calls ?? [], events: res.debug?.events ?? [] };
+      setState((s) => ({ ...s, session: res.session, confirm: res.confirm ?? [], debug: [...(s.debug ?? []), turn] }));
+    } catch (err) {
+      showError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function correctLine(c: { item?: string; area?: string; term?: string; text: string }) {
+    try {
+      setState((s) => ({ ...s, session: correct(s.session, fw, { ...c, by: "the interviewer", now: new Date().toISOString() }), confirm: null }));
+      setNotice({ text: "Saved as your notes. Write the summary again to see it." });
+    } catch (err) {
+      setNotice({ text: (err as Error).message });
+    }
+  }
+
+  function signOffIntake(keys: string[], by: string) {
+    try {
+      setState((s) => ({ ...s, session: signOff(s.session, fw, { confirm: keys, by }) }));
+      setNotice(null);
+    } catch (err) {
+      setNotice({ text: (err as Error).message });
+    }
+  }
+
   /** The summary's Confirm button: code scores and gates, no model call. */
   async function confirmSummary() {
     setBusy(true);
@@ -156,8 +240,8 @@ export function App() {
           <button onClick={() => setShowSettings(true)} disabled={state.mode === "sample"}>
             Model: {provider.kind === "kit" ? "built-in" : provider.kind === "azure" ? "your Azure" : "your Claude"}
           </button>
-          {state.transcript.length && state.mode === "live" ? <button onClick={() => downloadDebugLog(state)} title="Your session, every message and the model's raw turns, as JSON">Debug log</button> : null}
-          {state.transcript.length ? <button onClick={() => startOver("live")}>New intake</button> : null}
+          {(state.transcript.length || isAsync(state)) && state.mode === "live" ? <button onClick={() => downloadDebugLog(state)} title="Your session, every message and the model's raw turns, as JSON">Debug log</button> : null}
+          {state.transcript.length || isAsync(state) || state.setup ? <button onClick={() => startOver("live")}>New intake</button> : null}
           <a href="https://github.com/tjpinder/intake-kit" target="_blank" rel="noreferrer">GitHub</a>
         </nav>
       </header>
@@ -177,6 +261,21 @@ export function App() {
           <Suspense fallback={<div className="notice">Preparing the spec pack…</div>}>
             <Review session={state.session} onNewIntake={() => startOver("live")} />
           </Suspense>
+        ) : isAsync(state) ? (
+          <CollectView
+            session={state.session}
+            busy={busy}
+            disabled={!!paused}
+            disabledReason="Live intakes are paused while the app is upgraded."
+            maxSourceChars={config?.maxSourceChars ?? 30000}
+            confirm={state.confirm ?? null}
+            onIngest={ingest}
+            onSummary={() => void writeSummary()}
+            onCorrect={correctLine}
+            onSignOff={signOffIntake}
+          />
+        ) : state.setup === "async" ? (
+          <TriageView onStart={startAsyncIntake} onCancel={() => setState((s) => ({ ...s, setup: undefined }))} />
         ) : (
           <Chat
             transcript={state.transcript}
@@ -192,6 +291,7 @@ export function App() {
             onDraft={setDraft}
             onSend={send}
             onSample={state.transcript.length === 0 && !busy ? playSample : null}
+            onCollect={state.transcript.length === 0 && state.mode === "live" && !busy ? () => setState((s) => ({ ...s, setup: "async" })) : null}
             needsKey={config && !config.kitModel && provider.kind === "kit" ? { onOpenSettings: () => setShowSettings(true) } : null}
           />
         )}

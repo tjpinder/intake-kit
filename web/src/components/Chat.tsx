@@ -27,6 +27,8 @@ export function Chat(props: {
   onDraft: (text: string) => void;
   onSend: (text: string) => void;
   onSample: (() => void) | null;
+  /** Start an async intake instead: collect answers from someone else. */
+  onCollect?: (() => void) | null;
   /** Set when live interviews need the visitor's own key (no built-in model on this server). */
   needsKey?: { onOpenSettings: () => void } | null;
 }) {
@@ -60,7 +62,14 @@ export function Chat(props: {
       <div className="messages" aria-live="polite">
         {empty ? (
           <div className="welcome">
-            <h2>What do you need?</h2>
+            {props.onCollect ? (
+              <div className="mode-choice">
+                <h2>Collecting answers from someone else?</h2>
+                <p>Send them a question packet, then paste back their reply, your notes or a call transcript. The kit shows what's covered and what conflicts, and writes a round-2 packet with only what's still open.</p>
+                <p><button className="primary" onClick={props.onCollect}>Start an async intake</button></p>
+              </div>
+            ) : null}
+            <h2>{props.onCollect ? "Or answer the questions yourself" : "What do you need?"}</h2>
             <p>
               Describe the problem in your own words, the way you'd explain it to a colleague. I'll ask one question at a time,
               play back what I heard, and then show whether it's worth building, with a spec pack you can hand to a builder.

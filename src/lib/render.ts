@@ -154,7 +154,7 @@ type SectionFn = (items: Item[]) => string;
 function sourceLabel(session: Session, id: string | null | undefined): string | null {
   const s = id ? session.session.sources?.find((x) => x.id === id) : undefined;
   if (!s) return null;
-  return s.kind === "notes" ? `notes from ${s.from}` : s.kind === "transcript" ? `a transcript with ${s.from}` : s.kind === "request" ? `the request from ${s.from}` : `a reply from ${s.from}`;
+  return s.kind === "notes" ? `the interviewer's notes on what ${s.from} said` : s.kind === "transcript" ? `a transcript with ${s.from}` : s.kind === "request" ? `the request from ${s.from}` : `a reply from ${s.from}`;
 }
 
 /**
@@ -205,6 +205,7 @@ function termBlocks(session: Session, items: Item[]): string {
     } else {
       lines.push("_The owner hasn't defined it yet. Don't interpret it: ask._", "", `Found in: "${t.found_in.quote}".`);
       if (t.draft) lines.push("", `Draft, not yet certain: "${t.draft.definition}" (${sourceLabel(session, t.draft.source) ?? t.draft.source}).`);
+      if (t.conflict) lines.push("", `Also defined as: "${t.conflict.definition}" (${sourceLabel(session, t.conflict.source) ?? t.conflict.source}). Settle which is right before building.`);
     }
     const measurable = { yes: "Yes", partly: "Partly", no: "No: it isn't in the system's data", unknown: "Not known yet" }[t.measurable];
     lines.push("", `Can it be seen in the data? ${measurable}.`);

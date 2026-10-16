@@ -13,19 +13,17 @@ From [a recorded worked example](examples/async-example/walkthrough.md) (synthet
 **1. Paste Sam's email.** Eight of nine required questions answered, and one business term flagged:
 
 ```text
-Daily short-pick report: 8 of 9 required answered; still open: data_report.definition: only partly answered;
-existing-asset check: no clear yes or no; "short pick": no confirmed definition.
+Daily short-pick report: 8 of 9 required answered; still open: Definition: only partly answered;
+"short pick": no confirmed definition.
 ```
 
 **2. Paste your notes from a call with the DC manager.** Sam said 7am; she said 6am. intake-kit doesn't pick one. It asks, in the round-2 packet:
 
 ```text
-1. We have two different answers here: "Report must be ready by 7am Monday." and "Report must be ready by 6am Monday.". Which is right?
-6. Our notes define "short pick" as "A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count;
+1. We have two different answers here: "The report needs to be ready by 7am." and "The report needs to be ready by 6am.". Which is right?
+4. Our notes define "short pick" as "A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count;
    wrong-location scans do count.". Is that right? Please say what counts and what doesn't, in your own words.
 ```
-
-("Monday" is the model's one-line paraphrase drifting: Sam's report is daily. It's a [known issue](docs/evals/how-we-tested-it.md#known-issues-not-fixed-logged); the quotes it records are always exact.)
 
 **3. Sign off now, and it refuses to guess.** The report would be easy to build, but "short pick" is only defined in your notes:
 

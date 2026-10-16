@@ -29,7 +29,10 @@ function scripted(outputs: unknown[]): Provider & { requests: TurnRequest[] } {
   };
 }
 
-const triaged = (): Session => startAsync(fw, { id: "2026-10-14-a5c1", request: "A daily short-pick report per picker for the shift leads", type: "data_report", from: "Ops supervisor", provider: "azure-openai", now: NOW });
+// Most tests here aren't about the request line, so they start with it already read.
+const readRequest = (s: Session) => { s.session.engine!.request_read = true; return s; };
+const fresh = (): Session => startAsync(fw, { id: "2026-10-14-a5c1", request: "A daily short-pick report per picker for the shift leads", type: "data_report", from: "Ops supervisor", provider: "azure-openai", now: NOW });
+const triaged = (): Session => readRequest(fresh());
 
 const REPLY = [
   "We'd use it to pick who gets retraining each week.",
@@ -280,5 +283,62 @@ describe("source rule: notes are the interviewer's paraphrase, never the stakeho
     assert.equal(t.status, "confirmed");
     assert.equal(t.definition, "Confirmed below task");
     assert.equal(t.draft!.definition, "Confirmed quantity below task quantity, wrong-location scans included");
+  });
+});
+
+describe("the request line is read for facts on the first paste (live test: the $500 threshold)", () => {
+  const REQUEST = "Cycle count variances over $500 should go to the controller each week";
+  const start = () => startAsync(fw, { id: "2026-10-16-c0c1", request: REQUEST, type: "data_report", from: "Dana", provider: "azure-openai", now: NOW });
+  const ruleFromRequest = { answers: [{ item: "item-1", area: "core.constraints", status: "answered", value: "Variances over $500 go to the controller", quotes: ["variances over $500 should go to the controller"], conflict: false }], checks: [], terms: [], definitions: [] };
+
+  test("the first paste reads the request first, as the requester's words, and only once", async () => {
+    const provider = scripted([ruleFromRequest, ingestOut([])]);
+    const out = await runIngest({ provider, fw, session: start(), source: { kind: "reply", from: "Dana", text: "Nothing else to add." }, now: LATER });
+    assert.match(provider.requests[0].context, /the request as it came in from Dana/);
+    const e = out.session.core.constraints;
+    assert.equal(e.status, "covered");
+    assert.equal(e.quote_sources?.["variances over $500 should go to the controller"], "src-1");
+    assert.equal(out.session.session.engine!.request_read, true);
+    const again = scripted([ingestOut([])]);
+    await runIngest({ provider: again, fw, session: out.session, source: { kind: "reply", from: "Dana", text: "Still nothing." }, now: LATER });
+    assert.equal(again.requests.length, 1, "the request isn't read twice");
+  });
+
+  test("a later source's different threshold conflicts with the request's", async () => {
+    const first = await runIngest({ provider: scripted([ruleFromRequest, ingestOut([])]), fw, session: start(), source: { kind: "reply", from: "Dana", text: "Nothing else." }, now: LATER });
+    const notes = "Mike (controller): anything over $250 should come to him";
+    const out = await runIngest({ provider: scripted([ingestOut([{ item: "item-1", area: "core.constraints", status: "answered", value: "Over $250 goes to the controller", quotes: ["anything over $250 should come to him"], conflict: true }])]), fw, session: first.session, source: { kind: "notes", from: "Mike (controller)", text: notes }, now: LATER });
+    assert.equal(out.session.core.constraints.value, "Variances over $500 go to the controller");
+    assert.equal(out.session.session.engine!.areas["core.constraints"].conflict?.value, "Over $250 goes to the controller");
+  });
+});
+
+describe("definition disagreements (live test: 'times the cost' vs 'absolute value per SKU')", () => {
+  const def = (definition: string, quote: string, conflict: boolean, certain = true) => ({ term: "variance", definition, quotes: [quote], certain, measurable: "yes", examples: [], conflict });
+  const DANA = "A variance is the units off times the cost.";
+  const MIKE = "- Mike: variance = absolute value per SKU";
+
+  test("notes that contradict the requester's definition keep both; notes never confirm", async () => {
+    const first = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "variance", quote: "variance", kind: "metric" }], [def("Units off times the cost", "A variance is the units off times the cost.", false)])]), fw, session: triaged(), source: { kind: "reply", from: "Dana", text: DANA }, now: LATER });
+    assert.equal(first.session.terms![0].status, "confirmed");
+    const out = await runIngest({ provider: scripted([ingestOut([], [], [], [def("Absolute value per SKU", "variance = absolute value per SKU", true)])]), fw, session: first.session, source: { kind: "notes", from: "Mike (controller)", text: MIKE }, now: LATER });
+    const t = out.session.terms![0];
+    assert.equal(t.definition, "Units off times the cost");
+    assert.equal(t.conflict?.definition, "Absolute value per SKU");
+    const q = findGaps(out.session, fw).gaps.find((g) => g.kind === "term")!.question;
+    assert.match(q, /"variance" was defined two ways: "Units off times the cost" and "Absolute value per SKU"\. Which is right\?/);
+  });
+
+  test("a contradiction against a draft is kept too, and notes can't settle a disagreement; the stakeholder's words can", async () => {
+    const hedged = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "variance", quote: "variance", kind: "metric" }], [def("Units off times the cost, I think", "A variance is the units off times the cost.", false, false)])]), fw, session: triaged(), source: { kind: "reply", from: "Dana", text: DANA }, now: LATER });
+    const conflicted = await runIngest({ provider: scripted([ingestOut([], [], [], [def("Absolute value per SKU", "variance = absolute value per SKU", true)])]), fw, session: hedged.session, source: { kind: "notes", from: "Mike (controller)", text: MIKE }, now: LATER });
+    assert.equal(conflicted.session.terms![0].status, "unconfirmed");
+    assert.ok(conflicted.session.terms![0].conflict);
+    const byNotes = await runIngest({ provider: scripted([ingestOut([], [], [], [def("Absolute value per SKU", "variance = absolute value per SKU", false)])]), fw, session: conflicted.session, source: { kind: "notes", from: "Tom", text: MIKE }, now: LATER });
+    assert.ok(byNotes.session.terms![0].conflict, "still open");
+    assert.equal(byNotes.session.terms![0].status, "unconfirmed");
+    const settled = await runIngest({ provider: scripted([ingestOut([], [], [], [def("Absolute value of units off, per SKU", "It's the absolute value per SKU.", false)])]), fw, session: byNotes.session, source: { kind: "reply", from: "Dana", text: "It's the absolute value per SKU." }, now: LATER });
+    assert.equal(settled.session.terms![0].status, "confirmed");
+    assert.equal(settled.session.terms![0].conflict ?? null, null);
   });
 });

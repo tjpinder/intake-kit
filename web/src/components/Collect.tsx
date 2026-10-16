@@ -16,7 +16,7 @@ export interface TriageForm {
   modifiers: Modifier[];
 }
 
-type SourceKind = "reply" | "notes" | "transcript";
+import { readyToRead, type SourceKind } from "../../../src/lib/sources.ts";
 
 const TYPES: Array<{ type: ItemType; label: string; hint: string }> = [
   { type: "known_idea", label: "A specific thing to build", hint: "They already know what they want built." },
@@ -58,6 +58,7 @@ export function TriageView({ onStart, onCancel }: { onStart: (f: TriageForm) => 
   const ok = f.request.trim() && f.from.trim();
   return (
     <section className="collect" aria-label="Start an async intake">
+      <div className="collect-inner">
       <h2>Collect answers from someone else</h2>
       <p className="muted">You'll get a question packet to send them. Paste back whatever comes back (their reply, your notes, a call transcript) and the kit reads it, shows what's covered and what conflicts, and writes a round-2 packet with only what's still open.</p>
       <label className="field">The request, in one line, the way it came in
@@ -89,6 +90,7 @@ export function TriageView({ onStart, onCancel }: { onStart: (f: TriageForm) => 
         <button className="primary" disabled={!ok} onClick={() => onStart({ ...f, request: f.request.trim(), from: f.from.trim(), title: f.title.trim() })}>Make the question packet</button>
         <button className="link" onClick={onCancel}>Back</button>
       </p>
+      </div>
     </section>
   );
 }
@@ -115,8 +117,9 @@ export function CollectView(props: {
   const phase = session.session.engine?.phase;
   const summary = useMemo(() => (phase === "summary" ? buildSummary(session, fw) : null), [phase, session]);
 
-  const [kind, setKind] = useState<SourceKind>("reply");
-  const [from, setFrom] = useState(request?.from ?? "");
+  // No defaults: the interviewer says what it is and whose words it holds, every time.
+  const [kind, setKind] = useState<SourceKind | null>(null);
+  const [from, setFrom] = useState("");
   const [text, setText] = useState("");
   const [fixing, setFixing] = useState<string | null>(null);
   const [fixText, setFixText] = useState("");
@@ -124,13 +127,16 @@ export function CollectView(props: {
   const [by, setBy] = useState("");
 
   const read = async () => {
-    const ok = await props.onIngest({ kind, from: from.trim(), text });
-    if (ok) setText("");
+    const s = { kind, speaker: from, text };
+    if (!readyToRead(s)) return;
+    const ok = await props.onIngest({ kind: s.kind, from: s.speaker.trim(), text });
+    if (ok) { setText(""); setKind(null); setFrom(""); }
   };
   const startFix = (key: string, current: string) => { setFixing(key); setFixText(current); };
 
   return (
     <section className="collect" aria-label="Async intake">
+      <div className="collect-inner">
       <header className="collect-head">
         <h2>{item.title} <span className="badge">{TYPES.find((t) => t.type === item.type)?.label}</span></h2>
         {request ? <p className="muted">"{request.text}" from {request.from}</p> : null}
@@ -145,25 +151,28 @@ export function CollectView(props: {
 
       <div className="step">
         <h3>2. Paste what came back</h3>
-        <div className="row">
+        <div className="kind-row" role="radiogroup" aria-label="What it is">
           {(["reply", "notes", "transcript"] as const).map((k) => (
             <label key={k} className="choice inline">
               <input type="radio" name="kind" checked={kind === k} onChange={() => setKind(k)} disabled={props.disabled} />
               <span>{KIND_LABEL[k]}</span>
             </label>
           ))}
-          <label className="field compact">From<input value={from} onChange={(e) => setFrom(e.target.value)} disabled={props.disabled} placeholder="Who it came from" /></label>
         </div>
-        {kind === "notes" ? <p className="hint">Your notes are your paraphrase. Anything that's only in your notes stays "needs confirming" until they confirm it in their own words.</p> : null}
+        <label className="field from">{kind === "notes" ? "Whose answers are these notes of?" : kind === "transcript" ? "Who was answering on the call?" : "Who wrote it?"}
+          <input value={from} onChange={(e) => setFrom(e.target.value)} disabled={props.disabled} placeholder={request ? `For example, ${request.from}` : "Name and role"} />
+        </label>
+        {kind === "notes" ? <p className="hint">Your notes are your paraphrase. Anything that's only in your notes stays "needs confirming" until the person confirms it in their own words.</p> : null}
+        {!kind ? <p className="hint">Choose what it is first: their own reply, your notes from a conversation, or a call transcript.</p> : null}
         <textarea className="paste" rows={8} value={text} onChange={(e) => setText(e.target.value.slice(0, props.maxSourceChars))} disabled={props.disabled}
           placeholder={props.disabled ? props.disabledReason : "Paste their email reply, your meeting notes, or a call transcript, exactly as it is."} />
         <p className="actions">
-          <button className="primary" disabled={props.busy || props.disabled || !text.trim() || !from.trim()} onClick={() => void read()}>{props.busy ? "Reading…" : "Read it"}</button>
+          <button className="primary" disabled={props.busy || props.disabled || !readyToRead({ kind, speaker: from, text })} onClick={() => void read()}>{props.busy ? "Reading…" : "Read it"}</button>
           <span className="muted">{text.length ? `${text.length.toLocaleString()} / ${props.maxSourceChars.toLocaleString()} characters` : ""}</span>
         </p>
         {pasted.length ? (
           <ul className="sources">
-            {pasted.map((s) => <li key={s.id}><strong>{KIND_LABEL[s.kind]}</strong> from {s.from} <span className="muted">({s.text.length.toLocaleString()} characters)</span></li>)}
+            {pasted.map((s) => <li key={s.id}><strong>{KIND_LABEL[s.kind]}</strong> {s.kind === "notes" ? "on what" : "from"} {s.from}{s.kind === "notes" ? " said" : ""} <span className="muted">({s.text.length.toLocaleString()} characters)</span></li>)}
           </ul>
         ) : null}
       </div>
@@ -253,6 +262,7 @@ export function CollectView(props: {
           )}
         </div>
       ) : null}
+      </div>
     </section>
   );
 }

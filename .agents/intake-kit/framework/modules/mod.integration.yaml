@@ -8,7 +8,7 @@ areas:
     packet:
       ask: "What's on each end: where does the information start, and where does it land?"
       why: "Each end has its own owner, format and limits."
-      example: "Orders start in the customer's EDI feed and land in our WMS."
+      example: "Orders start in the customer's EDI feed and land in our main system."
     probes:
       - "What's on each end: where does it start and where does it land?"
     critical: false
@@ -62,7 +62,7 @@ areas:
     packet:
       ask: "Who owns each end, and who do you call when it breaks?"
       why: "Someone has to answer for each side when it goes wrong."
-      example: "IT owns the WMS side; the customer's EDI team owns theirs."
+      example: "IT owns our side; the customer's EDI team owns theirs."
     probes:
       - "Who owns each end, and who do you call when it breaks?"
     critical: false

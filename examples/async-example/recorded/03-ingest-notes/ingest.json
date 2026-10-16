@@ -3,9 +3,9 @@
     "answers": [
       {
         "item": "item-1",
-        "area": "core.constraints",
+        "area": "data_report.delivery",
         "status": "answered",
-        "value": "Report must be ready by 6am Monday.",
+        "value": "The report needs to be ready by 6am.",
         "quotes": [
           "wants report by 6am, not 7 - night shift leads leave at 6:30"
         ],
@@ -13,13 +13,23 @@
       },
       {
         "item": "item-1",
-        "area": "data_report.delivery",
+        "area": "data_report.truth",
         "status": "answered",
-        "value": "Report must be ready by 6am Monday.",
+        "value": "If the dashboard and report disagree, WMS pick confirmations win.",
         "quotes": [
-          "wants report by 6am, not 7 - night shift leads leave at 6:30"
+          "if dashboard and report disagree, WMS pick confirmations win"
         ],
-        "conflict": true
+        "conflict": false
+      },
+      {
+        "item": "item-1",
+        "area": "data_report.definition",
+        "status": "answered",
+        "value": "A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; wrong-location scans do count.",
+        "quotes": [
+          "short pick: wrong-location scans YES count them"
+        ],
+        "conflict": false
       },
       {
         "item": "item-1",
@@ -29,30 +39,25 @@
         "quotes": [
           "per picker per shift per day"
         ],
-        "conflict": true
-      },
-      {
-        "item": "item-1",
-        "area": "data_report.definition",
-        "status": "answered",
-        "value": "A short pick is confirmed quantity less than task quantity; cancelled lines don't count; wrong-location scans do count.",
-        "quotes": [
-          "short pick: wrong-location scans YES count them"
-        ],
-        "conflict": true
-      },
-      {
-        "item": "item-1",
-        "area": "data_report.truth",
-        "status": "answered",
-        "value": "WMS pick confirmations win if dashboard and report disagree.",
-        "quotes": [
-          "if dashboard and report disagree, WMS pick confirmations win"
-        ],
         "conflict": false
       }
     ],
-    "checks": [],
+    "checks": [
+      {
+        "item": "item-1",
+        "check": "existing_asset",
+        "result": "unclear",
+        "value": null,
+        "quote": null
+      },
+      {
+        "item": "item-1",
+        "check": "kill_criteria",
+        "result": "yes",
+        "value": "If the dashboard and report disagree, WMS pick confirmations win.",
+        "quote": "if dashboard and report disagree, WMS pick confirmations win"
+      }
+    ],
     "terms": [],
     "definitions": [
       {

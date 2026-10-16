@@ -42,6 +42,8 @@ export interface EngineState {
   checks: Record<string, { asks: number; result: CheckResult | null; quote?: string | null; value?: string | null }>;
   /** The opening's one disambiguating probe has been asked. */
   disambiguated: boolean;
+  /** Async intake: the request line has been read for facts, as the requester's words (on the first paste). */
+  request_read?: boolean;
   /** Replies to the summary that weren't a plain yes (corrections, or a no). */
   summary_rounds?: number;
 }

@@ -94,12 +94,13 @@ describe("async intake through the CLI", () => {
     const need = intake(dir, "ingest", "--file", replyFile, "--kind", "reply", "--from", "Ops supervisor");
     assert.equal(need.status, 6, JSON.stringify(need.body));
     assert.equal(need.body.call, "ingest");
-    assert.match(need.body.input, /The document is a reply from Ops supervisor/);
-    answer(dir, "ingest", [INGEST]);
+    // The first paste reads the request line first, as the requester's words.
+    assert.match(need.body.input, /The document is the request as it came in from Ops supervisor/);
+    answer(dir, "ingest", [{ answers: [], checks: [], terms: [], definitions: [] }, INGEST]);
     const ing = intake(dir, "ingest", "--file", replyFile, "--kind", "reply", "--from", "Ops supervisor");
     assert.equal(ing.status, 0, JSON.stringify(ing.body));
     assert.equal(ing.body.result, "ingested");
-    assert.ok(ing.body.followup_text.includes('what counts as "short pick"'), "the undefined term is followed up");
+    assert.ok(ing.body.followup_text.includes('How exactly do you calculate "short pick"?'), "the undefined term is followed up");
     assert.ok(!existsSync(join(dir, ".intake-kit", "calls")), "the call files are cleared");
 
     // The owner's definition comes back in a follow-up reply.
@@ -139,7 +140,7 @@ describe("async intake through the CLI", () => {
     intake(dir, "triage", "--request", "A daily short-pick report per picker", "--type", "data_report", "--from", "Ops");
     const f = join(dir, "r.txt");
     writeFileSync(f, REPLY);
-    answer(dir, "ingest", [INGEST]);
+    answer(dir, "ingest", [{ answers: [], checks: [], terms: [], definitions: [] }, INGEST]);
     assert.equal(intake(dir, "ingest", "--file", f, "--kind", "reply", "--from", "Ops").status, 0);
     const covers = { ...WRITE_UP, facts: WRITE_UP.facts.map((x) => (x.fact === "existing_asset" ? { ...x, band: "covers" } : x)) };
     answer(dir, "write_up", [covers]);

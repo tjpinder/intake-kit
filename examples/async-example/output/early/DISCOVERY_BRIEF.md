@@ -10,12 +10,11 @@ Why it needs more discovery:
 
 Open questions:
 
-- Should wrong-location scans always count as short picks, or are there exceptions? Who can answer: Priya (DC manager). What would settle it: Written rule or confirmation from Priya. [data_report.definition]
-- Should the report be per picker per shift per day, or weekly? Who can answer: Priya (DC manager). What would settle it: Clarified reporting requirement. [data_report.grain]
-- In your own words, what counts as "short pick", and what doesn't? Give one real example and the right count. Who can answer: Whoever owns the process. What would settle it: The owner's definition in their own words, and one real example with the correct result. [term-1]
+- Should wrong-location scans always count as short picks, or are there exceptions? Who can answer: Priya (DC manager). What would settle it: Final rule definition agreed with Priya. [data_report.definition]
+- How exactly do you calculate "short pick"? What's in and what's out? Give one real example and the right number. Who can answer: Whoever owns the process. What would settle it: The owner's definition in their own words, and one real example with the correct result. [term-1]
 - Recommended: give one real example of "over pick" and the right count, so the build can be checked against it. Who can answer: Whoever owns the process. What would settle it: A real case and its correct result. [term-2]
 
-## Sam builds the report manually in Excel from WMS export (`item-2`)
+## Sam builds the report by hand in Excel from a WMS export (`item-2`)
 
 Why it needs more discovery:
 

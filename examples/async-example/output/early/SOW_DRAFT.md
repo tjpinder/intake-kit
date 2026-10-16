@@ -1,4 +1,4 @@
-# Statement of work (draft): Daily short-pick report; Sam builds the report manually in Excel from WMS export
+# Statement of work (draft): Daily short-pick report; Sam builds the report by hand in Excel from a WMS export
 
 Rendered by intake-kit from `intake-answers.yaml` (session 2026-10-14-de70, 2026-10-14), after sign-off. This is a draft for the interviewer to finish, not a contract. Every line comes from the intake. Pricing, timeline, payment and legal terms are never generated: they're left as marked blanks.
 
@@ -6,13 +6,13 @@ Rendered by intake-kit from `intake-answers.yaml` (session 2026-10-14-de70, 2026
 
 ### Daily short-pick report (`item-1`)
 
-> Building shift leads need a daily report showing short picks per picker so they can target retraining and reduce errors.
+> Shift leads need a daily short-pick report per picker to target retraining, because today they mostly guess.
 
-- The goal is to reduce short picks per picker by a third within two months. [core.outcome] "I'd like short picks per picker down by a third within two months."
+- Sam wants short picks per picker down by a third within two months. [core.outcome] "If it works, I'd like short picks per picker down by a third within two months."
 
-### Sam builds the report manually in Excel from WMS export (`item-2`)
+### Sam builds the report by hand in Excel from a WMS export (`item-2`)
 
-- The goal is to reduce short picks per picker by a third within two months. [core.outcome] "I'd like short picks per picker down by a third within two months."
+- Sam wants short picks per picker down by a third within two months. [core.outcome] "If it works, I'd like short picks per picker down by a third within two months."
 
 ## Scope and deliverables
 
@@ -20,12 +20,11 @@ Rendered by intake-kit from `intake-answers.yaml` (session 2026-10-14-de70, 2026
 
 **Discovery.** Answer the open questions in DISCOVERY_BRIEF.md, then re-run the intake to a sign-off:
 
-- Should wrong-location scans always count as short picks, or are there exceptions? Who can answer: Priya (DC manager). What would settle it: Written rule or confirmation from Priya. [data_report.definition]
-- Should the report be per picker per shift per day, or weekly? Who can answer: Priya (DC manager). What would settle it: Clarified reporting requirement. [data_report.grain]
-- In your own words, what counts as "short pick", and what doesn't? Give one real example and the right count. Who can answer: Whoever owns the process. What would settle it: The owner's definition in their own words, and one real example with the correct result. [term-1]
+- Should wrong-location scans always count as short picks, or are there exceptions? Who can answer: Priya (DC manager). What would settle it: Final rule definition agreed with Priya. [data_report.definition]
+- How exactly do you calculate "short pick"? What's in and what's out? Give one real example and the right number. Who can answer: Whoever owns the process. What would settle it: The owner's definition in their own words, and one real example with the correct result. [term-1]
 - Recommended: give one real example of "over pick" and the right count, so the build can be checked against it. Who can answer: Whoever owns the process. What would settle it: A real case and its correct result. [term-2]
 
-### Sam builds the report manually in Excel from WMS export (`item-2`)
+### Sam builds the report by hand in Excel from a WMS export (`item-2`)
 
 **Discovery.** Answer the open questions in DISCOVERY_BRIEF.md, then re-run the intake to a sign-off:
 
@@ -37,7 +36,7 @@ Rendered by intake-kit from `intake-answers.yaml` (session 2026-10-14-de70, 2026
 
 ## Out of scope
 
-- Over picks and customer/pricing data are not included; only short picks per picker per shift per day.
+- No customer or pricing data; cancelled lines don't count; over picks are not included.
 
 ## Acceptance
 
@@ -46,35 +45,35 @@ Rendered by intake-kit from `intake-answers.yaml` (session 2026-10-14-de70, 2026
 - [ ] Every open question answered in the owner's words, with who answered it.
 - [ ] Every term in DEFINITIONS.md confirmed by the owner.
 
-### Sam builds the report manually in Excel from WMS export (`item-2`)
+### Sam builds the report by hand in Excel from a WMS export (`item-2`)
 
 - [ ] Every open question answered in the owner's words, with who answered it.
 - [ ] Every term in DEFINITIONS.md confirmed by the owner.
 
 ## Assumptions
 
-- **data_report.definition** (`item-1`): A short pick is confirmed quantity less than task quantity; cancelled lines don't count; wrong-location scans might count. ("a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."). Owner: _unassigned_
-- **data_report.grain** (`item-1`): The report is per picker, weekly. ("The WMS dashboard only shows building totals, nothing per picker."). Owner: _unassigned_
+- **data_report.definition** (`item-1`): A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; wrong-location scans do count. ("Counting: a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."). Owner: _unassigned_
 - **"over pick"** can not be seen in the system's data, by the owner's definition. How it will be measured is still open. Owner: _unassigned_
 
 ## Dependencies and constraints
 
-- WMS is used, accessed via reporting copy. [core.systems] "everything comes from WMS pick confirmations. We can read the reporting copy."
-- Data comes from WMS pick confirmations, reporting copy, with badge numbers and locations. [core.data] "everything comes from WMS pick confirmations. We can read the reporting copy. No customer or pricing data in it, just badge numbers and locations."
-- Report must be ready by 7am Monday. [core.constraints] "it needs to be there by 7am when I get in."
-- Sam builds the report, three shift leads use it, Priya signs off on retraining. [core.users] "I build the current version, the three shift leads use it, and Priya (DC manager) signs off on any retraining."
+- Sam uses Excel and WMS export; the reporting copy is accessed. [core.systems] "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export. "
+- All data comes from WMS pick confirmations, read from the reporting copy; no customer or pricing data, just badge numbers and locations. [core.data] "Data: everything comes from WMS pick confirmations. We can read the reporting copy. No customer or pricing data in it, just badge numbers and locations."
+- Priya signs off on retraining; no customer or pricing data is used. [core.constraints] "Priya (DC manager) signs off on any retraining."
+- Shift leads use the output to target retraining. [core.users] "so the shift leads can target retraining"
 
 ## Risks
 
-- Stop if: If the report disagrees with WMS two weeks in a row, switch it off and revert to manual spreadsheet. [core.trust] "If the numbers in the new report disagreed with the WMS two weeks in a row I'd switch it off and go back to my spreadsheet." · [data_report.truth] "If the numbers in the new report disagreed with the WMS two weeks in a row I'd switch it off and go back to my spreadsheet."
+- Stop if: If the report disagrees with WMS two weeks in a row, switch it off and revert to manual reporting. [core.trust] "If the numbers in the new report disagreed with the WMS two weeks in a row I'd switch it off and go back to my spreadsheet." · [data_report.truth] "If the numbers in the new report disagreed with the WMS two weeks in a row I'd switch it off and go back to my spreadsheet."
+- Fallback: Fallback is Sam's manual Excel report from WMS export. [core.trust] "If the numbers in the new report disagreed with the WMS two weeks in a row I'd switch it off and go back to my spreadsheet." · [data_report.existing] "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export."
 
 ## Success measures
 
 ### Daily short-pick report (`item-1`)
 
-- The goal is to reduce short picks per picker by a third within two months. [core.outcome] "I'd like short picks per picker down by a third within two months."
+- Sam wants short picks per picker down by a third within two months. [core.outcome] "If it works, I'd like short picks per picker down by a third within two months."
 
-### Sam builds the report manually in Excel from WMS export (`item-2`)
+### Sam builds the report by hand in Excel from a WMS export (`item-2`)
 
 _To be agreed: the intake has no measurable target against a baseline yet (listed under Risks)._
 

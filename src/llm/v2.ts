@@ -157,7 +157,7 @@ export function writeUpRequest(fw: Framework, session: Session, item: Item, tran
 
 export interface IngestInput {
   /** The source's kind and who it's from, so the model knows whose words they are. */
-  kind: "reply" | "notes" | "transcript";
+  kind: "request" | "reply" | "notes" | "transcript";
   from: string;
   text: string;
   items: Array<{ id: string; title: string; type: string; areas: string[]; checks: Array<"manual_work" | "existing_asset" | "kill_criteria"> }>;
@@ -188,7 +188,7 @@ export function ingestRequest(fw: Framework, session: Session, x: IngestInput): 
     const checks = it.checks.map((c) => `- ${INGEST_CHECKS[c]}`);
     return [`Item ${it.id}: ${it.title} (${it.type})`, "Areas:", ...areas, ...(checks.length ? ["Checks:", ...checks] : [])].join("\n");
   });
-  const who = x.kind === "notes" ? `the interviewer's notes from talking to ${x.from}` : x.kind === "transcript" ? `a transcript of a conversation with ${x.from}` : `a reply from ${x.from}`;
+  const who = x.kind === "request" ? `the request as it came in from ${x.from}, in their words` : x.kind === "notes" ? `the interviewer's notes from talking to ${x.from}` : x.kind === "transcript" ? `a transcript of a conversation with ${x.from}` : `a reply from ${x.from}`;
   return {
     system: [
       "You read one document gathered during an intake and record what it says about each area. You only classify; you never decide what to ask next, create items, score or judge.",

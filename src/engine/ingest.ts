@@ -229,15 +229,25 @@ export function applyTerms(session: Session, source: Source, r: Pick<IngestResul
     const quotes = [...new Set(d.quotes.map((q) => grounded(q, transcript)).filter((q): q is string => !!q))];
     if (!quotes.length || !d.definition.trim()) { events.push(`definition of "${d.term}": no words from the source, not recorded`); continue; }
     const t = find(d.term) ?? add(d.term, quotes[0], "label");
-    if (t.status === "confirmed" && t.conflict && !d.conflict) {
-      // A follow-up definition settles two that disagreed.
-      Object.assign(t, { definition: d.definition.trim(), quotes: [...new Set([...t.quotes, ...quotes])], given_by: source.from, source: source.id, conflict: null });
-      events.push(`definition of "${t.term}": disagreement settled`);
+    const definition = d.definition.trim();
+    const prior = t.definition ?? t.draft?.definition ?? null;
+    if (t.conflict && !d.conflict) {
+      // Two definitions disagreed. Only the stakeholder's own, certain words settle it; notes or a
+      // hedge are kept as a draft and the disagreement stays open.
+      if (source.kind !== "notes" && d.certain) {
+        Object.assign(t, { status: "confirmed", definition, quotes: [...new Set([...t.quotes, ...quotes])], given_by: source.from, source: source.id, conflict: null, draft: null });
+        events.push(`definition of "${t.term}": disagreement settled`);
+      } else {
+        t.draft = { definition, quote: quotes[0], source: source.id };
+        events.push(`definition of "${t.term}": ${source.kind === "notes" ? "notes" : "a hedged answer"} can't settle the disagreement; kept as a draft`);
+      }
       continue;
     }
-    if (t.status === "confirmed" && d.conflict) {
-      t.conflict = { definition: d.definition.trim(), quote: quotes[0], source: source.id };
-      events.push(`definition of "${t.term}": conflicts with the recorded one; kept both for the follow-up`);
+    if (prior && d.conflict) {
+      // Contradicts what's recorded or drafted (live test: the requester's "times the cost" against
+      // the controller's "absolute value per SKU", from notes). Keep both; the follow-up asks.
+      t.conflict = { definition, quote: quotes[0], source: source.id };
+      events.push(`definition of "${t.term}": contradicts the ${t.definition ? "recorded" : "drafted"} one; kept both for the follow-up`);
       continue;
     }
     if (source.kind === "notes") {
@@ -292,8 +302,12 @@ export async function runIngest(input: { provider: Provider; fw: Framework; sess
   const source: Source = { ...input.source, id: `src-${list.length + 1}`, added_at: now };
   list.push(source);
 
-  for (const [n, text] of chunks(source.text).entries()) {
-    const req = ingestRequest(fw, s, { kind: source.kind as "reply" | "notes" | "transcript", from: source.from, text, items: readTargets(s, fw) });
+  // The request line is the requester's own words: on the first paste it's read for facts too, so
+  // a number it states ("over $500") is recorded and a later source can conflict with it.
+  const request = s.session.engine!.request_read ? undefined : list.find((x) => x.kind === "request");
+  const toRead: Source[] = request ? [request, source] : [source];
+  for (const src of toRead) for (const [n, text] of chunks(src.text).entries()) {
+    const req = ingestRequest(fw, s, { kind: src.kind, from: src.from, text, items: readTargets(s, fw) });
     let data: IngestResult | null = null;
     for (let attempt = 0; attempt < 3 && !data; attempt++) {
       try {
@@ -309,8 +323,9 @@ export async function runIngest(input: { provider: Provider; fw: Framework; sess
       }
     }
     if (!data) return { session: input.session, result: "failed", calls, events: [...events, `chunk ${n + 1}: calls failed three times; nothing recorded from this source`] };
-    events.push(...applyIngest(s, source, data, fw, now));
+    events.push(...applyIngest(s, src, data, fw, now).map((e) => (src === request ? `[request] ${e}` : e)));
   }
+  if (request) s.session.engine!.request_read = true;
   return { session: s, result: "applied", calls, events };
 }
 

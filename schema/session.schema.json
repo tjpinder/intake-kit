@@ -97,6 +97,7 @@
             "phase": { "enum": ["opening", "interview", "collecting", "summary", "confirmed"] },
             "turns": { "type": "integer", "minimum": 0 },
             "disambiguated": { "type": "boolean" },
+            "request_read": { "type": "boolean", "description": "Async intake: the request line has been read for facts (on the first paste)." },
             "summary_rounds": { "type": "integer", "minimum": 0 },
             "pending": {
               "oneOf": [

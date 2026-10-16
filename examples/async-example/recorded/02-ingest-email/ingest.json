@@ -5,7 +5,66 @@
         "item": "item-1",
         "area": "core.users",
         "status": "answered",
-        "value": "Sam builds the report, three shift leads use it, Priya signs off on retraining.",
+        "value": "Shift leads use the output to target retraining.",
+        "quotes": [
+          "so the shift leads can target retraining"
+        ],
+        "conflict": false
+      },
+      {
+        "item": "item-1",
+        "area": "data_report.grain",
+        "status": "answered",
+        "value": "The report is per picker and daily.",
+        "quotes": [
+          "A daily short-pick report per picker"
+        ],
+        "conflict": false
+      },
+      {
+        "item": "item-1",
+        "area": "data_report.decision",
+        "status": "answered",
+        "value": "Shift leads will use it to target retraining.",
+        "quotes": [
+          "so the shift leads can target retraining"
+        ],
+        "conflict": false
+      }
+    ],
+    "checks": [
+      {
+        "item": "item-1",
+        "check": "manual_work",
+        "result": "unclear",
+        "value": null,
+        "quote": null
+      },
+      {
+        "item": "item-1",
+        "check": "existing_asset",
+        "result": "unclear",
+        "value": null,
+        "quote": null
+      },
+      {
+        "item": "item-1",
+        "check": "kill_criteria",
+        "result": "unclear",
+        "value": null,
+        "quote": null
+      }
+    ],
+    "terms": [],
+    "definitions": []
+  },
+  {
+    "answers": [
+      {
+        "item": "item-1",
+        "area": "core.users",
+        "status": "answered",
+        "value": "Sam builds the report, three shift leads use it, and Priya signs off on retraining.",
         "quotes": [
           "I build the current version, the three shift leads use it, and Priya (DC manager) signs off on any retraining."
         ],
@@ -15,9 +74,9 @@
         "item": "item-1",
         "area": "core.outcome",
         "status": "answered",
-        "value": "The goal is to reduce short picks per picker by a third within two months.",
+        "value": "Sam wants short picks per picker down by a third within two months.",
         "quotes": [
-          "I'd like short picks per picker down by a third within two months."
+          "If it works, I'd like short picks per picker down by a third within two months."
         ],
         "conflict": false
       },
@@ -25,9 +84,9 @@
         "item": "item-1",
         "area": "core.data",
         "status": "answered",
-        "value": "Data comes from WMS pick confirmations, reporting copy, with badge numbers and locations.",
+        "value": "All data comes from WMS pick confirmations, read from the reporting copy; no customer or pricing data, just badge numbers and locations.",
         "quotes": [
-          "everything comes from WMS pick confirmations. We can read the reporting copy. No customer or pricing data in it, just badge numbers and locations."
+          "Data: everything comes from WMS pick confirmations. We can read the reporting copy. No customer or pricing data in it, just badge numbers and locations."
         ],
         "conflict": false
       },
@@ -35,9 +94,10 @@
         "item": "item-1",
         "area": "core.systems",
         "status": "answered",
-        "value": "WMS is used, accessed via reporting copy.",
+        "value": "Sam uses Excel and WMS export; the reporting copy is accessed.",
         "quotes": [
-          "everything comes from WMS pick confirmations. We can read the reporting copy."
+          "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export. ",
+          "We can read the reporting copy."
         ],
         "conflict": false
       },
@@ -45,9 +105,10 @@
         "item": "item-1",
         "area": "core.constraints",
         "status": "answered",
-        "value": "Report must be ready by 7am Monday.",
+        "value": "Priya signs off on retraining; no customer or pricing data is used.",
         "quotes": [
-          "it needs to be there by 7am when I get in."
+          "Priya (DC manager) signs off on any retraining.",
+          "No customer or pricing data in it, just badge numbers and locations."
         ],
         "conflict": false
       },
@@ -55,7 +116,7 @@
         "item": "item-1",
         "area": "core.trust",
         "status": "answered",
-        "value": "If the report disagrees with WMS two weeks in a row, Sam will switch it off.",
+        "value": "If the report disagrees with WMS two weeks in a row, Sam will switch it off and go back to his spreadsheet.",
         "quotes": [
           "If the numbers in the new report disagreed with the WMS two weeks in a row I'd switch it off and go back to my spreadsheet."
         ],
@@ -65,7 +126,7 @@
         "item": "item-1",
         "area": "data_report.decision",
         "status": "answered",
-        "value": "Shift leads use the report to pick which pickers get retraining.",
+        "value": "Shift leads use the report every Tuesday to pick which pickers get pulled for retraining.",
         "quotes": [
           "the shift leads would use it every Tuesday to pick which pickers get pulled for retraining."
         ],
@@ -75,20 +136,20 @@
         "item": "item-1",
         "area": "data_report.definition",
         "status": "partial",
-        "value": "A short pick is confirmed quantity less than task quantity; cancelled lines don't count; wrong-location scans might count.",
+        "value": "A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; wrong-location scans might count.",
         "quotes": [
-          "a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."
+          "Counting: a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."
         ],
         "conflict": false
       },
       {
         "item": "item-1",
         "area": "data_report.grain",
-        "status": "partial",
-        "value": "The report is per picker, weekly.",
+        "status": "answered",
+        "value": "The report is per picker and daily.",
         "quotes": [
-          "The WMS dashboard only shows building totals, nothing per picker.",
-          "the shift leads would use it every Tuesday"
+          "I'd like short picks per picker down by a third within two months.",
+          "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export."
         ],
         "conflict": false
       },
@@ -96,7 +157,7 @@
         "item": "item-1",
         "area": "data_report.truth",
         "status": "answered",
-        "value": "WMS is the system of record; its number wins if there's a disagreement.",
+        "value": "WMS is the source of truth; if the report disagrees with WMS two weeks in a row, it will be switched off.",
         "quotes": [
           "If the numbers in the new report disagreed with the WMS two weeks in a row I'd switch it off and go back to my spreadsheet."
         ],
@@ -106,7 +167,7 @@
         "item": "item-1",
         "area": "data_report.delivery",
         "status": "answered",
-        "value": "Report must be ready by 7am Monday.",
+        "value": "The report needs to be ready by 7am.",
         "quotes": [
           "it needs to be there by 7am when I get in."
         ],
@@ -116,7 +177,7 @@
         "item": "item-1",
         "area": "data_report.existing",
         "status": "answered",
-        "value": "Sam builds a manual Excel report; WMS dashboard only shows building totals.",
+        "value": "Sam currently builds the report in Excel by hand from a WMS export; the WMS dashboard only shows building totals, not per picker.",
         "quotes": [
           "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export.",
           "The WMS dashboard only shows building totals, nothing per picker."
@@ -129,14 +190,14 @@
         "item": "item-1",
         "check": "manual_work",
         "result": "yes",
-        "value": "Sam builds the report manually in Excel from WMS export.",
+        "value": "Sam builds the report by hand in Excel from a WMS export.",
         "quote": "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export."
       },
       {
         "item": "item-1",
         "check": "existing_asset",
         "result": "yes",
-        "value": "Sam's manual Excel report and the WMS dashboard exist, but dashboard only shows building totals.",
+        "value": "Sam builds a version by hand; WMS dashboard shows building totals only.",
         "quote": "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export. The WMS dashboard only shows building totals, nothing per picker."
       },
       {
@@ -150,21 +211,21 @@
     "terms": [
       {
         "term": "short pick",
-        "quote": "a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know.",
+        "quote": "Counting: a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know.",
         "kind": "metric"
       },
       {
         "term": "over pick",
-        "quote": "An over pick is when someone physically takes more than the ticket says - the system never sees it because they confirm the ticket quantity. Last week order 5521's ticket said 12 and 14 came off the slot, so that's 2 over picked.",
+        "quote": "We also get over picks. An over pick is when someone physically takes more than the ticket says - the system never sees it because they confirm the ticket quantity.",
         "kind": "metric"
       }
     ],
     "definitions": [
       {
         "term": "short pick",
-        "definition": "A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; wrong-location scans might count but Sam is not sure.",
+        "definition": "A short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. Wrong-location scans might count, but Sam is not sure.",
         "quotes": [
-          "a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."
+          "Counting: a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."
         ],
         "certain": false,
         "measurable": "yes",
@@ -175,7 +236,7 @@
         "term": "over pick",
         "definition": "An over pick is when someone physically takes more than the ticket says, but the system never sees it because they confirm the ticket quantity.",
         "quotes": [
-          "An over pick is when someone physically takes more than the ticket says - the system never sees it because they confirm the ticket quantity. Last week order 5521's ticket said 12 and 14 came off the slot, so that's 2 over picked."
+          "We also get over picks. An over pick is when someone physically takes more than the ticket says - the system never sees it because they confirm the ticket quantity."
         ],
         "certain": true,
         "measurable": "no",

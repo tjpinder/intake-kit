@@ -14,7 +14,8 @@ import type { Provider } from "../src/llm/types.ts";
 
 const fw = loadFramework(".");
 const NOW = "2026-10-14T12:00:00.000Z";
-const triaged = (): Session => startAsync(fw, { id: "2026-10-14-a5c1", request: "A daily short-pick report per picker for the shift leads", type: "data_report", from: "Ops supervisor", provider: "azure-openai", now: NOW });
+const readRequest = (s: Session) => { s.session.engine!.request_read = true; return s; };
+const triaged = (): Session => readRequest(startAsync(fw, { id: "2026-10-14-a5c1", request: "A daily short-pick report per picker for the shift leads", type: "data_report", from: "Ops supervisor", provider: "azure-openai", now: NOW }));
 const one = (out: unknown): Provider => ({ name: "azure-openai", async complete() { return { text: JSON.stringify(out), usage: { inputTokens: 1, outputTokens: 1, cachedInputTokens: 0 }, model: "scripted" }; } });
 const ingest = (session: Session, text: string, out: Partial<{ answers: unknown[]; checks: unknown[]; terms: unknown[]; definitions: unknown[] }>, from = "Ops supervisor") =>
   runIngest({ provider: one({ answers: [], checks: [], terms: [], definitions: [], ...out }), fw, session, source: { kind: "reply", from, text }, now: NOW }).then((r) => r.session);
@@ -77,7 +78,7 @@ describe("gaps and the follow-up packet", () => {
       terms: [{ term: "over pick", quote: "Over picks", kind: "metric" }],
     });
     const r = findGaps(s, fw);
-    assert.match(r.gaps.find((g) => g.kind === "term")!.question, /what counts as "over pick"/);
+    assert.match(r.gaps.find((g) => g.kind === "term")!.question, /How exactly do you calculate "over pick"?/);
     assert.ok(r.gaps.some((g) => g.kind === "baseline"));
     assert.ok(readinessLines(r)[0].includes('"over pick": no confirmed definition'));
   });
@@ -87,5 +88,29 @@ describe("gaps and the follow-up packet", () => {
     assert.deepEqual(r.gaps, []);
     assert.equal(followUpEmail(complete(), r), "");
     assert.match(readinessLines(r)[0], /ready for the summary/);
+  });
+});
+
+describe("one question per definition (live test: the area and the term both asked)", () => {
+  test("an open metric term's question replaces the item's generic definition question, and names the term", async () => {
+    const s = await ingest(triaged(), "We track cycle count variances.\n\nI think a variance is the units off.", {
+      answers: [ans("data_report.definition", "I think a variance is the units off.", { status: "partial" })],
+      terms: [{ term: "variance", quote: "cycle count variances", kind: "metric" }],
+    });
+    const r = findGaps(s, fw);
+    assert.ok(!r.gaps.some((g) => g.target === "data_report.definition"), "the generic area question is merged away");
+    const q = r.gaps.filter((g) => g.kind === "term");
+    assert.equal(q.length, 1);
+    assert.match(q[0].question, /^How exactly do you calculate "variance"\?/);
+  });
+});
+
+describe("a disagreement on an optional area is asked too (worked example: 6am vs 7am landed on delivery)", () => {
+  test("a conflict on an optional area goes in the round-2 packet", async () => {
+    let s = await ingest(triaged(), "It needs to be there by 7am when I get in.", { answers: [ans("data_report.delivery", "It needs to be there by 7am", { value: "Ready by 7am" })] });
+    s = await ingest(s, "- wants report by 6am, not 7", { answers: [ans("data_report.delivery", "wants report by 6am", { value: "Ready by 6am", conflict: true })] }, "Priya");
+    const g = findGaps(s, fw).gaps.find((x) => x.target === "data_report.delivery")!;
+    assert.equal(g.kind, "conflict");
+    assert.match(g.question, /"Ready by 7am" and "Ready by 6am"\. Which is right\?/);
   });
 });

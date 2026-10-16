@@ -8,7 +8,7 @@
         "evidence": [
           "data_report.definition"
         ],
-        "quote": "a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."
+        "quote": "Counting: a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."
       },
       {
         "item": "item-1",
@@ -17,7 +17,7 @@
         "evidence": [
           "core.data"
         ],
-        "quote": "everything comes from WMS pick confirmations. We can read the reporting copy. No customer or pricing data in it, just badge numbers and locations."
+        "quote": "Data: everything comes from WMS pick confirmations. We can read the reporting copy. No customer or pricing data in it, just badge numbers and locations."
       },
       {
         "item": "item-1",
@@ -26,14 +26,14 @@
         "evidence": [
           "core.data"
         ],
-        "quote": "everything comes from WMS pick confirmations. We can read the reporting copy."
+        "quote": "Data: everything comes from WMS pick confirmations. We can read the reporting copy. No customer or pricing data in it, just badge numbers and locations."
       },
       {
         "item": "item-1",
         "fact": "ways_done",
         "band": "one",
         "evidence": [
-          "data_report.existing"
+          "manual_process.walkthrough"
         ],
         "quote": "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export."
       },
@@ -44,7 +44,7 @@
         "evidence": [
           "core.systems"
         ],
-        "quote": "everything comes from WMS pick confirmations. We can read the reporting copy."
+        "quote": "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export."
       },
       {
         "item": "item-1",
@@ -53,14 +53,14 @@
         "evidence": [
           "data_report.definition"
         ],
-        "quote": "a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."
+        "quote": "Counting: a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."
       },
       {
         "item": "item-1",
         "fact": "steps_apps",
         "band": "under_20",
         "evidence": [
-          "data_report.existing"
+          "core.systems"
         ],
         "quote": "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export."
       },
@@ -80,16 +80,16 @@
         "evidence": [
           "core.outcome"
         ],
-        "quote": "I'd like short picks per picker down by a third within two months."
+        "quote": "If it works, I'd like short picks per picker down by a third within two months."
       },
       {
         "item": "item-1",
         "fact": "ai_applies",
         "band": "no",
         "evidence": [
-          "data_report.existing"
+          "core.data"
         ],
-        "quote": "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export."
+        "quote": "Data: everything comes from WMS pick confirmations. We can read the reporting copy. No customer or pricing data in it, just badge numbers and locations."
       },
       {
         "item": "item-1",
@@ -107,69 +107,67 @@
         "evidence": [
           "data_report.decision"
         ],
-        "quote": "the shift leads would use it every Tuesday to pick which pickers get pulled for retraining."
+        "quote": "so the shift leads can target retraining"
       },
       {
         "item": "item-1",
         "fact": "success_metric",
         "band": "measurable_with_baseline",
         "evidence": [
-          "data_report.existing",
           "core.outcome"
         ],
-        "quote": "Today it takes me about four hours every Monday morning to put together in Excel, by hand, from a WMS export."
+        "quote": "If it works, I'd like short picks per picker down by a third within two months."
       }
     ],
     "prose": [
       {
         "item": "item-1",
         "field": "problem_statement",
-        "text": "Building shift leads need a daily report showing short picks per picker so they can target retraining and reduce errors."
+        "text": "Shift leads need a daily short-pick report per picker to target retraining, because today they mostly guess."
       },
       {
         "item": "item-1",
         "field": "current_state",
-        "text": "Sam manually builds a weekly Excel report from WMS exports; WMS dashboard only shows totals, not per picker."
+        "text": "Sam builds the report in Excel by hand from a WMS export; it takes about four hours every Monday morning."
       },
       {
         "item": "item-1",
         "field": "mvp",
-        "text": "Automate a daily report per picker, ready by 6am, using WMS pick confirmation data and clear short-pick rules."
+        "text": "Automate a daily report per picker, ready by 6am, using WMS pick confirmations and rules agreed with Priya."
       },
       {
         "item": "item-1",
         "field": "out_of_scope",
-        "text": "Over picks and customer/pricing data are not included; only short picks per picker per shift per day."
+        "text": "No customer or pricing data; cancelled lines don't count; over picks are not included."
       },
       {
         "item": "item-1",
         "field": "mitigation",
-        "text": "If the report disagrees with WMS two weeks in a row, Sam will revert to the manual spreadsheet."
+        "text": "If the numbers in the new report disagreed with the WMS two weeks in a row Sam will switch it off and go back to his spreadsheet."
       }
     ],
     "acceptance": [
       {
         "item": "item-1",
         "kind": "criterion",
-        "given": "WMS pick confirmation data is available and the report is generated by 6am each day",
-        "when": "Shift leads receive a per picker, per shift, per day short-pick report with wrong-location scans included",
-        "then": "They can use it to select pickers for retraining each Tuesday",
+        "given": "The WMS reporting copy is available and rules are agreed with Priya.",
+        "when": "The automated report is delivered by 6am and matches WMS pick confirmations for short picks per picker.",
+        "then": "Shift leads can use it to target retraining.",
         "evidence": [
           "core.data",
-          "data_report.delivery",
           "data_report.definition",
-          "data_report.decision"
+          "data_report.delivery"
         ]
       },
       {
         "item": "item-1",
         "kind": "error_case",
-        "given": "The report disagrees with WMS pick confirmation numbers for two consecutive weeks",
-        "when": "Sam checks the numbers against WMS",
-        "then": "He switches off the new report and returns to the manual spreadsheet",
+        "given": "The automated report is delivered two weeks in a row.",
+        "when": "Short pick counts per picker do not match WMS pick confirmations.",
+        "then": "Sam will switch it off and revert to manual reporting.",
         "evidence": [
-          "core.trust",
-          "data_report.truth"
+          "data_report.truth",
+          "core.trust"
         ]
       }
     ],
@@ -177,10 +175,19 @@
       {
         "item": "item-1",
         "kind": "kill_criterion",
-        "text": "If the report disagrees with WMS two weeks in a row, switch it off and revert to manual spreadsheet.",
+        "text": "If the report disagrees with WMS two weeks in a row, switch it off and revert to manual reporting.",
         "evidence": [
           "core.trust",
           "data_report.truth"
+        ]
+      },
+      {
+        "item": "item-1",
+        "kind": "fallback",
+        "text": "Fallback is Sam's manual Excel report from WMS export.",
+        "evidence": [
+          "core.trust",
+          "data_report.existing"
         ]
       }
     ],
@@ -190,16 +197,9 @@
         "area": "data_report.definition",
         "question": "Should wrong-location scans always count as short picks, or are there exceptions?",
         "who_can_answer": "Priya (DC manager)",
-        "artifact_needed": "Written rule or confirmation from Priya"
-      },
-      {
-        "item": "item-1",
-        "area": "data_report.grain",
-        "question": "Should the report be per picker per shift per day, or weekly?",
-        "who_can_answer": "Priya (DC manager)",
-        "artifact_needed": "Clarified reporting requirement"
+        "artifact_needed": "Final rule definition agreed with Priya"
       }
     ],
-    "reflect_back_text": "You want a daily short-pick report per picker, built from WMS confirmations, ready by 6am so shift leads can target retraining. Today you do this manually in Excel, but it takes four hours and only gives weekly results. If the new report disagrees with WMS for two weeks, you'll switch it off and go back to your spreadsheet."
+    "reflect_back_text": "You want a daily short-pick report per picker so shift leads can target retraining. Right now you spend about four hours every Monday building it by hand from WMS exports. If the automated report disagrees with WMS two weeks in a row, you'll switch it off and go back to your spreadsheet."
   }
 ]

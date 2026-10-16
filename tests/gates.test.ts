@@ -364,7 +364,7 @@ describe("definitions gate: no confirmed definition, no Go", () => {
     assert.equal(item.gate!.decision, "gather_more");
     assert.ok(item.gate!.reasons.includes('"over pick" has no confirmed definition'), item.gate!.reasons.join(" | "));
     const q = item.open_questions.find((o) => o.area === "term-1")!;
-    assert.match(q.question, /In your own words, what counts as "over pick"/);
+    assert.match(q.question, /How exactly do you calculate "over pick"?/);
   });
 
   test("a confirmed definition lets it go; two that disagree hold it back; a metric with no example only gets a recommendation", () => {

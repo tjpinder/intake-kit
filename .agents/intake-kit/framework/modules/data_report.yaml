@@ -12,7 +12,7 @@ areas:
     packet:
       ask: "What will you do differently when you see this report?"
       why: "A report nobody acts on isn't worth building; the decision is what it's for."
-      example: "Pick which two pickers get retraining that week."
+      example: "Decide which suppliers to call about late deliveries that week."
     probes:
       - "What will you do differently when you see this?"
     always_ask: true
@@ -29,7 +29,7 @@ areas:
     packet:
       ask: "How exactly is one counted? What's in and what's out?"
       why: "Two people counting \"the same thing\" differently is the most common reason reports get distrusted."
-      example: "Short picks and wrong-location scans count. Cancelled lines don't."
+      example: "A late delivery is anything after the agreed date. Cancelled orders don't count."
     probes:
       - "How exactly do you count one? What's in and what's out?"
     critical: true
@@ -43,7 +43,7 @@ areas:
     packet:
       ask: "At what level of detail, and over what time window? Per order, line, person, shift or zone; daily, weekly?"
       why: "The level of detail decides what data is needed and how it's grouped."
-      example: "Per picker, per shift, per day, for the last two weeks."
+      example: "Per supplier, per week, for the last three months."
     probes:
       - "Per order, line, person, shift or zone? Over what window?"
     critical: false
@@ -57,7 +57,7 @@ areas:
     packet:
       ask: "When two systems give different numbers, which one wins?"
       why: "If nobody decides, every disagreement turns into an argument about the report."
-      example: "The WMS counts win over the dashboard."
+      example: "Our main system wins over the spreadsheet."
     probes:
       - "Which system's number do you trust when they disagree?"
     critical: false
@@ -71,7 +71,7 @@ areas:
     packet:
       ask: "How fresh does it need to be, and where do you want to see it?"
       why: "Freshness and location decide how it's delivered: an email, a screen, a file."
-      example: "By 7am each day, as an email to the shift leads."
+      example: "By 8am each Monday, as an email to the team leads."
     probes:
       - "How fresh does it need to be, and where do you want to see it?"
     critical: false
@@ -85,7 +85,7 @@ areas:
     packet:
       ask: "Is there a report or screen today that's close to this? What's missing from it?"
       why: "If something already covers it, the answer might be to fix that, not to build new."
-      example: "The WMS dashboard shows building totals, but nothing per picker."
+      example: "The system's dashboard shows totals, but nothing per supplier."
     probes:
       - "Is there a report today that's close? What's wrong with it?"
     always_ask: true

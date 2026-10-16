@@ -12,7 +12,7 @@ areas:
     packet:
       ask: "What exactly goes wrong? Is it an error, missing records or wrong numbers, and does it hit everything or only some cases?"
       why: "A precise symptom is what lets someone find the cause instead of guessing."
-      example: "About one in five orders from one customer arrives in the WMS with no ship-to address. Other customers are fine."
+      example: "About one in five orders from one customer arrives in our main system with no ship-to address. Other customers are fine."
     probes:
       - "What exactly do you see: an error, missing records, wrong numbers? All orders or some?"
     critical: true

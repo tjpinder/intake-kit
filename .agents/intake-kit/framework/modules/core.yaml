@@ -9,7 +9,13 @@ areas:
     packet:
       ask: "Who's involved: who does the work today, who uses the result, who owns the process, and who signs off on changes?"
       why: "Knowing who uses it and who can say yes keeps the build pointed at the right people."
-      example: "Two clerks do it, the three shift leads use it, and the operations manager signs off."
+      example: "Two planners would use it daily, their manager owns the process, and IT approves anything new."
+      examples:
+        known_idea: "Two planners would use it daily, their manager owns the process, and IT approves anything new."
+        data_report: "A coordinator pulls it together today, three team leads use it, and the operations manager signs off on changes."
+        manual_process: "Two clerks do it, the team lead checks their work, and the finance manager owns the process."
+        broken: "The night team hits it first, IT support fixes it, and the operations manager decides what gets prioritised."
+        exploratory: "The team leads see the problems first, the department head decides what to try, and IT would build it."
     probes:
       - "Who touches this, first person to last?"
       - "Who can say yes to changing it?"
@@ -26,7 +32,13 @@ areas:
     packet:
       ask: "How would you know this worked? What's it costing today, in hours, errors or money, and what would good look like?"
       why: "A number for today and a target are what turn \"better\" into something you can check."
-      example: "Today the leads guess who needs help. It would be working if they knew before the shift started, and the counts matched the WMS."
+      example: "Today it's done differently by each person. It would be working if everyone used one version and the errors stopped."
+      examples:
+        known_idea: "Today it's done differently by each person. It would be working if everyone used one version and the errors stopped."
+        data_report: "Today nobody can see it until month end. It would be working if the leads saw it each morning and acted on it."
+        manual_process: "Today it takes most of a morning. It would be working if it took minutes and nobody had to re-check it."
+        broken: "Today a few orders a day need fixing by hand. It would be working if none did."
+        exploratory: "Today we don't know where the time goes. Success is a short list of things worth fixing first."
     probes:
       - "How do you know today whether it went well?"
       - "What number would tell you this worked?"
@@ -46,7 +58,13 @@ areas:
     packet:
       ask: "Where does the information come from, which copy do you trust, and is any of it sensitive?"
       why: "The build has to read from the right source, and sensitive data changes what's allowed."
-      example: "Pick confirmations from the WMS reporting database. No customer or pricing data, just badge numbers."
+      example: "Mostly in our main system, plus a shared spreadsheet; the system is the copy we trust. No personal data."
+      examples:
+        known_idea: "Mostly in our main system, plus a shared spreadsheet; the system is the copy we trust. No personal data."
+        data_report: "It comes from our main system's reporting copy; that's the one we trust. No customer or pricing data."
+        manual_process: "We export it from the main system into a spreadsheet; the system is the copy we trust."
+        broken: "The records come from a partner's feed into our system; the partner's copy is the original."
+        exploratory: "Spread across email, spreadsheets and our main system. Some of it has customer details."
     probes:
       - "Where does that live, and which copy do you trust?"
       - "Show me one real example."
@@ -65,7 +83,13 @@ areas:
     packet:
       ask: "Which screens, systems or files do you use for this, and is anything changing in them in the next six months?"
       why: "The systems decide how it can be built, and an upcoming change can make a build wasted."
-      example: "The WMS and Excel. The WMS upgrade is planned for next spring."
+      example: "Our main system and a shared drive. Nothing is changing in the next six months that I know of."
+      examples:
+        known_idea: "Our main system and a shared drive. Nothing is changing in the next six months that I know of."
+        data_report: "Our main system and a spreadsheet. There's an upgrade planned for next year."
+        manual_process: "Our main system, a spreadsheet and email."
+        broken: "Our main system and the partner's portal. A new version went live last month."
+        exploratory: "Email, spreadsheets and our main system. We're looking at replacing one of them."
     probes:
       - "Which screens or systems do you open?"
       - "Any upgrades planned in the next six months?"
@@ -82,7 +106,13 @@ areas:
     packet:
       ask: "Are there rules it must follow: policies, deadlines, time windows, approvals, or anyone outside your team who requires it?"
       why: "Constraints rule options in or out before anyone starts building."
-      example: "It has to be ready by 7am. IT must approve anything that writes back to the WMS."
+      example: "IT has to approve anything new, and it can't change how we bill customers."
+      examples:
+        known_idea: "IT has to approve anything new, and it can't change how we bill customers."
+        data_report: "It has to be ready before the morning meeting. Nothing outside the team requires it."
+        manual_process: "Finance needs it by the third working day of the month."
+        broken: "Customer orders have to ship the same day, so fixes can't wait for the next release."
+        exploratory: "Any change needs the department head's sign-off, and the budget is small this year."
     probes:
       - "Is anyone outside your team requiring this?"
       - "When does it have to be done each day?"
@@ -101,7 +131,13 @@ areas:
     packet:
       ask: "When it goes wrong, who catches it today, how bad is a wrong result, and what would you do if the new thing stopped working?"
       why: "This sets how much checking a person must do, and what the fallback is."
-      example: "A shift lead spots odd numbers. A wrong result means retraining the wrong person. If it broke, we'd go back to the spreadsheet."
+      example: "A lead spots odd results. If it got one wrong, a customer would notice. If it broke, we'd go back to doing it by hand."
+      examples:
+        known_idea: "A lead spots odd results. If it got one wrong, a customer would notice. If it broke, we'd go back to doing it by hand."
+        data_report: "A team lead spots odd numbers. A wrong number means acting on the wrong thing. If it broke, we'd go back to the spreadsheet."
+        manual_process: "The team lead checks a sample. A mistake means a payment goes out wrong. If the new way broke, we'd do it by hand again."
+        broken: "Customers notice first, which is the problem. If a fix made it worse, we'd roll it back."
+        exploratory: "Nobody checks today. We'd want a person to review anything before it changes how we work."
     probes:
       - "When this goes wrong today, who catches it?"
       - "Worst outcome if an automated version got one wrong?"

@@ -12,3 +12,6 @@ evals/results/
 
 # Personal notes kept out of the public repo
 *.private.md
+
+# Local test server logs
+local-server*.log

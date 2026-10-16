@@ -143,7 +143,13 @@
                 "properties": {
                   "ask": { "type": "string", "minLength": 1 },
                   "why": { "type": "string", "minLength": 1 },
-                  "example": { "type": "string", "minLength": 1 }
+                  "example": { "type": "string", "minLength": 1 },
+                  "examples": {
+                    "description": "Shared core areas: an example per entry type, so the packet's examples fit the request. Falls back to example.",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": { "broken": { "type": "string" }, "manual_process": { "type": "string" }, "known_idea": { "type": "string" }, "exploratory": { "type": "string" }, "data_report": { "type": "string" } }
+                  }
                 }
               },
               "probes": { "$ref": "#/$defs/phrases" },

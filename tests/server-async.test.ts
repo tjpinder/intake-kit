@@ -18,7 +18,7 @@ const TEXT = "We'd use it to pick who gets retraining each week.";
 const INGEST = { answers: [{ item: "item-1", area: "data_report.decision", status: "answered", value: "Pick who to retrain", quotes: ["pick who gets retraining each week"], conflict: false }], checks: [], terms: [], definitions: [] };
 const WRITE_UP = { facts: [], prose: [], acceptance: [], guardrails: [], open_questions: [], reflect_back_text: "A report." };
 
-const triaged = (): Session => startAsync(fw, { id: "2026-10-15-a51c", request: "A daily short-pick report", type: "data_report", from: "Sam", provider: "azure-openai", now: NOW.toISOString() });
+const triaged = (): Session => { const s = startAsync(fw, { id: "2026-10-15-a51c", request: "A daily short-pick report", type: "data_report", from: "Sam", provider: "azure-openai", now: NOW.toISOString() }); s.session.engine!.request_read = true; return s; };
 
 function harness(outputs: unknown[], env: Record<string, string> = {}) {
   const store = new MemoryStore();
@@ -92,5 +92,33 @@ describe("/api/async", () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.result, "failed");
     assert.deepEqual(res.body.session, s);
+  });
+});
+
+describe("/api/async: the source rule on the web path (live test: notes went in as the requester's reply)", () => {
+  const NOTES = "Call w/ Mike (controller)\n- variance = absolute value per SKU\n- anything over $250 goes to him";
+  const fromNotes = {
+    answers: [{ item: "item-1", area: "core.constraints", status: "answered", value: "Over $250 goes to the controller", quotes: ["anything over $250 goes to him"], conflict: false }],
+    checks: [], terms: [{ term: "variance", quote: "variance", kind: "metric" }],
+    definitions: [{ term: "variance", definition: "Absolute value per SKU", quotes: ["variance = absolute value per SKU"], certain: true, measurable: "yes", examples: [], conflict: false }],
+  };
+
+  test("notes sent through the web API stay assumed, and a definition from them stays a draft", async () => {
+    const h = harness([fromNotes]);
+    const res = await handleAsync(req({ action: "ingest", session: triaged(), source: { kind: "notes", from: "Mike (controller)", text: NOTES } }), h.deps);
+    assert.equal(res.status, 200, JSON.stringify(res.body));
+    const s = res.body.session as Session;
+    assert.equal(s.core.constraints.status, "assumed");
+    assert.equal(s.terms![0].status, "unconfirmed");
+    assert.equal(s.terms![0].draft?.definition, "Absolute value per SKU");
+    assert.equal(s.session.sources!.at(-1)!.kind, "notes");
+  });
+
+  test("the source type and the speaker are required: nothing is assumed", async () => {
+    const h = harness([fromNotes]);
+    for (const source of [{ from: "Mike", text: NOTES }, { kind: "notes", text: NOTES }, { kind: "notes", from: "  ", text: NOTES }]) {
+      const res = await handleAsync(req({ action: "ingest", session: triaged(), source }), h.deps);
+      assert.equal(res.status, 400, JSON.stringify(source));
+    }
   });
 });

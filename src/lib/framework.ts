@@ -16,7 +16,7 @@ export interface Area {
   id: string;
   must_capture: string;
   /** Async intake: the area's question in the packet, why it matters, and a synthetic example. */
-  packet: { ask: string; why: string; example: string };
+  packet: { ask: string; why: string; example: string; examples?: Partial<Record<ItemType, string>> };
   probes: string[];
   always_ask?: boolean;
   critical: boolean;

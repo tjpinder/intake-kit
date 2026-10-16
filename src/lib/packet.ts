@@ -40,7 +40,7 @@ export function buildPacket(fw: Framework, input: PacketInput): Packet {
   const queue = queueFor(item, fw);
   const fromArea = (id: string): PacketQuestion => {
     const a = fw.areas.get(id)!;
-    return { area: id, check: null, ask: a.packet.ask, why: a.packet.why, example: a.packet.example };
+    return { area: id, check: null, ask: a.packet.ask, why: a.packet.why, example: a.packet.examples?.[input.type] ?? a.packet.example };
   };
   const questions = queue.map(fromArea);
   const checks = fw.router.checks;

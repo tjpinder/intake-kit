@@ -350,7 +350,7 @@ describe("SOW_DRAFT.md and DEFINITIONS.md (HANDOFF.md: SOW draft, Definitions)",
     const out = renderAll(scoreAndGate(s, fwS).session, fwS, tplS);
     const defs = out.get("DEFINITIONS.md")!;
     assert.match(defs, /### over pick \(metric\): confirmed/);
-    assert.match(defs, /Given by Tom, in notes from Tom\./);
+    assert.match(defs, /Given by Tom, in the interviewer's notes on what Tom said\./);
     assert.match(defs, /- Ticket 20, 22 left the slot → 2/);
     assert.match(defs, /### short pick \(metric\): unconfirmed\n\n_The owner hasn't defined it yet\. Don't interpret it: ask\._/);
     assert.match(out.get("DECISIONS.md")!, /"over pick"\*\* can not be seen in the system's data/);

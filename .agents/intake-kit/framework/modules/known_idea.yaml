@@ -17,7 +17,7 @@ areas:
     packet:
       ask: "What happens today when this gets done? Walk through the last real time."
       why: "The idea is judged against what happens now, not against nothing."
-      example: "Last month a lead copied pick data into a spreadsheet and sorted it by hand to find who to coach."
+      example: "Last month a lead copied the figures into a spreadsheet and sorted them by hand to decide what to do."
     probes:
       - "What happens today when this gets done? Walk me through the last time."
     critical: true
@@ -34,7 +34,7 @@ areas:
     packet:
       ask: "What would you build? What are its main parts, what's the smallest version that would be useful, and what would you leave out?"
       why: "A small first version that's useful on its own is what gets built and tested quickly."
-      example: "A ranked list of pickers with their error rates. The first version leaves out charts and any coaching notes."
+      example: "A simple list ranked by priority. The first version leaves out charts and notifications."
     probes:
       - "What would the first version include, and what would you leave out?"
       - "If you could only build one part of it, which would it be?"
@@ -51,7 +51,7 @@ areas:
     packet:
       ask: "What's the worst part of how it's done now?"
       why: "How much the current way hurts is a big part of whether people will switch."
-      example: "It's a full morning of copying, and the numbers are a week old by the time we use them."
+      example: "It takes most of a morning, and the figures are a week old by the time we use them."
     probes:
       - "What's the worst part of how it's done now?"
     always_ask: true
@@ -66,7 +66,7 @@ areas:
     packet:
       ask: "If it worked perfectly, what would be different on a normal day?"
       why: "A clear picture of the better day is what people will actually move toward."
-      example: "Leads would know first thing who needs help, without anyone building anything."
+      example: "Leads would know first thing what needs attention, without anyone building anything."
     probes:
       - "If it worked perfectly, what would be different on a normal Tuesday?"
     always_ask: true
@@ -81,7 +81,7 @@ areas:
     packet:
       ask: "What would make people not trust it, or keep doing it the old way?"
       why: "Adoption fails on trust and habit far more often than on the technology."
-      example: "If the numbers ever disagreed with the WMS, the leads would go back to their own sheets."
+      example: "If its numbers ever disagreed with the main system, people would go back to their own spreadsheets."
     probes:
       - "What would make you not trust it? What would people keep doing the old way?"
     always_ask: true
@@ -96,7 +96,7 @@ areas:
     packet:
       ask: "Has anyone tried to solve this before? What happened?"
       why: "Past attempts show what's hard and what to avoid."
-      example: "A contractor built a dashboard two years ago; nobody kept it updated."
+      example: "Someone built a dashboard two years ago; nobody kept it updated."
     probes:
       - "Has anyone tried to solve this before? What happened?"
     always_ask: true
@@ -112,7 +112,7 @@ areas:
     packet:
       ask: "Does anything you already have, or could easily get, do something close to this?"
       why: "If a tool already does most of it, using that may beat building."
-      example: "Our WMS vendor sells a labour-reporting add-on, but we've never looked at it."
+      example: "Our main system's vendor sells an add-on that might do some of this, but we've never looked at it."
     probes:
       - "Does anything you already use, or could easily get, do something close to this?"
     always_ask: true

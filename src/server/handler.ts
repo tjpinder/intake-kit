@@ -354,7 +354,7 @@ export async function handleAsync(req: ApiRequest, deps: ServerDeps): Promise<Ap
   // Worst case: every call (each chunk of the source, or each item's write-up) and both retries,
   // with the session and the source as input and full output each time.
   const sessionTokens = Math.ceil(JSON.stringify(body.session).length / 3) + WORST_PROMPT_TOKENS;
-  const calls = body.action === "ingest" ? chunks(body.source!.text).length : Math.max(1, body.session.items.filter((i) => !i.spawned_from && !i.dropped).length);
+  const calls = body.action === "ingest" ? chunks(body.source!.text).length + (body.session.session.engine?.request_read ? 0 : 1) : Math.max(1, body.session.items.filter((i) => !i.spawned_from && !i.dropped).length);
   const inputTokens = sessionTokens + (body.action === "ingest" ? Math.ceil(Math.min(body.source!.text.length, 12_000) / 3) : 0);
   const admitted = await admit(req, deps, started, body, sessionId, (m) => calls * 3 * costUSD(m, { inputTokens, outputTokens: MAX_OUTPUT_TOKENS, cachedInputTokens: 0 }));
   if ("status" in admitted) return admitted;

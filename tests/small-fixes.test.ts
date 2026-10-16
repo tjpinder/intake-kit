@@ -14,7 +14,7 @@ import type { Provider, TurnRequest } from "../src/llm/types.ts";
 
 const fw = loadFramework(".");
 const NOW = "2026-10-14T12:00:00.000Z";
-const triaged = (request = "A daily short-pick report per picker for the shift leads"): Session => startAsync(fw, { id: "2026-10-14-5f1e", request, type: "data_report", from: "Sam", provider: "azure-openai", now: NOW });
+const triaged = (request = "A daily short-pick report per picker for the shift leads"): Session => { const s = startAsync(fw, { id: "2026-10-14-5f1e", request, type: "data_report", from: "Sam", provider: "azure-openai", now: NOW }); s.session.engine!.request_read = true; return s; };
 const writeUp = (band: string) => ({ facts: [{ item: "item-1", fact: "existing_asset", band, evidence: ["data_report.existing"], quote: null }], prose: [], acceptance: [], guardrails: [], open_questions: [], reflect_back_text: "" });
 
 describe("#1 a follow-on item's follow-up asks its critical walkthrough", () => {
@@ -73,5 +73,29 @@ describe("ingest prompt: a contradiction is flagged on every area holding the fa
     await runIngest({ provider: p, fw, session: triaged(), source: { kind: "reply", from: "x", text: "hello" }, now: NOW });
     assert.match(reqs[0].system, /return an answer with conflict true for every area where that fact is recorded/);
     assert.match(reqs[0].system, /Never add a detail it doesn't say/);
+  });
+});
+
+describe("the paste screen needs a source type and a speaker", () => {
+  test("readyToRead: no type, no speaker or no text means it can't be read", async () => {
+    const { readyToRead } = await import("../src/lib/sources.ts");
+    assert.equal(readyToRead({ kind: null, speaker: "Mike", text: "notes" }), false);
+    assert.equal(readyToRead({ kind: "notes", speaker: " ", text: "notes" }), false);
+    assert.equal(readyToRead({ kind: "notes", speaker: "Mike", text: "" }), false);
+    assert.equal(readyToRead({ kind: "notes", speaker: "Mike", text: "notes" }), true);
+  });
+});
+
+describe("packet examples fit the request's type (live test: they borrowed the pick-exception story)", () => {
+  test("each shared core question has an example per type, and the packet uses the request's", () => {
+    const types = Object.keys(fw.router.types);
+    for (const a of fw.modules.core.areas) for (const t of types) assert.ok(a.packet.examples?.[t as "broken"], `${a.id} ${t}`);
+    const report = buildPacket(fw, { request: "r", type: "data_report" }).questions.find((q) => q.area === "core.users")!;
+    const broken = buildPacket(fw, { request: "r", type: "broken" }).questions.find((q) => q.area === "core.users")!;
+    assert.notEqual(report.example, broken.example);
+  });
+  test("no outcome example carries a number, and none mention picks or the WMS", () => {
+    for (const e of Object.values(fw.areas.get("core.outcome")!.packet.examples ?? {})) assert.doesNotMatch(e!, /\d/);
+    for (const [id, a] of fw.areas) for (const e of [a.packet.example, ...Object.values(a.packet.examples ?? {})]) assert.doesNotMatch(e!, /\bpick(s|ers?)?\b|\bWMS\b/i, id);
   });
 });

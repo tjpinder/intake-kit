@@ -6,15 +6,17 @@ These items need more discovery before anyone builds anything (session 2026-10-1
 
 Why it needs more discovery:
 
-- "short pick" has no confirmed definition
+- "short-pick" has no confirmed definition
 
 Open questions:
 
-- Should wrong-location scans always count as short picks, or are there exceptions? Who can answer: Priya (DC manager). What would settle it: Final rule definition agreed with Priya. [data_report.definition]
-- How exactly do you calculate "short pick"? What's in and what's out? Give one real example and the right number. Who can answer: Whoever owns the process. What would settle it: The owner's definition in their own words, and one real example with the correct result. [term-1]
+- Should wrong-location scans always count as short picks, or are there exceptions? Who can answer: Priya (DC manager). What would settle it: Written rule or confirmation from Priya. [data_report.definition]
+- Should the report be ready by 6am or 7am, and who needs it first? Who can answer: Priya (DC manager). What would settle it: Confirmation of timing requirement. [core.constraints]
+- Apps touched, access method, changes expected in 6 months? [core.systems]
+- How exactly do you calculate "short-pick"? What's in and what's out? Give one real example and the right number. Who can answer: Whoever owns the process. What would settle it: The owner's definition in their own words, and one real example with the correct result. [term-1]
 - Recommended: give one real example of "over pick" and the right count, so the build can be checked against it. Who can answer: Whoever owns the process. What would settle it: A real case and its correct result. [term-2]
 
-## Sam builds the report by hand in Excel from a WMS export (`item-2`)
+## Sam builds the report in Excel by hand from a WMS export (`item-2`)
 
 Why it needs more discovery:
 
@@ -32,3 +34,4 @@ Open questions:
 - What decision or outcome depends on this, and who makes it? Who can answer: Whoever asked for it, or whoever will act on the result. What would settle it: A named decision or outcome that changes once this exists, and who owns it. [core.outcome]
 - What number would show this worked, and what is that number today? Who can answer: Whoever owns the outcome, and whoever keeps today's numbers. What would settle it: A baseline measured today (a time, count or cost) and the target that would count as success. [core.outcome]
 - What is the current way costing, or what is this worth if it works? Who can answer: Whoever owns the outcome, or whoever pays for the current way. What would settle it: An estimate of the cost today or the gain, in hours, errors or money, even a rough one. [core.outcome]
+- Still unknown: Apps touched, access method, changes expected in 6 months. [core.systems]

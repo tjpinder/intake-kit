@@ -29,7 +29,7 @@ describe("docs", () => {
     assert.ok(blocks.length >= 3);
     // The first two are verbatim output, re-wrapped; the third is the early gate, checked by its reason.
     for (const b of blocks.slice(0, 2)) for (const line of b.split(/\n(?=\d+\. )/)) assert.ok(walk.includes(collapse(line)), line.slice(0, 80));
-    assert.match(blocks[2], /"short pick" has no confirmed definition/);
-    assert.ok(walk.includes('"short pick" has no confirmed definition'));
+    assert.match(blocks[2], /"short[- ]pick" has no confirmed definition/);
+    assert.match(walk, /"short[- ]pick" has no confirmed definition/);
   });
 });

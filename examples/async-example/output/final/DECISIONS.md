@@ -13,7 +13,7 @@ Recorded by intake-kit from `intake-answers.yaml` (session 2026-10-14-de70, 2026
 
 Scores: Automation potential 5, ease 4.5 (prioritize).
 
-### Sam builds the report by hand in Excel from a WMS export (`item-2`): Don't build
+### Sam builds the report in Excel by hand from a WMS export (`item-2`): Don't build
 
 - Superseded by item-1, which reaches Go
 - (also matched gather_more) Nobody has said what decision or outcome depends on it (core.outcome)

@@ -3,9 +3,9 @@
     "answers": [
       {
         "item": "item-1",
-        "area": "data_report.delivery",
+        "area": "core.constraints",
         "status": "answered",
-        "value": "The report needs to be ready by 6am.",
+        "value": "The report must be ready by 6am.",
         "quotes": [
           "wants report by 6am, not 7 - night shift leads leave at 6:30"
         ],
@@ -15,7 +15,7 @@
         "item": "item-1",
         "area": "data_report.truth",
         "status": "answered",
-        "value": "If the dashboard and report disagree, WMS pick confirmations win.",
+        "value": "WMS pick confirmations are the source of truth if numbers disagree.",
         "quotes": [
           "if dashboard and report disagree, WMS pick confirmations win"
         ],
@@ -39,30 +39,15 @@
         "quotes": [
           "per picker per shift per day"
         ],
-        "conflict": false
+        "conflict": true
       }
     ],
-    "checks": [
-      {
-        "item": "item-1",
-        "check": "existing_asset",
-        "result": "unclear",
-        "value": null,
-        "quote": null
-      },
-      {
-        "item": "item-1",
-        "check": "kill_criteria",
-        "result": "yes",
-        "value": "If the dashboard and report disagree, WMS pick confirmations win.",
-        "quote": "if dashboard and report disagree, WMS pick confirmations win"
-      }
-    ],
+    "checks": [],
     "terms": [],
     "definitions": [
       {
-        "term": "short pick",
-        "definition": "A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; wrong-location scans do count.",
+        "term": "short-pick",
+        "definition": "A short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. Wrong-location scans do count.",
         "quotes": [
           "short pick: wrong-location scans YES count them"
         ],

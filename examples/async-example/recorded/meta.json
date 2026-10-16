@@ -1,6 +1,6 @@
 {
-  "recorded_at": "2026-10-16T14:00:20.074Z",
-  "commit": "ea52a21",
+  "recorded_at": "2026-10-16T14:17:58.326Z",
+  "commit": "57ab8b3",
   "model": "gpt-4.1",
-  "note": "Model answers to every call the async worked example makes, recorded once. Sources are synthetic. The recording commit ea52a21 was folded into 914c94e before merging (same code for every call recorded; 914c94e also asks conflicts on optional areas, which changes no recorded answer)."
+  "note": "Model answers to every call the async worked example makes, recorded once. Sources are synthetic."
 }

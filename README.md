@@ -10,31 +10,32 @@ It never fills a gap itself. Every answer is quoted in the stakeholder's own wor
 
 From [a recorded worked example](examples/async-example/walkthrough.md) (synthetic sources, replayed with no model calls):
 
-**1. Paste Sam's email.** Eight of nine required questions answered, and one business term flagged:
+**1. Paste Sam's email.** Seven of nine required questions answered, and one business term flagged:
 
 ```text
-Daily short-pick report: 8 of 9 required answered; still open: Definition: only partly answered;
-"short pick": no confirmed definition.
+Daily short-pick report: 7 of 9 required answered; still open: Systems and tools: not answered; Definition: only partly answered;
+  "short-pick": no confirmed definition.
 ```
 
-**2. Paste your notes from a call with the DC manager.** Sam said 7am; she said 6am. intake-kit doesn't pick one. It asks, in the round-2 packet:
+**2. Paste your notes from a call with the DC manager.** Sam said 7am; she said 6am. intake-kit doesn't pick one. It asks, in the round-2 packet, and asks Sam to confirm what's only in your notes:
 
 ```text
-1. We have two different answers here: "The report needs to be ready by 7am." and "The report needs to be ready by 6am.". Which is right?
-4. Our notes define "short pick" as "A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count;
-   wrong-location scans do count.". Is that right? Please say what counts and what doesn't, in your own words.
+2. We have two different answers here: "The report needs to be there by 7am." and "The report must be ready by 6am.". Which is right?
+4. Our notes say: "WMS pick confirmations are the source of truth if numbers disagree.". Is that right? Please say it in your own words.
+7. Our notes define "short-pick" as "A short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't
+  count. Wrong-location scans do count.". Is that right? Please say what counts and what doesn't, in your own words.
 ```
 
-**3. Sign off now, and it refuses to guess.** The report would be easy to build, but "short pick" is only defined in your notes:
+**3. Sign off now, and it refuses to guess.** The report would be easy to build, but "short-pick" is only defined in your notes:
 
 ```text
 Daily short-pick report: Gather more
-  - "short pick" has no confirmed definition
+  - "short-pick" has no confirmed definition
 ```
 
 `DEFINITIONS.md` says the same thing to whoever builds it: _"The owner hasn't defined it yet. Don't interpret it: ask."_
 
-**4. Paste Sam's round-2 reply.** 6am is settled, "short pick" is defined in his words, and the report reaches **Go**. The Monday spreadsheet it replaces is **Don't build**, a decision you confirm on its own at sign-off.
+**4. Paste Sam's round-2 reply.** 6am is settled, "short-pick" is defined in his words, and the report reaches **Go**. The Monday spreadsheet it replaces is **Don't build**, a decision you confirm on its own at sign-off.
 
 The spec pack: `SPEC.md`, `ACCEPTANCE.md`, `GUARDRAILS.md`, `DECISIONS.md`, `DEFINITIONS.md` (every business term, defined by the owner), `SOW_DRAFT.md` (scope, assumptions and acceptance; pricing and legal terms left blank), plus `CLAUDE.md` and `FIRST_PROMPT.md` to start the build. See [the full output](examples/async-example/output/final/).
 

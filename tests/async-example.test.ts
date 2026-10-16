@@ -30,11 +30,12 @@ describe("async worked example replay", () => {
     assert.match(text, /7am[^\n]*6am[^\n]*Which is right\?/);
     const early = r.results.find((x) => x.step.id === "early-05-signoff")!.body.gates[0];
     assert.equal(early.decision, "gather_more");
-    assert.deepEqual(early.reasons, ['"short pick" has no confirmed definition']);
+    assert.equal(early.reasons.length, 1);
+    assert.match(early.reasons[0], /^"short[- ]pick" has no confirmed definition$/);
     const final = r.results.find((x) => x.step.id === "06-signoff")!.body.gates;
     assert.deepEqual(final.map((g: { decision: string }) => g.decision), ["go", "dont_build"]);
-    assert.match(r.final["DEFINITIONS.md"], /### short pick \(metric\): confirmed/);
-    assert.match(r.early["DEFINITIONS.md"], /### short pick \(metric\): unconfirmed\n\n_The owner hasn't defined it yet\. Don't interpret it: ask\._/);
+    assert.match(r.final["DEFINITIONS.md"], /### short[- ]pick \(metric\): confirmed/);
+    assert.match(r.early["DEFINITIONS.md"], /### short[- ]pick \(metric\): unconfirmed\n\n_The owner hasn't defined it yet\. Don't interpret it: ask\._/);
   });
 
   test("the example's sources and recorded answers are synthetic and in the repo", () => {

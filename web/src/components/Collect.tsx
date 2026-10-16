@@ -30,7 +30,7 @@ const MODIFIERS: Array<{ m: Modifier; label: string }> = [
   { m: "compliance", label: "Answers to a compliance rule" },
   { m: "migration", label: "Replaces an existing system" },
 ];
-const KIND_LABEL: Record<string, string> = { request: "Request", reply: "Their reply", notes: "My notes", transcript: "Call transcript" };
+const KIND_LABEL: Record<string, string> = { request: "Request", reply: "Their written reply", notes: "My notes or write-up", transcript: "Word-for-word transcript" };
 
 function download(name: string, text: string) {
   const url = URL.createObjectURL(new Blob([text], { type: "text/markdown" }));
@@ -162,6 +162,7 @@ export function CollectView(props: {
         <label className="field from">{kind === "notes" ? "Whose answers are these notes of?" : kind === "transcript" ? "Who was answering on the call?" : "Who wrote it?"}
           <input value={from} onChange={(e) => setFrom(e.target.value)} disabled={props.disabled} placeholder={request ? `For example, ${request.from}` : "Name and role"} />
         </label>
+        {kind === "transcript" ? <p className="hint">Only for a word-for-word record of what was said. If you wrote it up yourself, even from a call, choose "My notes or write-up".</p> : null}
         {kind === "notes" ? <p className="hint">Your notes are your paraphrase. Anything that's only in your notes stays "needs confirming" until the person confirms it in their own words.</p> : null}
         {!kind ? <p className="hint">Choose what it is first: their own reply, your notes from a conversation, or a call transcript.</p> : null}
         <textarea className="paste" rows={8} value={text} onChange={(e) => setText(e.target.value.slice(0, props.maxSourceChars))} disabled={props.disabled}

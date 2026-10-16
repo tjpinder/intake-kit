@@ -22,6 +22,11 @@ export interface Gap {
   /** A coverage ID, a check name, or a term ID. */
   target: string;
   question: string;
+  /** Conflicts: the two answers, so the same disagreement filed under two areas is asked once. */
+  pair?: [string, string];
+  /** Partials: the words quoted back and the area's question, so one sentence is quoted back once. */
+  quoted?: string;
+  ask?: string;
 }
 
 export interface Readiness {
@@ -61,7 +66,7 @@ export function findGaps(session: Session, fw: Framework): GapReport {
       const st = stateOf(engine, areaKey(item, area));
       const def = fw.areas.get(area)!;
       if (st.conflict) {
-        gaps.push({ kind: "conflict", item: item.id, target: area, question: `We have two different answers here: "${e?.value ?? ""}" and "${st.conflict.value ?? st.conflict.quote}". Which is right? (${def.packet.ask})` });
+        gaps.push({ kind: "conflict", item: item.id, target: area, pair: [e?.value ?? "", st.conflict.value ?? st.conflict.quote], question: `We have two different answers here: "${e?.value ?? ""}" and "${st.conflict.value ?? st.conflict.quote}". Which is right? (${def.packet.ask})` });
         open.push(`${areaLabel(area)}: two answers disagree`);
         continue;
       }
@@ -71,7 +76,7 @@ export function findGaps(session: Session, fw: Framework): GapReport {
         continue;
       }
       if (e.status === "assumed" && st.partial) {
-        gaps.push({ kind: "partial", item: item.id, target: area, question: `You mentioned "${st.partial.quote ?? st.partial.value}". Could you say more? ${def.packet.ask}` });
+        gaps.push({ kind: "partial", item: item.id, target: area, quoted: st.partial.quote ?? st.partial.value ?? "", ask: def.packet.ask, question: `You mentioned "${st.partial.quote ?? st.partial.value}". Could you say more? ${def.packet.ask}` });
         open.push(`${areaLabel(area)}: only partly answered`);
         continue;
       }
@@ -98,7 +103,7 @@ export function findGaps(session: Session, fw: Framework): GapReport {
       // 6am vs 7am conflict landed on delivery, an optional area, and was never asked).
       const st = stateOf(engine, areaKey(item, area));
       if (st.conflict) {
-        gaps.push({ kind: "conflict", item: item.id, target: area, question: `We have two different answers here: "${e?.value ?? ""}" and "${st.conflict.value ?? st.conflict.quote}". Which is right? (${fw.areas.get(area)!.packet.ask})` });
+        gaps.push({ kind: "conflict", item: item.id, target: area, pair: [e?.value ?? "", st.conflict.value ?? st.conflict.quote], question: `We have two different answers here: "${e?.value ?? ""}" and "${st.conflict.value ?? st.conflict.quote}". Which is right? (${fw.areas.get(area)!.packet.ask})` });
         open.push(`${areaLabel(area)}: two answers disagree`);
         continue;
       }
@@ -143,8 +148,39 @@ export function findGaps(session: Session, fw: Framework): GapReport {
   // ("How exactly do you calculate 'variance'?") replaces the generic "how is one counted?" area
   // question for that item (live test: both were asked).
   const openMetric = new Set((session.terms ?? []).filter((t) => t.kind === "metric" && (t.status === "unconfirmed" || t.conflict)).flatMap((t) => t.items));
-  const merged = gaps.filter((g) => !(g.kind !== "term" && DEFINITION_AREAS.includes(g.target) && g.item && openMetric.has(g.item)));
-  return { gaps: merged, readiness };
+  const kept = gaps.filter((g) => !(g.kind !== "term" && DEFINITION_AREAS.includes(g.target) && g.item && openMetric.has(g.item)));
+  return { gaps: dedupe(kept), readiness };
+}
+
+/**
+ * Each thing is asked once (cycle-count test: 11 questions, with repeats): the same question for two
+ * items (a shared core area), the same disagreement filed under two areas, and the same sentence
+ * quoted back as partial for two areas, which becomes one question with both asks.
+ */
+function dedupe(gaps: Gap[]): Gap[] {
+  const out: Gap[] = [];
+  const seenQuestion = new Set<string>();
+  const seenPair = new Set<string>();
+  const byQuote = new Map<string, Gap>();
+  for (const g of gaps) {
+    if (seenQuestion.has(g.question)) continue;
+    seenQuestion.add(g.question);
+    if (g.pair) {
+      const key = g.pair.map((x) => x.trim().toLowerCase()).join("\u0000");
+      if (seenPair.has(key)) continue;
+      seenPair.add(key);
+    }
+    if (g.kind === "partial" && g.quoted) {
+      const first = byQuote.get(g.quoted);
+      if (first) {
+        first.question = `${first.question} Also: ${g.ask}`;
+        continue;
+      }
+      byQuote.set(g.quoted, g);
+    }
+    out.push(g);
+  }
+  return out;
 }
 
 /** One readiness line per item: "Daily pick report: 9 of 11 required answered; open: ...". */

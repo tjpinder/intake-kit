@@ -114,3 +114,28 @@ describe("a disagreement on an optional area is asked too (worked example: 6am v
     assert.match(g.question, /"Ready by 7am" and "Ready by 6am"\. Which is right\?/);
   });
 });
+
+describe("each thing is asked once (cycle-count test: 11 questions with repeats)", () => {
+  test("one sentence offered for two areas is quoted back once: the second area is asked plainly", async () => {
+    const said = "We recount because the auditors sample our biggest variances.";
+    const s = await ingest(triaged(), said, { answers: [
+      ans("core.constraints", "because the auditors sample our biggest variances", { status: "partial", value: "Auditors sample variances" }),
+      ans("core.trust", "because the auditors sample our biggest variances", { status: "partial", value: "Auditors sample variances" }),
+    ] });
+    const gaps = findGaps(s, fw).gaps;
+    assert.equal(gaps.filter((g) => g.question.includes("auditors sample")).length, 1);
+    assert.equal(gaps.find((g) => g.target === "core.trust")?.kind, "unknown");
+  });
+
+  test("the same disagreement filed under two areas is asked once", async () => {
+    let s = await ingest(triaged(), "Counts come from the WMS and costs from the ERP.", { answers: [
+      ans("core.data", "Counts come from the WMS and costs from the ERP.", { value: "WMS counts, ERP costs" }),
+      ans("data_report.truth", "Counts come from the WMS and costs from the ERP.", { value: "WMS counts, ERP costs" }),
+    ] });
+    s = await ingest(s, "Cost should be standard cost from the ERP.", { answers: [
+      ans("core.data", "Cost should be standard cost from the ERP.", { value: "Standard cost from the ERP", conflict: true }),
+      ans("data_report.truth", "Cost should be standard cost from the ERP.", { value: "Standard cost from the ERP", conflict: true }),
+    ] });
+    assert.equal(findGaps(s, fw).gaps.filter((g) => g.kind === "conflict").length, 1);
+  });
+});

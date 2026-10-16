@@ -5,7 +5,7 @@
 // disagreement is kept as a conflict for the follow-up packet to settle.
 
 import type { Framework, ItemType, Modifier } from "../lib/framework.ts";
-import type { TranscriptEntry } from "../lib/grounding.ts";
+import { normalize, type TranscriptEntry } from "../lib/grounding.ts";
 import { validateIngest } from "../lib/schemas.ts";
 import type { CoverageEntry, Session, Source, Term } from "../lib/session.ts";
 import { ingestRequest } from "../llm/v2.ts";
@@ -104,7 +104,10 @@ export function applyIngest(session: Session, source: Source, r: IngestResult, f
   const asked = session.session.asked ?? (session.session.asked = {});
 
   const fromNotes = source.kind === "notes";
-  for (const a of r.answers) {
+  const claimed: Array<{ area: string; quote: string }> = [];
+  const overlaps = (a: string, b: string) => { const x = normalize(a), y = normalize(b); return x.includes(y) || y.includes(x); };
+  for (const a0 of r.answers) {
+    let a = a0;
     // The item named, or, if the model named something else (the type, say), the one live item the
     // area belongs to: each area belongs to one item's type (smoke test: "data_report" for "item-1").
     const live = session.items.filter((i) => !i.dropped);
@@ -125,6 +128,11 @@ export function applyIngest(session: Session, source: Source, r: IngestResult, f
       continue;
     }
     if (!quotes.length) { events.push(`${key}: no quote from the source, not recorded`); continue; }
+    if ((a.status === "answered" || a.status === "partial") && quotes.every((q) => claimed.some((c) => c.area !== a.area && overlaps(c.quote, q)))) {
+      events.push(`${key}: its words are already filed under another area; not recorded here (it'll be asked plainly)`);
+      continue;
+    }
+    for (const q of quotes) claimed.push({ area: a.area, quote: q });
     asked[key] ??= now;
     // A follow-up answer on an area with two disagreeing answers settles it.
     const open = stateOf(engine, key).conflict;
@@ -201,7 +209,9 @@ export function applyIngest(session: Session, source: Source, r: IngestResult, f
   return events;
 }
 
-const termKey = (t: string) => t.trim().toLowerCase().replace(/[\s_-]+/g, " ");
+const termKey = (t: string) => t.trim().toLowerCase().replace(/[\s_-]+/g, " ").replace(/(?<=\w\w)s\b/g, "");
+/** "cycle count variances" and "variance" are one term; the shorter name is kept. */
+const sameTerm = (a: string, b: string) => { const x = termKey(a), y = termKey(b); return x === y || x.endsWith(` ${y}`) || y.endsWith(` ${x}`); };
 
 /**
  * Definitions (HANDOFF.md): new terms start unconfirmed; a definition in the source, in its words,
@@ -212,7 +222,7 @@ export function applyTerms(session: Session, source: Source, r: Pick<IngestResul
   const events: string[] = [];
   const terms = session.terms ?? (session.terms = []);
   const primary = session.items.find((i) => !i.spawned_from && !i.dropped);
-  const find = (t: string) => terms.find((x) => termKey(x.term) === termKey(t));
+  const find = (t: string) => terms.find((x) => sameTerm(x.term, t));
   const add = (term: string, quote: string, kind: "metric" | "rule" | "label"): Term => {
     const t: Term = { id: `term-${terms.length + 1}`, term: term.trim(), items: primary ? [primary.id] : [], found_in: { quote, source: source.id }, status: "unconfirmed", kind, definition: null, quotes: [], given_by: null, source: null, measurable: "unknown", examples: [], starter: null };
     terms.push(t);

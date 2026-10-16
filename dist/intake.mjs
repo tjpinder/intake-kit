@@ -16446,6 +16446,7 @@ function ingestRequest(fw, session, x) {
       "You read one document gathered during an intake and record what it says about each area. You only classify; you never decide what to ask next, create items, score or judge.",
       [
         "answers: one entry for each area the document actually says something about. Leave out areas it doesn't mention.",
+        `An area is answered only by words about that area's own question. A reason or a side remark that touches a related idea doesn't answer another area: "we recount because the auditors sample our biggest variances" is about the decision, not about who catches a wrong number (trust). Don't file one clause under two areas.`,
         `status: "answered" when it answers what the area needs; "partial" when it answers only some of it, or vaguely ("usually", "I think", no example); "not_applicable" when it says the area doesn't apply; "declined" when it says they don't know or won't say.`,
         "value: what the document says, as one short plain sentence. Never add a detail it doesn't say (a day, a number, a name). Null if nothing usable.",
         "quotes: one or more exact spans copied character for character from the document that carry the answer. Never paraphrase, never join two places into one quote.",
@@ -16453,8 +16454,9 @@ function ingestRequest(fw, session, x) {
         "The same fact is often recorded under more than one area (a deadline under both rules and delivery). When the document contradicts a recorded fact, return an answer with conflict true for every area where that fact is recorded, not just one.",
         'item: the exact item ID the area is listed under, like "item-1" (never the type). A shared core area belongs to the first item listed.',
         "checks: one entry for each check listed under an item, with the document's words in quote (null if none).",
-        "terms: business terms the document uses whose meaning is local to this business or could be read more than one way, so two people could count or judge them differently (over pick, fill rate, on-time, exception, active user), each with the words where it appears. Not the name of something being built or already in use (a script, a template, a report, a tool, a program), not job titles or system names, not generic words, and not terms already listed below.",
-        `definitions: for any term (listed below or new), a definition the document gives: what counts and what doesn't, in its words, with quotes; whether it says the thing can be seen in the system's data; any worked example with the right result. certain: false if the document hedges any part of it ("I think", "not sure", "check with"). If the document settles or adds to part of a term already listed ("wrong-location scans do count"), return a definition for that same term, using its listed name, with the full updated definition and conflict false; never make a separate term out of part of one. conflict: true only if it contradicts a definition already recorded.`
+        `terms: business terms the document uses whose meaning is local to this business or could be read more than one way, so two people could count or judge them differently (over pick, fill rate, on-time, exception, active user), each with the words where it appears. Not the name of something being built or already in use (a script, a template, a report, a tool, a program), not job titles or system names, not generic words, not a phrase that only appears inside another term's definition ("absolute value per SKU" in a definition of variance), and not terms already listed below or longer forms of them ("cycle count variance" when "variance" is listed).`,
+        `definitions: for any term (listed below or new), a definition the document gives: what counts and what doesn't, in its words, with quotes; whether it says the thing can be seen in the system's data; any worked example with the right result. certain: false if the document hedges any part of it ("I think", "not sure", "check with"). If the document settles or adds to part of a term already listed ("wrong-location scans do count"), return a definition for that same term, using its listed name, with the full updated definition and conflict false; never make a separate term out of part of one. conflict: true only if it contradicts a definition already recorded.`,
+        "A definition that calculates it differently (net vs absolute value, a different cost, different units, a different threshold) contradicts the earlier one, even if the earlier one was hedged: conflict true."
       ].join("\n"),
       "Only use what the document says. Don't infer or fill gaps."
     ].join("\n\n"),
@@ -17062,7 +17064,13 @@ function applyIngest(session, source, r, fw, now2) {
   const engine = session.session.engine;
   const asked = session.session.asked ?? (session.session.asked = {});
   const fromNotes = source.kind === "notes";
-  for (const a of r.answers) {
+  const claimed = [];
+  const overlaps = (a, b) => {
+    const x = normalize(a), y = normalize(b);
+    return x.includes(y) || y.includes(x);
+  };
+  for (const a0 of r.answers) {
+    let a = a0;
     const live = session.items.filter((i) => !i.dropped);
     const fits = live.filter((i) => areaFits(i, a.area, fw));
     const item = live.find((i) => i.id === a.item) ?? (a.area.startsWith("core.") ? live.find((i) => !i.spawned_from) : fits.length === 1 ? fits[0] : void 0);
@@ -17089,6 +17097,11 @@ function applyIngest(session, source, r, fw, now2) {
       events.push(`${key}: no quote from the source, not recorded`);
       continue;
     }
+    if ((a.status === "answered" || a.status === "partial") && quotes.every((q) => claimed.some((c) => c.area !== a.area && overlaps(c.quote, q)))) {
+      events.push(`${key}: its words are already filed under another area; not recorded here (it'll be asked plainly)`);
+      continue;
+    }
+    for (const q of quotes) claimed.push({ area: a.area, quote: q });
     asked[key] ??= now2;
     const open = stateOf(engine, key).conflict;
     if (open && a.status === "answered") {
@@ -17155,12 +17168,16 @@ function applyIngest(session, source, r, fw, now2) {
   events.push(...applyTerms(session, source, r, transcript));
   return events;
 }
-var termKey = (t) => t.trim().toLowerCase().replace(/[\s_-]+/g, " ");
+var termKey = (t) => t.trim().toLowerCase().replace(/[\s_-]+/g, " ").replace(/(?<=\w\w)s\b/g, "");
+var sameTerm = (a, b) => {
+  const x = termKey(a), y = termKey(b);
+  return x === y || x.endsWith(` ${y}`) || y.endsWith(` ${x}`);
+};
 function applyTerms(session, source, r, transcript) {
   const events = [];
   const terms = session.terms ?? (session.terms = []);
   const primary = session.items.find((i) => !i.spawned_from && !i.dropped);
-  const find = (t) => terms.find((x) => termKey(x.term) === termKey(t));
+  const find = (t) => terms.find((x) => sameTerm(x.term, t));
   const add = (term, quote, kind) => {
     const t = { id: `term-${terms.length + 1}`, term: term.trim(), items: primary ? [primary.id] : [], found_in: { quote, source: source.id }, status: "unconfirmed", kind, definition: null, quotes: [], given_by: null, source: null, measurable: "unknown", examples: [], starter: null };
     terms.push(t);
@@ -17286,7 +17303,7 @@ function findGaps(session, fw) {
       const st = stateOf(engine, areaKey(item, area));
       const def = fw.areas.get(area);
       if (st.conflict) {
-        gaps.push({ kind: "conflict", item: item.id, target: area, question: `We have two different answers here: "${e?.value ?? ""}" and "${st.conflict.value ?? st.conflict.quote}". Which is right? (${def.packet.ask})` });
+        gaps.push({ kind: "conflict", item: item.id, target: area, pair: [e?.value ?? "", st.conflict.value ?? st.conflict.quote], question: `We have two different answers here: "${e?.value ?? ""}" and "${st.conflict.value ?? st.conflict.quote}". Which is right? (${def.packet.ask})` });
         open.push(`${areaLabel(area)}: two answers disagree`);
         continue;
       }
@@ -17296,7 +17313,7 @@ function findGaps(session, fw) {
         continue;
       }
       if (e.status === "assumed" && st.partial) {
-        gaps.push({ kind: "partial", item: item.id, target: area, question: `You mentioned "${st.partial.quote ?? st.partial.value}". Could you say more? ${def.packet.ask}` });
+        gaps.push({ kind: "partial", item: item.id, target: area, quoted: st.partial.quote ?? st.partial.value ?? "", ask: def.packet.ask, question: `You mentioned "${st.partial.quote ?? st.partial.value}". Could you say more? ${def.packet.ask}` });
         open.push(`${areaLabel(area)}: only partly answered`);
         continue;
       }
@@ -17319,7 +17336,7 @@ function findGaps(session, fw) {
       const e = entryOf(session, item, area);
       const st = stateOf(engine, areaKey(item, area));
       if (st.conflict) {
-        gaps.push({ kind: "conflict", item: item.id, target: area, question: `We have two different answers here: "${e?.value ?? ""}" and "${st.conflict.value ?? st.conflict.quote}". Which is right? (${fw.areas.get(area).packet.ask})` });
+        gaps.push({ kind: "conflict", item: item.id, target: area, pair: [e?.value ?? "", st.conflict.value ?? st.conflict.quote], question: `We have two different answers here: "${e?.value ?? ""}" and "${st.conflict.value ?? st.conflict.quote}". Which is right? (${fw.areas.get(area).packet.ask})` });
         open.push(`${areaLabel(area)}: two answers disagree`);
         continue;
       }
@@ -17365,8 +17382,33 @@ function findGaps(session, fw) {
     for (const r of readiness.filter((x) => t.items.includes(x.item))) r.open.push(`"${t.term}": ${t.conflict ? "two definitions disagree" : draftFromNotes ? "defined in notes only, needs the owner to confirm" : "no confirmed definition"}`);
   }
   const openMetric = new Set((session.terms ?? []).filter((t) => t.kind === "metric" && (t.status === "unconfirmed" || t.conflict)).flatMap((t) => t.items));
-  const merged = gaps.filter((g) => !(g.kind !== "term" && DEFINITION_AREAS.includes(g.target) && g.item && openMetric.has(g.item)));
-  return { gaps: merged, readiness };
+  const kept = gaps.filter((g) => !(g.kind !== "term" && DEFINITION_AREAS.includes(g.target) && g.item && openMetric.has(g.item)));
+  return { gaps: dedupe(kept), readiness };
+}
+function dedupe(gaps) {
+  const out2 = [];
+  const seenQuestion = /* @__PURE__ */ new Set();
+  const seenPair = /* @__PURE__ */ new Set();
+  const byQuote = /* @__PURE__ */ new Map();
+  for (const g of gaps) {
+    if (seenQuestion.has(g.question)) continue;
+    seenQuestion.add(g.question);
+    if (g.pair) {
+      const key = g.pair.map((x) => x.trim().toLowerCase()).join("\0");
+      if (seenPair.has(key)) continue;
+      seenPair.add(key);
+    }
+    if (g.kind === "partial" && g.quoted) {
+      const first = byQuote.get(g.quoted);
+      if (first) {
+        first.question = `${first.question} Also: ${g.ask}`;
+        continue;
+      }
+      byQuote.set(g.quoted, g);
+    }
+    out2.push(g);
+  }
+  return out2;
 }
 function readinessLines(r) {
   return r.readiness.map((x) => `${x.title}: ${x.answered} of ${x.required} required answered${x.open.length ? `; still open: ${x.open.join("; ")}` : "; ready for the summary"}.`);

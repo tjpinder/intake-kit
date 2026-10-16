@@ -342,3 +342,21 @@ describe("definition disagreements (live test: 'times the cost' vs 'absolute val
     assert.equal(settled.session.terms![0].conflict ?? null, null);
   });
 });
+
+describe("one span, one area; one term per name (cycle-count test)", () => {
+  test("a sentence already filed under one area isn't recorded under a second: that area is asked plainly", async () => {
+    const said = "We recount because the auditors sample our biggest variances.";
+    const out = await runIngest({ provider: scripted([ingestOut([
+      answer("data_report.decision", ["We recount because the auditors sample our biggest variances."]),
+      answer("core.trust", ["because the auditors sample our biggest variances"]),
+    ])]), fw, session: triaged(), source: { kind: "reply", from: "Dana", text: said }, now: LATER });
+    assert.equal(out.session.items[0].coverage["data_report.decision"].status, "covered");
+    assert.equal(out.session.core.trust.status, "unknown");
+    assert.ok(out.events.some((e) => e.includes("core.trust: its words are already filed under another area")));
+  });
+
+  test("'cycle count variances' and 'variance' are one term", async () => {
+    const out = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "variance", quote: "variance", kind: "metric" }, { term: "cycle count variances", quote: "cycle count variances", kind: "metric" }])]), fw, session: triaged(), source: { kind: "reply", from: "Dana", text: "We track cycle count variances; a variance is units off." }, now: LATER });
+    assert.deepEqual(out.session.terms!.map((t) => t.term), ["variance"]);
+  });
+});

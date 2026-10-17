@@ -232,13 +232,14 @@ export function readinessLines(r: GapReport): string[] {
 
 /**
  * The line before a follow-on item's questions. A short name reads in a sentence ("Morning Excel
- * export" -> "About the morning Excel export you mentioned:"; an acronym keeps its case); a longer
+ * export" -> "About the morning Excel export you mentioned:"; an acronym or a day keeps its case); a longer
  * title, from a run before items had names, is shown as it is.
  */
 const leadIn = (title: string) => {
   const name = title.replace(/…$/, "");
   if (name.split(/\s+/).length > 5 || name !== title) return `About this next part (${title}):`;
-  return `About the ${/^[A-Z][a-z]/.test(name) ? name[0].toLowerCase() + name.slice(1) : name} you mentioned:`;
+  const proper = /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|February|March|April|May|June|July|August|September|October|November|December)\b/.test(name);
+  return `About the ${/^[A-Z][a-z]/.test(name) && !proper ? name[0].toLowerCase() + name.slice(1) : name} you mentioned:`;
 };
 
 /**

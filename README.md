@@ -10,21 +10,22 @@ It never fills a gap itself. Every answer is quoted in the stakeholder's own wor
 
 From [a recorded worked example](examples/async-example/walkthrough.md) (synthetic sources, replayed with no model calls):
 
-**1. Paste Sam's email.** Seven of nine required questions answered, and one business term flagged:
+**1. Paste Sam's email.** All nine required questions answered, the Monday spreadsheet he builds by hand split out as its own item (the "Monday Excel export"), and one business term flagged:
 
 ```text
-Daily short-pick report: 7 of 9 required answered; still open: Systems and tools: not answered; Definition: only partly answered;
-  "short-pick": no confirmed definition.
+Daily short-pick report: 9 of 9 required answered; still open: "short-pick": no confirmed definition.
 ```
 
 **2. Paste your notes from a call with the DC manager.** Sam said 7am; she said 6am. intake-kit doesn't pick one. It asks, in the round-2 packet, and asks Sam to confirm what's only in your notes:
 
 ```text
-2. We have two different answers here: "The report needs to be there by 7am." and "The report must be ready by 6am.". Which is right?
-4. Our notes say: "WMS pick confirmations are the source of truth if numbers disagree.". Is that right? Please say it in your own words.
-7. Our notes define "short-pick" as "A short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't
-  count. Wrong-location scans do count.". Is that right? Please say what counts and what doesn't, in your own words.
+1. We have two different answers here. Sam (ops supervisor) wrote: "it needs to be there by 7am when I get in." Our notes from
+  talking to Tom say: "wants report by 6am, not 7". Which is right?
+4. On what short-pick means: Our notes from talking to Tom say: "short pick: wrong-location scans YES count them". Is that right?
+  Please say what counts and what doesn't, in your own words.
 ```
+
+Quote marks hold only what someone wrote or said, copied exactly from the source; anything paraphrased is labelled a summary.
 
 **3. Sign off now, and it refuses to guess.** The report would be easy to build, but "short-pick" is only defined in your notes:
 

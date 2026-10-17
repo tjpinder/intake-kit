@@ -1,4 +1,4 @@
-# Process map: Sam builds the report in Excel by hand from a WMS export
+# Process map: Monday Excel export
 
 From the intake (session 2026-10-14-de70). Steps as the user described the last time they did it.
 

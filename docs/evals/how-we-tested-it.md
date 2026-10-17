@@ -81,6 +81,8 @@ The same three synthetic sources ran through ingest on gpt-4.1, four rounds, abo
 
 Ingest stays on gpt-4.1: mini missed the anchor area for a report.
 
+**Cycle-count retest (Oct 17).** A web test with a different scenario (a request with a $500 threshold, the requester's reply, the controller's call notes) filled 3 of 9 areas. Production was already on gpt-4.1. The cause was a code rule added the day before, "one sentence, one area", which dropped decision, systems and delivery whenever a sentence answered two areas. It was removed, and the scenario became a smoke test (`evals/smoke-cycle-count.ts`). Three runs on `d06c8de`: 8 to 12 areas filled from the reply, the threshold disagreement asked under the rules, the variance disagreement asked as a definition, and no false conflicts. The same round made quote marks in a packet hold only a source's exact words (a test checks every quoted span).
+
 **The source rule.** The interviewer's notes are a paraphrase. An answer resting only on notes stays assumed, and a definition from notes stays a draft, until the stakeholder confirms it in their own words. The follow-up packet asks them to.
 
 ## 6. Regression runs before the merge
@@ -96,7 +98,7 @@ Reports: [async-report-p7.md](async-report-p7.md), [persona-report-heldout.md](p
 
 ## 7. The recorded worked example
 
-[`examples/async-example`](../../examples/async-example/) is one async intake, recorded once on gpt-4.1 (commit `d9144fe`) and replayed through the plugin's CLI with no model. It covers:
+[`examples/async-example`](../../examples/async-example/) is one async intake, recorded once on gpt-4.1 (commit `d06c8de`) and replayed through the plugin's CLI with no model. It covers:
 - the 6am vs 7am conflict and how it's settled
 - the kit refusing to guess "short pick" until the owner defines it
 - the final Go and Don't-build gates

@@ -18,8 +18,8 @@ The question packet is written to `.intake-kit/packet.md` (see `packet.md` here)
 
 Readiness:
 
-- Daily short-pick report: 7 of 9 required answered; still open: Systems and tools: not answered; Definition: only partly answered; "short-pick": no confirmed definition.
-- Sam builds the report in Excel by hand from a WMS export: 2 of 4 required answered; still open: Walkthrough: not answered; Volume: not answered.
+- Daily short-pick report: 9 of 9 required answered; still open: "short-pick": no confirmed definition.
+- Monday Excel export: 2 of 4 required answered; still open: Walkthrough: not answered; Volume: not answered.
 
 Follow-up packet (round 2):
 
@@ -28,15 +28,13 @@ Follow-up packet (round 2):
 
 Thanks for your answers. These are the only things still open. If you don't know, say so. That's a useful answer.
 
-1. Which screens, systems or files do you use for this, and is anything changing in them in the next six months?
+About the Monday Excel export you mentioned:
 
-About this next part (Sam builds the report in Excel by hand from a WMS export):
+1. Walk through the last time it was done, step by step: which screen, what was typed, what was checked.
 
-2. Walk through the last time it was done, step by step: which screen, what was typed, what was checked.
+2. How often is it done, how many each time, and how long does each take? Any busy peaks?
 
-3. How often is it done, how many each time, and how long does each take? Any busy peaks?
-
-4. On what short-pick means: Sam (ops supervisor) wrote: "a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know." That wasn't certain. What exactly counts, and what doesn't?
+3. On what short-pick means: Sam (ops supervisor) wrote: "a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know." That wasn't certain. What exactly counts, and what doesn't?
 ```
 
 ## 03-ingest-notes: ingest
@@ -45,8 +43,8 @@ About this next part (Sam builds the report in Excel by hand from a WMS export):
 
 Readiness:
 
-- Daily short-pick report: 6 of 9 required answered; still open: Systems and tools: not answered; Rules and constraints: two answers disagree; Definition: needs confirming; Grain: two answers disagree; "short-pick": defined in notes only, needs the owner to confirm.
-- Sam builds the report in Excel by hand from a WMS export: 2 of 4 required answered; still open: Walkthrough: not answered; Volume: not answered.
+- Daily short-pick report: 8 of 9 required answered; still open: Rules and constraints: two answers disagree; Delivery: two answers disagree; "short-pick": defined in notes only, needs the owner to confirm.
+- Monday Excel export: 2 of 4 required answered; still open: Walkthrough: not answered; Volume: not answered.
 
 Follow-up packet (round 2):
 
@@ -55,19 +53,15 @@ Follow-up packet (round 2):
 
 Thanks for your answers. These are the only things still open. If you don't know, say so. That's a useful answer.
 
-1. Which screens, systems or files do you use for this, and is anything changing in them in the next six months?
+1. We have two different answers here. Sam (ops supervisor) wrote: "it needs to be there by 7am when I get in." Our notes from talking to Tom say: "wants report by 6am, not 7". Which is right? (Are there rules it must follow: policies, deadlines, time windows, approvals, or anyone outside your team who requires it?)
 
-2. We have two different answers here. Sam (ops supervisor) wrote: "it needs to be there by 7am when I get in." Our notes from talking to Tom say: "wants report by 6am, not 7 - night shift leads leave at 6:30". Which is right? (Are there rules it must follow: policies, deadlines, time windows, approvals, or anyone outside your team who requires it?)
+About the Monday Excel export you mentioned:
 
-3. We have two different answers here. The request from Sam (ops supervisor) says: "A daily short-pick report per picker". Our notes from talking to Tom say: "per picker per shift per day". Which is right? (At what level of detail, and over what time window? Per order, line, person, shift or zone; daily, weekly?)
+2. Walk through the last time it was done, step by step: which screen, what was typed, what was checked.
 
-About this next part (Sam builds the report in Excel by hand from a WMS export):
+3. How often is it done, how many each time, and how long does each take? Any busy peaks?
 
-4. Walk through the last time it was done, step by step: which screen, what was typed, what was checked.
-
-5. How often is it done, how many each time, and how long does each take? Any busy peaks?
-
-6. On what short-pick means: Our notes from talking to Tom say: "short pick: wrong-location scans YES count them". Is that right? Please say what counts and what doesn't, in your own words.
+4. On what short-pick means: Our notes from talking to Tom say: "short pick: wrong-location scans YES count them". Is that right? Please say what counts and what doesn't, in your own words.
 ```
 
 ## early-04-summary: summary
@@ -77,25 +71,25 @@ About this next part (Sam builds the report in Excel by hand from a WMS export):
 ```text
 ## Daily short-pick report (Data / report)
 
-- The problem: Shift leads need a daily report showing short picks per picker to target retraining, since right now they mostly guess.
-- Today: Sam builds the report by hand in Excel from a WMS export every Monday, which takes about four hours; the WMS dashboard only shows building totals.
-- Smallest useful version: Automate a daily report per picker showing short picks, using WMS pick confirmations, ready by 6am for shift leads.
+- The problem: Shift leads need a daily report showing short picks per picker so they can target retraining.
+- Today: Sam spends four hours every Monday building the report in Excel from a WMS export; the WMS dashboard only shows building totals.
+- Smallest useful version: Automate a daily report per picker, ready by 6am, using WMS pick confirmations and including wrong-location scans.
 - Out of scope: No customer or pricing data; cancelled lines and over picks are not included.
-- How risk is reduced: If the new report disagrees with WMS pick confirmations for two weeks, Sam will switch back to the spreadsheet.
+- How risk is reduced: If the report disagrees with WMS for two weeks, Sam will switch it off and revert to his spreadsheet.
 
 What you told me:
 - Who's involved: Shift leads use the report to target retraining.
-- What success looks like: Short picks per picker should be down by a third within two months.
-- The data: All data comes from WMS pick confirmations, using the reporting copy; no customer or pricing data, just badge numbers and locations.
-- Systems and tools:  (not known yet)
-- Rules and constraints: The report needs to be there by 7am.
-- When it goes wrong: If the numbers in the new report disagreed with the WMS two weeks in a row Sam would switch it off and go back to the spreadsheet.
+- What success looks like: Sam wants short picks per picker down by a third within two months.
+- The data: Everything comes from WMS pick confirmations; no customer or pricing data, just badge numbers and locations.
+- Systems and tools: Data is exported from WMS and processed in Excel by hand.
+- Rules and constraints: The report needs to be there by 7am when Sam gets in.
+- When it goes wrong: If the new report disagreed with WMS two weeks in a row, Sam would switch it off and go back to his spreadsheet.
 - Decision: Shift leads will target retraining based on the report.
-- Definition: A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; wrong-location scans do count. (my reading; please check)
+- Definition: A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; Sam thinks wrong-location scans should count but is not sure.
 - Grain: The report is per picker and daily.
-- Truth: WMS is the system of record; if the report disagrees with WMS two weeks in a row Sam would stop using it.
-- Delivery: The report needs to be ready by 7am.
-- Existing: Sam currently builds the report in Excel by hand from a WMS export; the WMS dashboard only shows building totals, nothing per picker.
+- Truth: WMS is the source of truth; if the report disagrees with WMS two weeks in a row, Sam would stop using it.
+- Delivery: The report must be ready by 7am.
+- Existing: The WMS dashboard only shows building totals, nothing per picker.
 
 How I'd rate it:
 - Rule clarity: Rules can be written down
@@ -108,24 +102,24 @@ How I'd rate it:
 - Access: Programmatic: API, database, or files and scripts
 - Value: High
 - Uses AI: No
-- Something that already does this: None
+- Something that already does this: Partial
 - Someone acts on the result: Yes
 - How success is measured: Measurable with baseline
 
 It works when:
-- Given The WMS reporting copy is available and contains pick confirmations., when The report is generated by 6am and matches WMS numbers for short picks per picker., then Shift leads use the report to select pickers for retraining..
-- If it goes wrong: Given The report numbers for short picks per picker do not match WMS pick confirmations for two consecutive weeks., when Sam reviews the numbers and finds discrepancies., then Sam switches off the new report and returns to the manual spreadsheet process..
+- Given WMS pick confirmation data is available and processed for each picker per shift per day, when the report is delivered by 6am and matches WMS counts including wrong-location scans, then shift leads can use it to target retraining.
+- If it goes wrong: Given the report disagrees with WMS pick confirmations for two consecutive weeks, when Sam reviews the numbers, then Sam switches off the new report and goes back to his spreadsheet.
 
 Guardrails:
-- Kill criterion: If the numbers in the new report disagreed with the WMS two weeks in a row Sam would switch it off and go back to the spreadsheet.
+- Kill criterion: If the numbers in the new report disagreed with the WMS two weeks in a row I'd switch it off and go back to my spreadsheet.
+- Fallback: Go back to the manual Excel process if the automated report fails or disagrees with WMS.
 
 Still open:
-- Should wrong-location scans always count as short picks, or are there exceptions?
-- Should the report be ready by 6am or 7am, and who needs it first?
-- Apps touched, access method, changes expected in 6 months?
+- Should wrong-location scans always count as short picks, and are there any exceptions?
+- Is 6am the final deadline for report delivery, or is there flexibility?
 
 Set aside:
-- Sam builds the report in Excel by hand from a WMS export: replaced by Daily short-pick report
+- Monday Excel export: replaced by Daily short-pick report
 ```
 
 No Don't-build reasons to confirm.
@@ -136,7 +130,7 @@ No Don't-build reasons to confirm.
 
 - **Daily short-pick report** (`item-1`): **gather_more**
   - "short-pick" has no confirmed definition
-- **Sam builds the report in Excel by hand from a WMS export** (`item-2`): **gather_more**
+- **Monday Excel export** (`item-2`): **gather_more**
   - Critical area manual_process.walkthrough isn't covered
   - Nobody has said what decision or outcome depends on it (core.outcome)
   - Too few known criteria to score automation potential
@@ -156,18 +150,10 @@ Files: `DECISIONS.md`, `DISCOVERY_BRIEF.md`, `PROCESS_MAP.md`, `DEFINITIONS.md`,
 
 Readiness:
 
-- Daily short-pick report: 8 of 9 required answered; still open: Systems and tools: not answered.
-- Sam builds the report in Excel by hand from a WMS export: 4 of 4 required answered; ready for the summary.
+- Daily short-pick report: 9 of 9 required answered; ready for the summary.
+- Monday Excel export: 4 of 4 required answered; ready for the summary.
 
-Follow-up packet (round 2):
-
-```text
-# A few follow-up questions about: Daily short-pick report
-
-Thanks for your answers. These are the only things still open. If you don't know, say so. That's a useful answer.
-
-1. Which screens, systems or files do you use for this, and is anything changing in them in the next six months?
-```
+Nothing is open. Run summary when you're ready to check it.
 
 ## 05-summary: summary
 
@@ -176,25 +162,25 @@ Thanks for your answers. These are the only things still open. If you don't know
 ```text
 ## Daily short-pick report (Data / report)
 
-- The problem: Shift leads need a daily report showing short picks per picker to target retraining and reduce errors.
-- Today: Sam manually builds a weekly Excel report from WMS exports, taking about four hours; the WMS dashboard only shows building totals.
-- Smallest useful version: Automate a daily report per picker, per shift, per day, ready by 6am, using WMS pick confirmations and the defined short pick rules.
-- Out of scope: Exclude over picks and any customer or pricing data; cancelled lines do not count.
-- How risk is reduced: If the new report disagrees with WMS numbers two weeks in a row, Sam will revert to the manual spreadsheet.
+- The problem: Shift leads need a daily report of short picks per picker to target retraining and reduce errors.
+- Today: Sam spends about four hours every Monday building the report in Excel from a WMS export; the WMS dashboard only shows building totals.
+- Smallest useful version: Automate a daily per-picker short-pick report, ready by 6am, using WMS pick confirmations, with cancelled lines excluded and wrong-location scans counted.
+- Out of scope: Over picks and anything not in WMS pick confirmations are out of scope.
+- How risk is reduced: If the new report disagrees with WMS two weeks in a row, Sam will switch back to his spreadsheet.
 
 What you told me:
 - Who's involved: Shift leads use the report to target retraining.
-- What success looks like: Short picks per picker should be down by a third within two months.
-- The data: All data comes from WMS pick confirmations, using the reporting copy; no customer or pricing data, just badge numbers and locations.
-- Systems and tools:  (not known yet)
+- What success looks like: Sam wants short picks per picker down by a third within two months.
+- The data: Everything comes from WMS pick confirmations; no customer or pricing data, just badge numbers and locations.
+- Systems and tools: Data is exported from WMS and processed in Excel by hand.
 - Rules and constraints: The report must be ready by 6am.
-- When it goes wrong: If the numbers in the new report disagreed with the WMS two weeks in a row Sam would switch it off and go back to the spreadsheet.
+- When it goes wrong: If the new report disagreed with WMS two weeks in a row, Sam would switch it off and go back to his spreadsheet.
 - Decision: Shift leads will target retraining based on the report.
-- Definition: A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; wrong-location scans do count.
-- Grain: The report is per picker, per shift, per day.
-- Truth: WMS is the system of record; if the report disagrees with WMS two weeks in a row Sam would stop using it.
-- Delivery: The report needs to be ready by 7am.
-- Existing: Sam currently builds the report in Excel by hand from a WMS export; the WMS dashboard only shows building totals, nothing per picker.
+- Definition: A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; Sam thinks wrong-location scans should count but is not sure.
+- Grain: The report is per picker and daily.
+- Truth: WMS is the source of truth; if the report disagrees with WMS two weeks in a row, Sam would stop using it.
+- Delivery: The report must be ready by 6am.
+- Existing: The WMS dashboard only shows building totals, nothing per picker.
 
 How I'd rate it:
 - Rule clarity: Rules can be written down
@@ -207,30 +193,32 @@ How I'd rate it:
 - Access: Programmatic: API, database, or files and scripts
 - Value: High
 - Uses AI: No
-- Something that already does this: None
+- Something that already does this: Partial
 - Someone acts on the result: Yes
 - How success is measured: Measurable with baseline
 
 It works when:
-- Given WMS pick confirmations are available and the report is generated by 6am, when the report shows short picks per picker, per shift, per day, following the defined rules, then shift leads can use it to select pickers for retraining.
-- If it goes wrong: Given the report numbers disagree with WMS pick confirmations for two consecutive weeks, when Sam reviews the numbers, then the report is switched off and the manual spreadsheet is used instead.
+- Given WMS pick confirmation data is available and processed as described, when the report is generated by 6am for each picker, per shift, per day, with short picks counted as confirmed quantity less than task quantity, cancelled lines excluded, and wrong-location scans included, then the shift leads can use the report to target retraining.
+- If it goes wrong: Given the report numbers disagree with WMS pick confirmations two weeks in a row, when Sam reviews the results, then he switches off the new report and returns to his spreadsheet.
 
 Guardrails:
-- Kill criterion: If the numbers in the new report disagreed with the WMS two weeks in a row Sam would switch it off and go back to the spreadsheet.
+- Kill criterion: If the report disagrees with WMS pick confirmations two weeks in a row, switch it off.
+- Fallback: Return to manual Excel report if the automated report is not trusted.
 
 Still open:
-- Apps touched, access method, changes expected in 6 months?
+- Are there any other edge cases or exceptions (besides cancelled lines and wrong-location scans) that should be included or excluded from the short pick count?
+- Is there a step-by-step SOP or template for building the current report, or is it all in Sam's head?
 
 Set aside:
-- Sam builds the report in Excel by hand from a WMS export: replaced by Daily short-pick report
+- Monday Excel export: replaced by Daily short-pick report
 
 Please confirm:
-- "Sam builds the report in Excel by hand from a WMS export" would go away once "Daily short-pick report" exists, so it wouldn't be built on its own. Is that right?
+- "Monday Excel export" would go away once "Daily short-pick report" exists, so it wouldn't be built on its own. Is that right?
 ```
 
 Don't-build reasons to confirm, one at a time:
 
-- `item-2:superseded`: "Sam builds the report in Excel by hand from a WMS export" would go away once "Daily short-pick report" exists, so it wouldn't be built on its own. Is that right?
+- `item-2:superseded`: "Monday Excel export" would go away once "Daily short-pick report" exists, so it wouldn't be built on its own. Is that right?
 
 ## 06-signoff: sign-off
 
@@ -241,7 +229,7 @@ Don't-build reasons to confirm, one at a time:
   - Critical areas covered or confirmed-assumed
   - Measurable success metric with a baseline
   - Reflect-back confirmed
-- **Sam builds the report in Excel by hand from a WMS export** (`item-2`): **dont_build**
+- **Monday Excel export** (`item-2`): **dont_build**
   - Superseded by item-1, which reaches Go
   - (also matched gather_more) Nobody has said what decision or outcome depends on it (core.outcome)
   - (also matched gather_more) Too few known criteria to score automation potential

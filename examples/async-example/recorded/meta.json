@@ -1,6 +1,6 @@
 {
-  "recorded_at": "2026-10-16T14:17:58.326Z",
-  "commit": "57ab8b3",
+  "recorded_at": "2026-10-17T17:29:23.937Z",
+  "commit": "d06c8de",
   "model": "gpt-4.1",
   "note": "Model answers to every call the async worked example makes, recorded once. Sources are synthetic."
 }

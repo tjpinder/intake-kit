@@ -17559,7 +17559,8 @@ function readinessLines(r) {
 var leadIn = (title) => {
   const name = title.replace(/…$/, "");
   if (name.split(/\s+/).length > 5 || name !== title) return `About this next part (${title}):`;
-  return `About the ${/^[A-Z][a-z]/.test(name) ? name[0].toLowerCase() + name.slice(1) : name} you mentioned:`;
+  const proper = /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|February|March|April|May|June|July|August|September|October|November|December)\b/.test(name);
+  return `About the ${/^[A-Z][a-z]/.test(name) && !proper ? name[0].toLowerCase() + name.slice(1) : name} you mentioned:`;
 };
 function followUpEmail(session, r) {
   if (!r.gaps.length) return "";

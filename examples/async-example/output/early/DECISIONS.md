@@ -10,7 +10,7 @@ Recorded by intake-kit from `intake-answers.yaml` (session 2026-10-14-de70, 2026
 
 Scores: Automation potential 5, ease 4.5 (prioritize).
 
-### Sam builds the report in Excel by hand from a WMS export (`item-2`): Gather more discovery
+### Monday Excel export (`item-2`): Gather more discovery
 
 - Critical area manual_process.walkthrough isn't covered
 - Nobody has said what decision or outcome depends on it (core.outcome)
@@ -29,7 +29,6 @@ _None._
 
 Each assumption was confirmed in the reflect-back but not verified. Give each one an owner who will check it.
 
-- **data_report.definition** (`item-1`): A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; wrong-location scans do count. ("a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."). Owner: _unassigned_
 - **"over pick"** can not be seen in the system's data, by the owner's definition. How it will be measured is still open. Owner: _unassigned_
 
 ## Adoption risks

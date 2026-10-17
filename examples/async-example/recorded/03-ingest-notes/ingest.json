@@ -5,17 +5,37 @@
         "item": "item-1",
         "area": "core.constraints",
         "status": "answered",
-        "value": "The report must be ready by 6am.",
+        "value": "Priya wants the report by 6am.",
         "quotes": [
-          "wants report by 6am, not 7 - night shift leads leave at 6:30"
+          "wants report by 6am, not 7"
         ],
         "conflict": true
       },
       {
         "item": "item-1",
+        "area": "data_report.delivery",
+        "status": "answered",
+        "value": "The report must be ready by 6am.",
+        "quotes": [
+          "wants report by 6am, not 7"
+        ],
+        "conflict": true
+      },
+      {
+        "item": "item-1",
+        "area": "data_report.grain",
+        "status": "answered",
+        "value": "The report is per picker, per shift, per day.",
+        "quotes": [
+          "per picker per shift per day"
+        ],
+        "conflict": false
+      },
+      {
+        "item": "item-1",
         "area": "data_report.truth",
         "status": "answered",
-        "value": "WMS pick confirmations are the source of truth if numbers disagree.",
+        "value": "WMS pick confirmations are the source of truth when the dashboard and report disagree.",
         "quotes": [
           "if dashboard and report disagree, WMS pick confirmations win"
         ],
@@ -30,24 +50,37 @@
           "short pick: wrong-location scans YES count them"
         ],
         "conflict": false
+      }
+    ],
+    "checks": [
+      {
+        "item": "item-1",
+        "check": "existing_asset",
+        "result": "unclear",
+        "value": null,
+        "quote": null,
+        "name": null
       },
       {
         "item": "item-1",
-        "area": "data_report.grain",
-        "status": "answered",
-        "value": "The report is per picker, per shift, per day.",
-        "quotes": [
-          "per picker per shift per day"
-        ],
-        "conflict": true
+        "check": "kill_criteria",
+        "result": "unclear",
+        "value": null,
+        "quote": null,
+        "name": null
       }
     ],
-    "checks": [],
-    "terms": [],
+    "terms": [
+      {
+        "term": "short pick",
+        "quote": "short pick: wrong-location scans YES count them",
+        "kind": "metric"
+      }
+    ],
     "definitions": [
       {
         "term": "short-pick",
-        "definition": "A short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. Wrong-location scans do count.",
+        "definition": "A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; wrong-location scans do count.",
         "quotes": [
           "short pick: wrong-location scans YES count them"
         ],

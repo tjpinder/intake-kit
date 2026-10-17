@@ -31,7 +31,7 @@ areas:
     must_capture: Baseline, target, how it's measured, what we won't claim
     packet:
       ask: "How would you know this worked? What's it costing today, in hours, errors or money, and what would good look like?"
-      why: "A number for today and a target are what turn \"better\" into something you can check."
+      why: "A number for today and a target are what make an improvement something you can check."
       example: "Today it's done differently by each person. It would be working if everyone used one version and the errors stopped."
       examples:
         known_idea: "Today it's done differently by each person. It would be working if everyone used one version and the errors stopped."

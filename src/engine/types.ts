@@ -27,7 +27,7 @@ export interface AreaState {
   /** A partial or off-topic first answer, kept until the probe resolves it. */
   partial: { value: string | null; quote: string | null } | null;
   /** Async intake: a later source disagreed with what was recorded; a follow-up settles it. */
-  conflict?: { value: string | null; quote: string; source: string } | null;
+  conflict?: { value: string | null; quote: string; source: string; against?: { quote: string; source: string | null } } | null;
 }
 
 export interface EngineState {
@@ -66,6 +66,8 @@ export interface Extraction {
   check: CheckResult | "none";
   wrap_up: boolean;
   also_answers: Array<{ area: string; value: string; quote: string }>;
+  /** A check that spawns an item: a short name for it ("Morning Excel export"). */
+  name?: string | null;
 }
 
 export const TURN_BUDGET = 30;

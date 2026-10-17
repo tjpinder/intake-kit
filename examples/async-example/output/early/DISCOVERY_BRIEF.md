@@ -13,7 +13,7 @@ Open questions:
 - Should wrong-location scans always count as short picks, or are there exceptions? Who can answer: Priya (DC manager). What would settle it: Written rule or confirmation from Priya. [data_report.definition]
 - Should the report be ready by 6am or 7am, and who needs it first? Who can answer: Priya (DC manager). What would settle it: Confirmation of timing requirement. [core.constraints]
 - Apps touched, access method, changes expected in 6 months? [core.systems]
-- How exactly do you calculate "short-pick"? What's in and what's out? Give one real example and the right number. Who can answer: Whoever owns the process. What would settle it: The owner's definition in their own words, and one real example with the correct result. [term-1]
+- How exactly do you calculate short-pick? What's in and what's out? Give one real example and the right number. Who can answer: Whoever owns the process. What would settle it: The owner's definition in their own words, and one real example with the correct result. [term-1]
 - Recommended: give one real example of "over pick" and the right count, so the build can be checked against it. Who can answer: Whoever owns the process. What would settle it: A real case and its correct result. [term-2]
 
 ## Sam builds the report in Excel by hand from a WMS export (`item-2`)

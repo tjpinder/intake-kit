@@ -110,7 +110,7 @@ export function CollectView(props: {
   const { session } = props;
   const item = session.items.find((i) => !i.spawned_from)!;
   const request = session.session.sources?.find((s) => s.kind === "request");
-  const packet = useMemo(() => buildPacket(fw, { request: request?.text ?? item.title, type: item.type, modifiers: item.modifiers }), [request?.text, item.title, item.type, item.modifiers]);
+  const packet = useMemo(() => buildPacket(fw, { request: request?.text ?? item.title, title: item.title, type: item.type, modifiers: item.modifiers }), [request?.text, item.title, item.type, item.modifiers]);
   const gaps = useMemo(() => findGaps(session, fw), [session]);
   const followUp = useMemo(() => followUpEmail(session, gaps), [session, gaps]);
   const pasted = (session.session.sources ?? []).filter((s) => s.kind !== "request");

@@ -5,7 +5,7 @@
 // disagreement is kept as a conflict for the follow-up packet to settle.
 
 import type { Framework, ItemType, Modifier } from "../lib/framework.ts";
-import { normalize, type TranscriptEntry } from "../lib/grounding.ts";
+import { normalize, quoteFor, type TranscriptEntry } from "../lib/grounding.ts";
 import { validateIngest } from "../lib/schemas.ts";
 import type { CoverageEntry, Session, Source, Term } from "../lib/session.ts";
 import { ingestRequest } from "../llm/v2.ts";
@@ -93,7 +93,31 @@ interface IngestResult {
   terms: Array<{ term: string; quote: string; kind: "metric" | "rule" | "label" }>;
   definitions: Array<{ term: string; definition: string; quotes: string[]; certain: boolean; measurable: "yes" | "partly" | "no" | "unknown"; examples: Array<{ case: string; expected: string }>; conflict: boolean }>;
   answers: Array<{ item: string; area: string; status: "answered" | "partial" | "not_applicable" | "declined"; value: string | null; quotes: string[]; conflict: boolean }>;
-  checks: Array<{ item: string; check: CheckName; result: "yes" | "no" | "unclear"; value: string | null; quote: string | null }>;
+  checks: Array<{ item: string; check: CheckName; result: "yes" | "no" | "unclear"; value: string | null; quote: string | null; name?: string | null }>;
+}
+
+/**
+ * Areas that ask what counts or what the rules are: a term's definition, a threshold in it, may be
+ * recorded there too. Any other area doesn't take a definition's words (cycle-count test: the
+ * requester's hedge about how a variance is calculated was filed under trust).
+ */
+const WHAT_COUNTS = new Set(["data_report.definition", "manual_process.rules", "core.constraints"]);
+
+/** The kinds of number a text states: money, a time of day, a duration, a percentage. */
+function numberKinds(text: string): Set<string> {
+  const t = text.toLowerCase();
+  const kinds = new Set<string>();
+  if (/\$\s?\d|\d\s?(dollars|usd)\b/.test(t)) kinds.add("money");
+  if (/\b\d{1,2}(:\d{2})?\s?(am|pm)\b|\b\d{1,2}:\d{2}\b|\bnoon\b|\bmidnight\b/.test(t)) kinds.add("time");
+  if (/\d\s?%|\bpercent\b/.test(t)) kinds.add("percent");
+  if (/\d\s?(minutes?|mins?|hours?|hrs?|days?|weeks?|months?)\b/.test(t)) kinds.add("duration");
+  return kinds;
+}
+
+/** Both state a number and they share no kind: two different facts, never a disagreement. */
+export function differentFacts(recorded: string, said: string): boolean {
+  const x = numberKinds(recorded), y = numberKinds(said);
+  return x.size > 0 && y.size > 0 && ![...x].some((k) => y.has(k));
 }
 
 /** Applies one chunk's ingest result. Every quote must be a span of this source. */
@@ -104,10 +128,13 @@ export function applyIngest(session: Session, source: Source, r: IngestResult, f
   const asked = session.session.asked ?? (session.session.asked = {});
 
   const fromNotes = source.kind === "notes";
-  const claimed: Array<{ area: string; quote: string }> = [];
-  const overlaps = (a: string, b: string) => { const x = normalize(a), y = normalize(b); return x.includes(y) || y.includes(x); };
-  for (const a0 of r.answers) {
-    let a = a0;
+  // One sentence can answer more than one area (where the data lives is both data and systems; a
+  // deadline is both rules and delivery), so code doesn't stop a span from being filed twice: that
+  // dropped decision, systems and delivery in the cycle-count retest. Only a definition's words are
+  // kept to the term and the areas about what counts.
+  const defined = r.definitions.flatMap((d) => d.quotes.map((q) => normalize(q))).filter(Boolean);
+  const insideDefinition = (q: string) => { const x = normalize(q); return defined.some((d) => d.includes(x)); };
+  for (const a of r.answers) {
     // The item named, or, if the model named something else (the type, say), the one live item the
     // area belongs to: each area belongs to one item's type (smoke test: "data_report" for "item-1").
     const live = session.items.filter((i) => !i.dropped);
@@ -128,23 +155,41 @@ export function applyIngest(session: Session, source: Source, r: IngestResult, f
       continue;
     }
     if (!quotes.length) { events.push(`${key}: no quote from the source, not recorded`); continue; }
-    if ((a.status === "answered" || a.status === "partial") && quotes.every((q) => claimed.some((c) => c.area !== a.area && overlaps(c.quote, q)))) {
-      events.push(`${key}: its words are already filed under another area; not recorded here (it'll be asked plainly)`);
+    if (!WHAT_COUNTS.has(a.area) && quotes.every(insideDefinition)) {
+      events.push(`${key}: its words define a term; kept with the term, not recorded here`);
       continue;
     }
-    for (const q of quotes) claimed.push({ area: a.area, quote: q });
     asked[key] ??= now;
-    // A follow-up answer on an area with two disagreeing answers settles it.
+    if (item.spawned_from && a.area.startsWith("core.")) {
+      // A follow-on item's own core answer is its override. The area's state (a conflict, a partial)
+      // is keyed for the primary item, so it's neither read nor written here.
+      const own = item.core_overrides[a.area.slice(5)];
+      setEntry(session, item, a.area, { status: fromNotes || a.status === "partial" ? "assumed" : "covered", value: a.value ?? quotes[0], quotes: [...new Set([...(own?.quotes ?? []), ...quotes])], probe_count: 0, updated_at: now, quote_sources: { ...(own?.quote_sources ?? {}), ...Object.fromEntries(quotes.map((q) => [q, source.id])) } });
+      events.push(`${item.id}:${a.area}: recorded for this item`);
+      continue;
+    }
+    // A follow-up answer on an area with two disagreeing answers settles it: only the stakeholder's
+    // own words, never notes (cycle-count retest: the controller's call notes "settled" the rules).
     const open = stateOf(engine, key).conflict;
+    if (open && fromNotes) {
+      events.push(`${key}: notes can't settle the disagreement; still open for the follow-up`);
+      continue;
+    }
     if (open && a.status === "answered") {
       setEntry(session, item, a.area, { status: fromNotes ? "assumed" : "covered", value: a.value ?? quotes[0], quotes: [...new Set([...(prev?.quotes ?? []), open.quote, ...quotes])], probe_count: prev?.probe_count ?? 0, updated_at: now, quote_sources: { ...sources(quotes), [open.quote]: open.source, ...Object.fromEntries(quotes.map((q) => [q, source.id])) } });
       engine.areas[key] = { ...stateOf(engine, key), conflict: null, partial: null };
       events.push(`${key}: disagreement settled`);
       continue;
     }
-    if (known && a.conflict) {
+    if (known && a.conflict && differentFacts(quoteFor(prev!.value, prev!.quotes) ?? prev!.value!, quotes.join(" "))) {
+      // Two numbers of different kinds can't contradict each other (cycle-count retest: the request's
+      // "$500" threshold and the reply's "by 7am" were paired as a disagreement on the rules, twice).
+      events.push(`${key}: flagged as a disagreement, but it's a different fact ($ vs time, say); added to the answer`);
+    } else if (known && a.conflict) {
       // Never overwrite: keep what's recorded and flag the disagreement for the follow-up.
-      engine.areas[key] = { ...stateOf(engine, key), conflict: { value: a.value, quote: quotes[0], source: source.id } };
+      // The recorded side's own words go with it, so the follow-up can quote both sides verbatim.
+      const against = quoteFor(prev!.value, prev!.quotes);
+      engine.areas[key] = { ...stateOf(engine, key), conflict: { value: a.value, quote: quotes[0], source: source.id, ...(against ? { against: { quote: against, source: prev!.quote_sources?.[against] ?? null } } : {}) } };
       events.push(`${key}: conflicts with what's recorded; kept both for the follow-up`);
       continue;
     }
@@ -197,7 +242,7 @@ export function applyIngest(session: Session, source: Source, r: IngestResult, f
     }
     const area = c.check === "manual_work" ? (fw.modules[item.type]?.anchor as string) : fw.router.checks!.kill_criteria.area;
     const ctx: ApplyContext = { fw, transcript, now };
-    const out = applyCheck(session, { item: item.id, area, kind: "check", check: c.check, question: "packet" }, { status: "answered", value: c.value, quote: c.quote, check: c.result, wrap_up: false, also_answers: [] }, ctx);
+    const out = applyCheck(session, { item: item.id, area, kind: "check", check: c.check, question: "packet" }, { status: "answered", value: c.value, quote: c.quote, check: c.result, wrap_up: false, also_answers: [], name: c.name ?? null }, ctx);
     Object.assign(session, out.session);
     events.push(...out.events);
     // The kill-criteria answer joins its area's quotes: record which source it came from.
@@ -231,7 +276,12 @@ export function applyTerms(session: Session, source: Source, r: Pick<IngestResul
   for (const t of r.terms) {
     const quote = grounded(t.quote, transcript);
     if (!quote || !t.term.trim()) { events.push(`term "${t.term}": not in the source, ignored`); continue; }
-    if (find(t.term)) continue;
+    const known = find(t.term);
+    if (known) {
+      // The shorter name is kept (retest: the request, read first, named it "cycle count variance").
+      if (termKey(t.term).length < termKey(known.term).length) { events.push(`term "${known.term}": now "${t.term.trim()}"`); known.term = t.term.trim(); }
+      continue;
+    }
     add(t.term, quote, t.kind);
     events.push(`term "${t.term}": found, unconfirmed`);
   }

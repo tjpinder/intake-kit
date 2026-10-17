@@ -28,7 +28,13 @@ export function validateSession(data: unknown): ValidationResult {
 export const validateOpening = (data: unknown) => run(validateOpeningFn, data);
 export const validatePhrase = (data: unknown) => run(validatePhraseFn, data);
 export const validateExtract = (data: unknown) => run(validateExtractFn, data);
-export const validateIngest = (data: unknown) => run(validateIngestFn, data);
+export const validateIngest = (data: unknown) => {
+  // Answers written before checks had a name (the recorded worked example, a plugin run) still
+  // apply: a missing name is null.
+  const checks = (data as { checks?: unknown } | null)?.checks;
+  if (Array.isArray(checks)) for (const c of checks) if (c && typeof c === "object" && !("name" in c)) (c as Record<string, unknown>).name = null;
+  return run(validateIngestFn, data);
+};
 export const validateWriteUp = (data: unknown) => run(validateWriteUpFn, data);
 
 export { sessionSchema };

@@ -23,7 +23,7 @@ Rendered by intake-kit from `intake-answers.yaml` (session 2026-10-14-de70, 2026
 - Should wrong-location scans always count as short picks, or are there exceptions? Who can answer: Priya (DC manager). What would settle it: Written rule or confirmation from Priya. [data_report.definition]
 - Should the report be ready by 6am or 7am, and who needs it first? Who can answer: Priya (DC manager). What would settle it: Confirmation of timing requirement. [core.constraints]
 - Apps touched, access method, changes expected in 6 months? [core.systems]
-- How exactly do you calculate "short-pick"? What's in and what's out? Give one real example and the right number. Who can answer: Whoever owns the process. What would settle it: The owner's definition in their own words, and one real example with the correct result. [term-1]
+- How exactly do you calculate short-pick? What's in and what's out? Give one real example and the right number. Who can answer: Whoever owns the process. What would settle it: The owner's definition in their own words, and one real example with the correct result. [term-1]
 - Recommended: give one real example of "over pick" and the right count, so the build can be checked against it. Who can answer: Whoever owns the process. What would settle it: A real case and its correct result. [term-2]
 
 ### Sam builds the report in Excel by hand from a WMS export (`item-2`)
@@ -56,7 +56,6 @@ Rendered by intake-kit from `intake-answers.yaml` (session 2026-10-14-de70, 2026
 ## Assumptions
 
 - **data_report.definition** (`item-1`): A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; wrong-location scans do count. ("a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."). Owner: _unassigned_
-- **data_report.truth** (`item-1`): WMS pick confirmations are the source of truth if numbers disagree. ("if dashboard and report disagree, WMS pick confirmations win"). Owner: _unassigned_
 - **"over pick"** can not be seen in the system's data, by the owner's definition. How it will be measured is still open. Owner: _unassigned_
 
 ## Dependencies and constraints

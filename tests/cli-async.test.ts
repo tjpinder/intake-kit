@@ -100,7 +100,7 @@ describe("async intake through the CLI", () => {
     const ing = intake(dir, "ingest", "--file", replyFile, "--kind", "reply", "--from", "Ops supervisor");
     assert.equal(ing.status, 0, JSON.stringify(ing.body));
     assert.equal(ing.body.result, "ingested");
-    assert.ok(ing.body.followup_text.includes('How exactly do you calculate "short pick"?'), "the undefined term is followed up");
+    assert.ok(ing.body.followup_text.includes("How exactly do you calculate short pick?"), "the undefined term is followed up");
     assert.ok(!existsSync(join(dir, ".intake-kit", "calls")), "the call files are cleared");
 
     // The owner's definition comes back in a follow-up reply.

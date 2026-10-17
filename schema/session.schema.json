@@ -127,7 +127,7 @@
                     "description": "Async intake: a later source disagreed with what was recorded. Settled by a follow-up.",
                     "oneOf": [
                       { "type": "null" },
-                      { "type": "object", "additionalProperties": false, "required": ["value", "quote", "source"], "properties": { "value": { "type": ["string", "null"] }, "quote": { "type": "string" }, "source": { "type": "string" } } }
+                      { "type": "object", "additionalProperties": false, "required": ["value", "quote", "source"], "properties": { "value": { "type": ["string", "null"] }, "quote": { "type": "string" }, "source": { "type": "string" }, "against": { "description": "The recorded side's own words, so the follow-up quotes both sides verbatim.", "type": "object", "additionalProperties": false, "required": ["quote", "source"], "properties": { "quote": { "type": "string" }, "source": { "type": ["string", "null"] } } } } }
                     ]
                   },
                   "probed": { "type": "boolean" },

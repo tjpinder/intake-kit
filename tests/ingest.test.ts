@@ -88,7 +88,7 @@ describe("ingest", () => {
     const conflicted = await runIngest({ provider: scripted([ingestOut([answer("data_report.decision", ["for the site manager's monthly review"], { value: "Monthly site review", conflict: true })])]), fw, session: first.session, source: { kind: "transcript", from: "Site manager", text: second }, now: LATER });
     const e = conflicted.session.items[0].coverage["data_report.decision"];
     assert.equal(e.value, "Pick who to retrain");
-    assert.deepEqual(conflicted.session.session.engine!.areas["item-1:data_report.decision"].conflict, { value: "Monthly site review", quote: "for the site manager's monthly review", source: "src-3" });
+    assert.deepEqual(conflicted.session.session.engine!.areas["item-1:data_report.decision"].conflict, { value: "Monthly site review", quote: "for the site manager's monthly review", source: "src-3", against: { quote: "pick who gets retraining each week", source: "src-2" } });
 
     const agreeing = "Yes, it's so we know who to retrain.";
     const agreed = await runIngest({ provider: scripted([ingestOut([answer("data_report.decision", ["so we know who to retrain"])])]), fw, session: first.session, source: { kind: "reply", from: "Ops supervisor", text: agreeing }, now: LATER });
@@ -197,7 +197,7 @@ describe("ingest fixes after the real-model smoke test", () => {
     assert.equal(t.status, "unconfirmed");
     assert.equal(t.draft!.definition, "Below the task quantity; maybe wrong-location scans too");
     const q = findGaps(out.session, fw).gaps.find((g) => g.kind === "term")!.question;
-    assert.match(q, /^You described "short pick" as "Below the task quantity; maybe wrong-location scans too", but weren't sure/);
+    assert.match(q, /^On what short pick means: Sam wrote: "A short pick is when the confirmed quantity is less than the task quantity\." That wasn't certain\./);
     assert.equal(validateSession(out.session).ok, true, validateSession(out.session).errors.join("; "));
   });
 
@@ -250,7 +250,7 @@ describe("source rule: notes are the interviewer's paraphrase, never the stakeho
     assert.equal(out.session.items[0].coverage["data_report.grain"].status, "assumed");
     const gap = findGaps(out.session, fw).gaps.find((g) => g.target === "data_report.grain")!;
     assert.equal(gap.kind, "confirm");
-    assert.match(gap.question, /^Our notes say: "Per picker, per shift, per day". Is that right?/);
+    assert.match(gap.question, /^Our notes from talking to Tom say: "per picker per shift per day"\. Is that right\?/);
   });
 
   test("a definition from notes alone is a draft: the term stays unconfirmed and blocks Go until the owner confirms it", async () => {
@@ -258,7 +258,7 @@ describe("source rule: notes are the interviewer's paraphrase, never the stakeho
     const t = out.session.terms![0];
     assert.equal(t.status, "unconfirmed");
     assert.equal(t.draft!.definition, "Confirmed quantity below task quantity, wrong-location scans included");
-    assert.match(findGaps(out.session, fw).gaps.find((g) => g.kind === "term")!.question, /^Our notes define "short pick" as/);
+    assert.match(findGaps(out.session, fw).gaps.find((g) => g.kind === "term")!.question, /^On what short pick means: Our notes from talking to Tom say: "short pick = confirmed qty below task qty, wrong-location scans count"\. Is that right\?/);
   });
 
   test("the stakeholder's own words then confirm both", async () => {
@@ -326,7 +326,7 @@ describe("definition disagreements (live test: 'times the cost' vs 'absolute val
     assert.equal(t.definition, "Units off times the cost");
     assert.equal(t.conflict?.definition, "Absolute value per SKU");
     const q = findGaps(out.session, fw).gaps.find((g) => g.kind === "term")!.question;
-    assert.match(q, /"variance" was defined two ways: "Units off times the cost" and "Absolute value per SKU"\. Which is right\?/);
+    assert.match(q, /^Two definitions of variance disagree\. Dana wrote: "A variance is the units off times the cost\." Our notes from talking to Mike \(controller\) say: "variance = absolute value per SKU"\. Which is right\?/);
   });
 
   test("a contradiction against a draft is kept too, and notes can't settle a disagreement; the stakeholder's words can", async () => {
@@ -343,16 +343,65 @@ describe("definition disagreements (live test: 'times the cost' vs 'absolute val
   });
 });
 
-describe("one span, one area; one term per name (cycle-count test)", () => {
-  test("a sentence already filed under one area isn't recorded under a second: that area is asked plainly", async () => {
-    const said = "We recount because the auditors sample our biggest variances.";
+describe("one sentence, every area it answers; one term per name (cycle-count tests)", () => {
+  test("a sentence that answers two areas is recorded under both (retest: decision, systems and delivery were dropped)", async () => {
+    const said = [
+      "We use it to decide which locations get recounted and which variances get written off, so the controller isn't approving adjustments blind.",
+      "Cost lives in the ERP and counts live in the WMS.",
+      "It needs to be in my inbox by 7am so the leads can plan the recounts before the first shift.",
+    ].join("\n\n");
     const out = await runIngest({ provider: scripted([ingestOut([
-      answer("data_report.decision", ["We recount because the auditors sample our biggest variances."]),
-      answer("core.trust", ["because the auditors sample our biggest variances"]),
+      answer("core.outcome", ["We use it to decide which locations get recounted and which variances get written off, so the controller isn't approving adjustments blind."]),
+      answer("data_report.decision", ["We use it to decide which locations get recounted and which variances get written off"]),
+      answer("core.data", ["Cost lives in the ERP and counts live in the WMS."]),
+      answer("core.systems", ["Cost lives in the ERP and counts live in the WMS."]),
+      answer("core.constraints", ["It needs to be in my inbox by 7am"]),
+      answer("data_report.delivery", ["It needs to be in my inbox by 7am"]),
     ])]), fw, session: triaged(), source: { kind: "reply", from: "Dana", text: said }, now: LATER });
-    assert.equal(out.session.items[0].coverage["data_report.decision"].status, "covered");
+    const s = out.session;
+    for (const e of [s.core.outcome, s.items[0].coverage["data_report.decision"], s.core.data, s.core.systems, s.core.constraints, s.items[0].coverage["data_report.delivery"]]) assert.equal(e?.status, "covered");
+  });
+
+  test("a definition's words stay with the term: the requester's hedge isn't filed under trust (retest)", async () => {
+    const said = "A variance is the units off times the cost, I think. Mike might calculate it differently.";
+    const out = await runIngest({ provider: scripted([ingestOut(
+      [answer("core.trust", ["Mike might calculate it differently."], { status: "partial" }), answer("data_report.definition", ["A variance is the units off times the cost, I think."], { status: "partial" })],
+      [], [{ term: "variance", quote: "variance", kind: "metric" }],
+      [{ term: "variance", definition: "Units off times the cost", quotes: ["A variance is the units off times the cost, I think. Mike might calculate it differently."], certain: false, measurable: "yes", examples: [], conflict: false }],
+    )]), fw, session: triaged(), source: { kind: "reply", from: "Dana", text: said }, now: LATER });
     assert.equal(out.session.core.trust.status, "unknown");
-    assert.ok(out.events.some((e) => e.includes("core.trust: its words are already filed under another area")));
+    assert.ok(out.events.some((e) => e.includes("core.trust: its words define a term")));
+    assert.equal(out.session.items[0].coverage["data_report.definition"].status, "assumed", "the area about what counts keeps them");
+  });
+
+  test("a threshold and a deadline in the same area are two facts, not a disagreement; a second threshold is one (retest)", async () => {
+    const request = "Cycle count variances over $500 should go to the controller each week";
+    const s = startAsync(fw, { id: "2026-10-17-cc03", request, type: "data_report", from: "Dana", provider: "azure-openai", now: NOW });
+    const reply = await runIngest({ provider: scripted([
+      ingestOut([answer("core.constraints", ["variances over $500 should go to the controller"], { value: "Variances over $500 go to the controller" })]),
+      ingestOut([answer("core.constraints", ["It needs to be in my inbox by 7am"], { value: "In Dana's inbox by 7am", conflict: true })]),
+    ]), fw, session: s, source: { kind: "reply", from: "Dana", text: "It needs to be in my inbox by 7am." }, now: LATER });
+    assert.equal(reply.session.session.engine!.areas["core.constraints"]?.conflict ?? null, null);
+    assert.deepEqual(reply.session.core.constraints.quotes, ["variances over $500 should go to the controller", "It needs to be in my inbox by 7am"]);
+    const notes = await runIngest({ provider: scripted([ingestOut([answer("core.constraints", ["anything over $250 should come to him"], { value: "Over $250", conflict: true })])]), fw, session: reply.session, source: { kind: "notes", from: "Mike (controller)", text: "- anything over $250 should come to him" }, now: LATER });
+    const c = notes.session.session.engine!.areas["core.constraints"].conflict!;
+    assert.equal(c.quote, "anything over $250 should come to him");
+    assert.deepEqual(c.against, { quote: "variances over $500 should go to the controller", source: "src-1" });
+  });
+
+  test("a shorter name for a listed term replaces the longer one", async () => {
+    const s = startAsync(fw, { id: "2026-10-17-cc04", request: "Report cycle count variances weekly", type: "data_report", from: "Dana", provider: "azure-openai", now: NOW });
+    const both = await runIngest({ provider: scripted([ingestOut([], [], [{ term: "cycle count variance", quote: "cycle count variances", kind: "metric" }]), ingestOut([], [], [{ term: "variance", quote: "variance", kind: "metric" }])]), fw, session: s, source: { kind: "reply", from: "Dana", text: "A variance is units off." }, now: LATER });
+    assert.deepEqual(both.session.terms!.map((t) => t.term), ["variance"]);
+  });
+
+  test("notes can't settle a disagreement on an area (retest: the controller's notes 'settled' the rules)", async () => {
+    const first = await runIngest({ provider: scripted([ingestOut([answer("core.constraints", ["by 7am"], { value: "Ready by 7am" })])]), fw, session: triaged(), source: { kind: "reply", from: "Dana", text: "It needs to be in by 7am." }, now: LATER });
+    const second = await runIngest({ provider: scripted([ingestOut([answer("core.constraints", ["by 6am"], { value: "Ready by 6am", conflict: true })])]), fw, session: first.session, source: { kind: "reply", from: "Priya", text: "We need it by 6am." }, now: LATER });
+    const notes = await runIngest({ provider: scripted([ingestOut([answer("core.constraints", ["6am is right"], { value: "Ready by 6am" })])]), fw, session: second.session, source: { kind: "notes", from: "Mike", text: "- 6am is right" }, now: LATER });
+    assert.ok(notes.session.session.engine!.areas["core.constraints"].conflict, "still open");
+    assert.equal(notes.session.core.constraints.value, "Ready by 7am");
+    assert.ok(notes.events.some((e) => e.includes("notes can't settle")));
   });
 
   test("'cycle count variances' and 'variance' are one term", async () => {

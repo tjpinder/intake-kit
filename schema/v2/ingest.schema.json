@@ -97,7 +97,8 @@
         "check",
         "result",
         "value",
-        "quote"
+        "quote",
+        "name"
       ],
       "properties": {
         "item": {
@@ -130,6 +131,13 @@
             "string",
             "null"
           ]
+        },
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "For a manual_work yes: a short name for the work done by hand, two to five words. Null otherwise."
         }
       }
     },

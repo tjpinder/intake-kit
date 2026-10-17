@@ -365,7 +365,7 @@ function writePacket(dir: string, s: Session): { email: string; agenda: string }
   const fw = loadFramework(pluginRoot());
   const item = s.items.find((i) => !i.spawned_from)!;
   const request = s.session.sources?.find((x) => x.kind === "request")?.text ?? item.title;
-  const p = buildPacket(fw, { request, type: item.type, modifiers: item.modifiers });
+  const p = buildPacket(fw, { request, title: item.title, type: item.type, modifiers: item.modifiers });
   const email = join(paths(dir).stateDir, "packet.md");
   const agenda = join(paths(dir).stateDir, "agenda.md");
   writeFileSync(email, packetEmail(p));

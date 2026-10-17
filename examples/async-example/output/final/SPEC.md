@@ -12,7 +12,7 @@ Rendered by intake-kit from `intake-answers.yaml` (session 2026-10-14-de70, 2026
 
 > Shift leads need a daily report showing short picks per picker to target retraining and reduce errors.
 
-- Shift leads use the report to pick which pickers get pulled for retraining. [data_report.decision] "the shift leads would use it every Tuesday to pick which pickers get pulled for retraining."
+- Shift leads will target retraining based on the report. [data_report.decision] "so the shift leads can target retraining"
 
 ## Users
 
@@ -32,6 +32,7 @@ Rendered by intake-kit from `intake-answers.yaml` (session 2026-10-14-de70, 2026
 
 - A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; wrong-location scans do count. [data_report.definition] "a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."
 - The report is per picker, per shift, per day. [data_report.grain] "A daily short-pick report per picker"
+- The report needs to be ready by 7am. [data_report.delivery] "it needs to be there by 7am when I get in."
 
 ## Out of scope
 
@@ -40,7 +41,7 @@ Rendered by intake-kit from `intake-answers.yaml` (session 2026-10-14-de70, 2026
 ## Data
 
 - All data comes from WMS pick confirmations, using the reporting copy; no customer or pricing data, just badge numbers and locations. [core.data] "everything comes from WMS pick confirmations. We can read the reporting copy. No customer or pricing data in it, just badge numbers and locations."
-- WMS pick confirmations are the source of truth if numbers disagree. [data_report.truth] "if dashboard and report disagree, WMS pick confirmations win"
+- WMS is the system of record; if the report disagrees with WMS two weeks in a row Sam would stop using it. [data_report.truth] "If the numbers in the new report disagreed with the WMS two weeks in a row I'd switch it off and go back to my spreadsheet."
 
 ## Systems
 

@@ -14127,7 +14127,7 @@ function validate71(data, { instancePath = "", parentData, parentDataProperty, r
   return errors === 0;
 }
 validate71.evaluated = { "props": true, "dynamicProps": false, "dynamicItems": false };
-var schema32 = { "type": "object", "additionalProperties": false, "required": ["item", "check", "result", "value", "quote"], "properties": { "item": { "type": "string" }, "check": { "type": "string", "enum": ["manual_work", "existing_asset", "kill_criteria"] }, "result": { "type": "string", "enum": ["yes", "no", "unclear"] }, "value": { "type": ["string", "null"] }, "quote": { "type": ["string", "null"] } } };
+var schema32 = { "type": "object", "additionalProperties": false, "required": ["item", "check", "result", "value", "quote", "name"], "properties": { "item": { "type": "string" }, "check": { "type": "string", "enum": ["manual_work", "existing_asset", "kill_criteria"] }, "result": { "type": "string", "enum": ["yes", "no", "unclear"] }, "value": { "type": ["string", "null"] }, "quote": { "type": ["string", "null"] }, "name": { "type": ["string", "null"], "description": "For a manual_work yes: a short name for the work done by hand, two to five words. Null otherwise." } } };
 function validate73(data, { instancePath = "", parentData, parentDataProperty, rootData = data, dynamicAnchors = {} } = {}) {
   let vErrors = null;
   let errors = 0;
@@ -14184,20 +14184,18 @@ function validate73(data, { instancePath = "", parentData, parentDataProperty, r
       }
       errors++;
     }
-    for (const key0 in data) {
-      if (!(key0 === "item" || key0 === "check" || key0 === "result" || key0 === "value" || key0 === "quote")) {
-        const err5 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        if (vErrors === null) {
-          vErrors = [err5];
-        } else {
-          vErrors.push(err5);
-        }
-        errors++;
+    if (data.name === void 0) {
+      const err5 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "name" }, message: "must have required property 'name'" };
+      if (vErrors === null) {
+        vErrors = [err5];
+      } else {
+        vErrors.push(err5);
       }
+      errors++;
     }
-    if (data.item !== void 0) {
-      if (typeof data.item !== "string") {
-        const err6 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+    for (const key0 in data) {
+      if (!(key0 === "item" || key0 === "check" || key0 === "result" || key0 === "value" || key0 === "quote" || key0 === "name")) {
+        const err6 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         if (vErrors === null) {
           vErrors = [err6];
         } else {
@@ -14206,10 +14204,9 @@ function validate73(data, { instancePath = "", parentData, parentDataProperty, r
         errors++;
       }
     }
-    if (data.check !== void 0) {
-      let data1 = data.check;
-      if (typeof data1 !== "string") {
-        const err7 = { instancePath: instancePath + "/check", schemaPath: "#/properties/check/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+    if (data.item !== void 0) {
+      if (typeof data.item !== "string") {
+        const err7 = { instancePath: instancePath + "/item", schemaPath: "#/properties/item/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         if (vErrors === null) {
           vErrors = [err7];
         } else {
@@ -14217,8 +14214,11 @@ function validate73(data, { instancePath = "", parentData, parentDataProperty, r
         }
         errors++;
       }
-      if (!(data1 === "manual_work" || data1 === "existing_asset" || data1 === "kill_criteria")) {
-        const err8 = { instancePath: instancePath + "/check", schemaPath: "#/properties/check/enum", keyword: "enum", params: { allowedValues: schema32.properties.check.enum }, message: "must be equal to one of the allowed values" };
+    }
+    if (data.check !== void 0) {
+      let data1 = data.check;
+      if (typeof data1 !== "string") {
+        const err8 = { instancePath: instancePath + "/check", schemaPath: "#/properties/check/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         if (vErrors === null) {
           vErrors = [err8];
         } else {
@@ -14226,11 +14226,8 @@ function validate73(data, { instancePath = "", parentData, parentDataProperty, r
         }
         errors++;
       }
-    }
-    if (data.result !== void 0) {
-      let data2 = data.result;
-      if (typeof data2 !== "string") {
-        const err9 = { instancePath: instancePath + "/result", schemaPath: "#/properties/result/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+      if (!(data1 === "manual_work" || data1 === "existing_asset" || data1 === "kill_criteria")) {
+        const err9 = { instancePath: instancePath + "/check", schemaPath: "#/properties/check/enum", keyword: "enum", params: { allowedValues: schema32.properties.check.enum }, message: "must be equal to one of the allowed values" };
         if (vErrors === null) {
           vErrors = [err9];
         } else {
@@ -14238,8 +14235,11 @@ function validate73(data, { instancePath = "", parentData, parentDataProperty, r
         }
         errors++;
       }
-      if (!(data2 === "yes" || data2 === "no" || data2 === "unclear")) {
-        const err10 = { instancePath: instancePath + "/result", schemaPath: "#/properties/result/enum", keyword: "enum", params: { allowedValues: schema32.properties.result.enum }, message: "must be equal to one of the allowed values" };
+    }
+    if (data.result !== void 0) {
+      let data2 = data.result;
+      if (typeof data2 !== "string") {
+        const err10 = { instancePath: instancePath + "/result", schemaPath: "#/properties/result/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         if (vErrors === null) {
           vErrors = [err10];
         } else {
@@ -14247,11 +14247,8 @@ function validate73(data, { instancePath = "", parentData, parentDataProperty, r
         }
         errors++;
       }
-    }
-    if (data.value !== void 0) {
-      let data3 = data.value;
-      if (typeof data3 !== "string" && data3 !== null) {
-        const err11 = { instancePath: instancePath + "/value", schemaPath: "#/properties/value/type", keyword: "type", params: { type: schema32.properties.value.type }, message: "must be string,null" };
+      if (!(data2 === "yes" || data2 === "no" || data2 === "unclear")) {
+        const err11 = { instancePath: instancePath + "/result", schemaPath: "#/properties/result/enum", keyword: "enum", params: { allowedValues: schema32.properties.result.enum }, message: "must be equal to one of the allowed values" };
         if (vErrors === null) {
           vErrors = [err11];
         } else {
@@ -14260,10 +14257,10 @@ function validate73(data, { instancePath = "", parentData, parentDataProperty, r
         errors++;
       }
     }
-    if (data.quote !== void 0) {
-      let data4 = data.quote;
-      if (typeof data4 !== "string" && data4 !== null) {
-        const err12 = { instancePath: instancePath + "/quote", schemaPath: "#/properties/quote/type", keyword: "type", params: { type: schema32.properties.quote.type }, message: "must be string,null" };
+    if (data.value !== void 0) {
+      let data3 = data.value;
+      if (typeof data3 !== "string" && data3 !== null) {
+        const err12 = { instancePath: instancePath + "/value", schemaPath: "#/properties/value/type", keyword: "type", params: { type: schema32.properties.value.type }, message: "must be string,null" };
         if (vErrors === null) {
           vErrors = [err12];
         } else {
@@ -14272,12 +14269,36 @@ function validate73(data, { instancePath = "", parentData, parentDataProperty, r
         errors++;
       }
     }
+    if (data.quote !== void 0) {
+      let data4 = data.quote;
+      if (typeof data4 !== "string" && data4 !== null) {
+        const err13 = { instancePath: instancePath + "/quote", schemaPath: "#/properties/quote/type", keyword: "type", params: { type: schema32.properties.quote.type }, message: "must be string,null" };
+        if (vErrors === null) {
+          vErrors = [err13];
+        } else {
+          vErrors.push(err13);
+        }
+        errors++;
+      }
+    }
+    if (data.name !== void 0) {
+      let data5 = data.name;
+      if (typeof data5 !== "string" && data5 !== null) {
+        const err14 = { instancePath: instancePath + "/name", schemaPath: "#/properties/name/type", keyword: "type", params: { type: schema32.properties.name.type }, message: "must be string,null" };
+        if (vErrors === null) {
+          vErrors = [err14];
+        } else {
+          vErrors.push(err14);
+        }
+        errors++;
+      }
+    }
   } else {
-    const err13 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    const err15 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
     if (vErrors === null) {
-      vErrors = [err13];
+      vErrors = [err15];
     } else {
-      vErrors.push(err13);
+      vErrors.push(err15);
     }
     errors++;
   }
@@ -14822,7 +14843,13 @@ function formatErrors(errors) {
 var validateOpening2 = (data) => run(validateOpening, data);
 var validatePhrase2 = (data) => run(validatePhrase, data);
 var validateExtract2 = (data) => run(validateExtract, data);
-var validateIngest2 = (data) => run(validateIngest, data);
+var validateIngest2 = (data) => {
+  const checks = data?.checks;
+  if (Array.isArray(checks)) {
+    for (const c of checks) if (c && typeof c === "object" && !("name" in c)) c.name = null;
+  }
+  return run(validateIngest, data);
+};
 var validateWriteUp2 = (data) => run(validateWriteUp, data);
 
 // schema/v2/opening.schema.json
@@ -15397,7 +15424,8 @@ var ingest_schema_default = {
         "check",
         "result",
         "value",
-        "quote"
+        "quote",
+        "name"
       ],
       properties: {
         item: {
@@ -15430,6 +15458,13 @@ var ingest_schema_default = {
             "string",
             "null"
           ]
+        },
+        name: {
+          type: [
+            "string",
+            "null"
+          ],
+          description: "For a manual_work yes: a short name for the work done by hand, two to five words. Null otherwise."
         }
       }
     },
@@ -15675,7 +15710,7 @@ function addGapQuestions(session, item, fw) {
   }
 }
 function termQuestion(t) {
-  return t.kind === "metric" ? `How exactly do you calculate "${t.term}"? What's in and what's out? Give one real example and the right number.` : `In your own words, what counts as "${t.term}", and what doesn't? Give one real example.`;
+  return t.kind === "metric" ? `How exactly do you calculate ${t.term}? What's in and what's out? Give one real example and the right number.` : `In your own words, what counts as ${t.term}, and what doesn't? Give one real example.`;
 }
 function termReasons(session, item) {
   return (session.terms ?? []).filter((t) => t.items.includes(item.id)).flatMap((t) => t.status === "not_a_term" ? [] : t.conflict ? [`"${t.term}" has two definitions that disagree`] : t.status === "unconfirmed" ? [`"${t.term}" has no confirmed definition`] : []);
@@ -15867,6 +15902,45 @@ function scoreAndGate(session, fw) {
 // src/lib/grounding.ts
 function normalize(text) {
   return text.replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, "-").replace(/…/g, "...").replace(/\s+/g, " ").trim().toLowerCase();
+}
+function exactSpan(quote, texts) {
+  const q = normalize(quote);
+  if (!q) return null;
+  for (const text of texts) {
+    let norm = "";
+    const at = [];
+    for (let i = 0; i < text.length; i++) {
+      if (/\s/.test(text[i])) {
+        if (norm && !norm.endsWith(" ")) {
+          norm += " ";
+          at.push(i);
+        }
+        continue;
+      }
+      for (const c of normalize(text[i])) {
+        norm += c;
+        at.push(i);
+      }
+    }
+    const k = norm.indexOf(q);
+    if (k >= 0) return text.slice(at[k], at[k + q.length - 1] + 1);
+  }
+  return null;
+}
+function quoteFor(value, quotes) {
+  const words = (t) => new Set(normalize(t).match(/[a-z0-9$]{3,}/g) ?? []);
+  const want = words(value ?? "");
+  let best = null;
+  let score = -1;
+  for (const q of quotes) {
+    const have = words(q);
+    const n = [...want].filter((w) => have.has(w)).length;
+    if (n > score) {
+      best = q;
+      score = n;
+    }
+  }
+  return best;
 }
 function findQuote(quote, transcript) {
   const q = normalize(quote);
@@ -16288,7 +16362,7 @@ function applyCheck(original, pending, x, ctx) {
   const spawns = check2?.spawns;
   if (result === "yes" && spawns && primary) {
     const id = `item-${session.items.reduce((n, i) => Math.max(n, Number(i.id.slice(5)) || 0), 0) + 1}`;
-    const title = shortTitle(x.value?.trim() || "Manual work done today");
+    const title = x.name?.trim() ? shortTitle(x.name, 40) : shortTitle(x.value?.trim() || "Manual work done today");
     session.items.push({
       id,
       title,
@@ -16446,17 +16520,20 @@ function ingestRequest(fw, session, x) {
       "You read one document gathered during an intake and record what it says about each area. You only classify; you never decide what to ask next, create items, score or judge.",
       [
         "answers: one entry for each area the document actually says something about. Leave out areas it doesn't mention.",
-        `An area is answered only by words about that area's own question. A reason or a side remark that touches a related idea doesn't answer another area: "we recount because the auditors sample our biggest variances" is about the decision, not about who catches a wrong number (trust). Don't file one clause under two areas.`,
+        `An area is answered only by words about that area's own question. One sentence can answer two areas when it answers each one's own question: "cost lives in the ERP and counts live in the WMS" is both the data and the systems; "in my inbox by 7am" is both a rule and the delivery. List it under each. But a reason or a side remark that only touches a related idea doesn't answer another area: "we recount because the auditors sample our biggest variances" is about the decision, not about who catches a wrong number (trust).`,
+        `A threshold or cutoff that decides which ones matter ("variances over $500 go to the controller") is a rule: record it under the rules area (core.constraints). Never under the outcome, the decision or trust. It isn't a definition of the term either: it says which ones matter, not how one is calculated.`,
+        `Doubt about how a term is counted ("I think", "Mike might calculate it differently") belongs to that term's definition, with certain false. It doesn't answer trust or any other area.`,
         `status: "answered" when it answers what the area needs; "partial" when it answers only some of it, or vaguely ("usually", "I think", no example); "not_applicable" when it says the area doesn't apply; "declined" when it says they don't know or won't say.`,
         "value: what the document says, as one short plain sentence. Never add a detail it doesn't say (a day, a number, a name). Null if nothing usable.",
         "quotes: one or more exact spans copied character for character from the document that carry the answer. Never paraphrase, never join two places into one quote.",
-        `conflict: true only if the answer contradicts what is recorded so far for that area (shown after "recorded so far"): both can't be true at once, like "by 7am" and "by 6am". Adding detail, narrowing it down, or saying the same thing another way is never a conflict: "per picker" then "per picker, per shift, per day" is conflict false.`,
+        `conflict: true only if the answer contradicts what is recorded so far for that area (shown after "recorded so far"): two answers to the same fact that can't both be true, like "by 7am" and "by 6am", or "over $500" and "over $250". Adding detail, narrowing it down, or saying the same thing another way is never a conflict: "per picker" then "per picker, per shift, per day" is conflict false. A different fact in the same area is never a conflict either: a deadline where a threshold is recorded, or the level of detail wanted where today's process is recorded.`,
         "The same fact is often recorded under more than one area (a deadline under both rules and delivery). When the document contradicts a recorded fact, return an answer with conflict true for every area where that fact is recorded, not just one.",
         'item: the exact item ID the area is listed under, like "item-1" (never the type). A shared core area belongs to the first item listed.',
         "checks: one entry for each check listed under an item, with the document's words in quote (null if none).",
+        'name: for a manual_work check that is "yes", a short name for the work done by hand, two to five words, the way a colleague would refer to it ("Morning Excel export", "Monday pick sheet"). Null for every other check.',
         `terms: business terms the document uses whose meaning is local to this business or could be read more than one way, so two people could count or judge them differently (over pick, fill rate, on-time, exception, active user), each with the words where it appears. Not the name of something being built or already in use (a script, a template, a report, a tool, a program), not job titles or system names, not generic words, not a phrase that only appears inside another term's definition ("absolute value per SKU" in a definition of variance), and not terms already listed below or longer forms of them ("cycle count variance" when "variance" is listed).`,
         `definitions: for any term (listed below or new), a definition the document gives: what counts and what doesn't, in its words, with quotes; whether it says the thing can be seen in the system's data; any worked example with the right result. certain: false if the document hedges any part of it ("I think", "not sure", "check with"). If the document settles or adds to part of a term already listed ("wrong-location scans do count"), return a definition for that same term, using its listed name, with the full updated definition and conflict false; never make a separate term out of part of one. conflict: true only if it contradicts a definition already recorded.`,
-        "A definition that calculates it differently (net vs absolute value, a different cost, different units, a different threshold) contradicts the earlier one, even if the earlier one was hedged: conflict true."
+        "A definition that calculates it differently (net vs absolute value, a different cost, different units) contradicts the earlier one, even if the earlier one was hedged: conflict true. A different threshold is a conflict on the rule, not on the definition."
       ].join("\n"),
       "Only use what the document says. Don't infer or fill gaps."
     ].join("\n\n"),
@@ -17058,19 +17135,32 @@ function readTargets(session, fw) {
     return { id: i.id, title: i.title, type: i.type, areas, checks };
   });
 }
+var WHAT_COUNTS = /* @__PURE__ */ new Set(["data_report.definition", "manual_process.rules", "core.constraints"]);
+function numberKinds(text) {
+  const t = text.toLowerCase();
+  const kinds = /* @__PURE__ */ new Set();
+  if (/\$\s?\d|\d\s?(dollars|usd)\b/.test(t)) kinds.add("money");
+  if (/\b\d{1,2}(:\d{2})?\s?(am|pm)\b|\b\d{1,2}:\d{2}\b|\bnoon\b|\bmidnight\b/.test(t)) kinds.add("time");
+  if (/\d\s?%|\bpercent\b/.test(t)) kinds.add("percent");
+  if (/\d\s?(minutes?|mins?|hours?|hrs?|days?|weeks?|months?)\b/.test(t)) kinds.add("duration");
+  return kinds;
+}
+function differentFacts(recorded, said2) {
+  const x = numberKinds(recorded), y = numberKinds(said2);
+  return x.size > 0 && y.size > 0 && ![...x].some((k) => y.has(k));
+}
 function applyIngest(session, source, r, fw, now2) {
   const events = [];
   const transcript = [{ role: "user", text: source.text, at: source.added_at }];
   const engine = session.session.engine;
   const asked = session.session.asked ?? (session.session.asked = {});
   const fromNotes = source.kind === "notes";
-  const claimed = [];
-  const overlaps = (a, b) => {
-    const x = normalize(a), y = normalize(b);
-    return x.includes(y) || y.includes(x);
+  const defined = r.definitions.flatMap((d) => d.quotes.map((q) => normalize(q))).filter(Boolean);
+  const insideDefinition = (q) => {
+    const x = normalize(q);
+    return defined.some((d) => d.includes(x));
   };
-  for (const a0 of r.answers) {
-    let a = a0;
+  for (const a of r.answers) {
     const live = session.items.filter((i) => !i.dropped);
     const fits = live.filter((i) => areaFits(i, a.area, fw));
     const item = live.find((i) => i.id === a.item) ?? (a.area.startsWith("core.") ? live.find((i) => !i.spawned_from) : fits.length === 1 ? fits[0] : void 0);
@@ -17097,21 +17187,33 @@ function applyIngest(session, source, r, fw, now2) {
       events.push(`${key}: no quote from the source, not recorded`);
       continue;
     }
-    if ((a.status === "answered" || a.status === "partial") && quotes.every((q) => claimed.some((c) => c.area !== a.area && overlaps(c.quote, q)))) {
-      events.push(`${key}: its words are already filed under another area; not recorded here (it'll be asked plainly)`);
+    if (!WHAT_COUNTS.has(a.area) && quotes.every(insideDefinition)) {
+      events.push(`${key}: its words define a term; kept with the term, not recorded here`);
       continue;
     }
-    for (const q of quotes) claimed.push({ area: a.area, quote: q });
     asked[key] ??= now2;
+    if (item.spawned_from && a.area.startsWith("core.")) {
+      const own = item.core_overrides[a.area.slice(5)];
+      setEntry(session, item, a.area, { status: fromNotes || a.status === "partial" ? "assumed" : "covered", value: a.value ?? quotes[0], quotes: [.../* @__PURE__ */ new Set([...own?.quotes ?? [], ...quotes])], probe_count: 0, updated_at: now2, quote_sources: { ...own?.quote_sources ?? {}, ...Object.fromEntries(quotes.map((q) => [q, source.id])) } });
+      events.push(`${item.id}:${a.area}: recorded for this item`);
+      continue;
+    }
     const open = stateOf(engine, key).conflict;
+    if (open && fromNotes) {
+      events.push(`${key}: notes can't settle the disagreement; still open for the follow-up`);
+      continue;
+    }
     if (open && a.status === "answered") {
       setEntry(session, item, a.area, { status: fromNotes ? "assumed" : "covered", value: a.value ?? quotes[0], quotes: [.../* @__PURE__ */ new Set([...prev?.quotes ?? [], open.quote, ...quotes])], probe_count: prev?.probe_count ?? 0, updated_at: now2, quote_sources: { ...sources(quotes), [open.quote]: open.source, ...Object.fromEntries(quotes.map((q) => [q, source.id])) } });
       engine.areas[key] = { ...stateOf(engine, key), conflict: null, partial: null };
       events.push(`${key}: disagreement settled`);
       continue;
     }
-    if (known && a.conflict) {
-      engine.areas[key] = { ...stateOf(engine, key), conflict: { value: a.value, quote: quotes[0], source: source.id } };
+    if (known && a.conflict && differentFacts(quoteFor(prev.value, prev.quotes) ?? prev.value, quotes.join(" "))) {
+      events.push(`${key}: flagged as a disagreement, but it's a different fact ($ vs time, say); added to the answer`);
+    } else if (known && a.conflict) {
+      const against = quoteFor(prev.value, prev.quotes);
+      engine.areas[key] = { ...stateOf(engine, key), conflict: { value: a.value, quote: quotes[0], source: source.id, ...against ? { against: { quote: against, source: prev.quote_sources?.[against] ?? null } } : {} } };
       events.push(`${key}: conflicts with what's recorded; kept both for the follow-up`);
       continue;
     }
@@ -17158,7 +17260,7 @@ function applyIngest(session, source, r, fw, now2) {
     }
     const area = c.check === "manual_work" ? fw.modules[item.type]?.anchor : fw.router.checks.kill_criteria.area;
     const ctx = { fw, transcript, now: now2 };
-    const out2 = applyCheck(session, { item: item.id, area, kind: "check", check: c.check, question: "packet" }, { status: "answered", value: c.value, quote: c.quote, check: c.result, wrap_up: false, also_answers: [] }, ctx);
+    const out2 = applyCheck(session, { item: item.id, area, kind: "check", check: c.check, question: "packet" }, { status: "answered", value: c.value, quote: c.quote, check: c.result, wrap_up: false, also_answers: [], name: c.name ?? null }, ctx);
     Object.assign(session, out2.session);
     events.push(...out2.events);
     const q = c.check === "kill_criteria" ? grounded(c.quote, transcript) : null;
@@ -17189,7 +17291,14 @@ function applyTerms(session, source, r, transcript) {
       events.push(`term "${t.term}": not in the source, ignored`);
       continue;
     }
-    if (find(t.term)) continue;
+    const known = find(t.term);
+    if (known) {
+      if (termKey(t.term).length < termKey(known.term).length) {
+        events.push(`term "${known.term}": now "${t.term.trim()}"`);
+        known.term = t.term.trim();
+      }
+      continue;
+    }
     add(t.term, quote, t.kind);
     events.push(`term "${t.term}": found, unconfirmed`);
   }
@@ -17287,12 +17396,41 @@ var settled = (s, item, check2) => {
   const c = s.session.engine.checks[`${item.id}:${check2}`];
   return !!c && (c.result === "yes" || c.result === "no" || c.asks >= 2);
 };
+function quoter(session) {
+  const sources = session.session.sources ?? [];
+  const said2 = (quote, sourceId) => {
+    if (!quote) return null;
+    const src = sources.find((x) => x.id === sourceId) ?? sources.find((x) => exactSpan(quote, [x.text]));
+    const span = src ? exactSpan(quote, [src.text]) : null;
+    if (!src || !span) return null;
+    const who = src.kind === "notes" ? `Our notes from talking to ${src.from} say` : src.kind === "request" ? `The request from ${src.from} says` : src.kind === "transcript" ? `${src.from} said` : `${src.from} wrote`;
+    return `${who}: "${span}"${/[.!?]$/.test(span) ? "" : "."}`;
+  };
+  const summary = (value, lead = "In summary") => `${lead}: ${(value ?? "").trim().replace(/[.!?]+$/, "")}.`;
+  const latest = (e) => {
+    const q = e ? quoteFor(e.value, e.quotes) : null;
+    return q ? { quote: q, source: e.quote_sources?.[q] ?? null } : null;
+  };
+  return { said: said2, summary, latest };
+}
 function findGaps(session, fw) {
   const engine = session.session.engine;
   const gaps = [];
   const readiness = [];
   const live = session.items.filter((i) => !i.dropped);
   const primary = live.find((i) => !i.spawned_from);
+  const q = quoter(session);
+  const conflictGap = (item, area, e, c) => {
+    const before = c.against ?? q.latest(e);
+    const one = q.said(before?.quote, before?.source) ?? q.summary(e?.value, "In summary, one answer");
+    const two = q.said(c.quote, c.source) ?? q.summary(c.value, "In summary, the other");
+    return { kind: "conflict", item: item.id, target: area, pair: [before?.quote ?? e?.value ?? "", c.quote], question: `We have two different answers here. ${one} ${two} Which is right? (${fw.areas.get(area).packet.ask})` };
+  };
+  const confirmGap = (item, area, e, ask) => {
+    const last = q.latest(e);
+    return { kind: "confirm", item: item.id, target: area, question: `${q.said(last?.quote, last?.source) ?? q.summary(e.value)} ${ask}` };
+  };
+  const NOTES_ASK = "Is that right? Please say it in your own words.";
   for (const item of [...live.filter((i) => !i.spawned_from), ...live.filter((i) => i.spawned_from)]) {
     const queue = queueFor(item, fw);
     const critical = new Set(criticalAreas(item, fw));
@@ -17300,10 +17438,10 @@ function findGaps(session, fw) {
     const open = [];
     for (const area of queue) {
       const e = entryOf(session, item, area);
-      const st = stateOf(engine, areaKey(item, area));
+      const st = item.spawned_from && area.startsWith("core.") ? { ...stateOf(engine, areaKey(item, area)), conflict: null, partial: null } : stateOf(engine, areaKey(item, area));
       const def = fw.areas.get(area);
       if (st.conflict) {
-        gaps.push({ kind: "conflict", item: item.id, target: area, pair: [e?.value ?? "", st.conflict.value ?? st.conflict.quote], question: `We have two different answers here: "${e?.value ?? ""}" and "${st.conflict.value ?? st.conflict.quote}". Which is right? (${def.packet.ask})` });
+        gaps.push(conflictGap(item, area, e, st.conflict));
         open.push(`${areaLabel(area)}: two answers disagree`);
         continue;
       }
@@ -17313,18 +17451,19 @@ function findGaps(session, fw) {
         continue;
       }
       if (e.status === "assumed" && st.partial) {
-        gaps.push({ kind: "partial", item: item.id, target: area, quoted: st.partial.quote ?? st.partial.value ?? "", ask: def.packet.ask, question: `You mentioned "${st.partial.quote ?? st.partial.value}". Could you say more? ${def.packet.ask}` });
+        const words = q.said(st.partial.quote, st.partial.quote ? e.quote_sources?.[st.partial.quote] : null) ?? q.summary(st.partial.value ?? e.value);
+        gaps.push({ kind: "partial", item: item.id, target: area, quoted: st.partial.quote ?? st.partial.value ?? "", ask: def.packet.ask, question: `${words} Could you say more? ${def.packet.ask}` });
         open.push(`${areaLabel(area)}: only partly answered`);
         continue;
       }
-      const notesOnly = e.status === "assumed" && e.quotes.length > 0 && e.quotes.every((q) => session.session.sources?.find((x) => x.id === e.quote_sources?.[q])?.kind === "notes");
+      const notesOnly = e.status === "assumed" && e.quotes.length > 0 && e.quotes.every((x) => session.session.sources?.find((s) => s.id === e.quote_sources?.[x])?.kind === "notes");
       if (notesOnly) {
-        gaps.push({ kind: "confirm", item: item.id, target: area, question: `Our notes say: "${e.value}". Is that right? Please say it in your own words.` });
+        gaps.push(confirmGap(item, area, e, NOTES_ASK));
         open.push(`${areaLabel(area)}: from notes only, needs the stakeholder to confirm`);
         continue;
       }
       if (e.status === "assumed" && critical.has(area)) {
-        gaps.push({ kind: "confirm", item: item.id, target: area, question: `We have: "${e.quotes.at(-1) ?? e.value}". Is that right?` });
+        gaps.push(confirmGap(item, area, e, "Is that right?"));
         open.push(`${areaLabel(area)}: needs confirming`);
         continue;
       }
@@ -17336,20 +17475,20 @@ function findGaps(session, fw) {
       const e = entryOf(session, item, area);
       const st = stateOf(engine, areaKey(item, area));
       if (st.conflict) {
-        gaps.push({ kind: "conflict", item: item.id, target: area, pair: [e?.value ?? "", st.conflict.value ?? st.conflict.quote], question: `We have two different answers here: "${e?.value ?? ""}" and "${st.conflict.value ?? st.conflict.quote}". Which is right? (${fw.areas.get(area).packet.ask})` });
+        gaps.push(conflictGap(item, area, e, st.conflict));
         open.push(`${areaLabel(area)}: two answers disagree`);
         continue;
       }
-      if (e?.status === "assumed" && e.quotes.length && e.quotes.every((q) => session.session.sources?.find((x) => x.id === e.quote_sources?.[q])?.kind === "notes")) {
-        gaps.push({ kind: "confirm", item: item.id, target: area, question: `Our notes say: "${e.value}". Is that right? Please say it in your own words.` });
+      if (e?.status === "assumed" && e.quotes.length && e.quotes.every((x) => session.session.sources?.find((s) => s.id === e.quote_sources?.[x])?.kind === "notes")) {
+        gaps.push(confirmGap(item, area, e, NOTES_ASK));
         open.push(`${areaLabel(area)}: from notes only, needs the stakeholder to confirm`);
       }
     }
     if (!item.spawned_from) {
       const outcome = entryOf(session, item, "core.outcome");
       if (outcome && outcome.status !== "unknown" && !sessionQuotes(session).some(hasNumber)) {
-        const q = fw.scoring.gap_questions?.success_metric?.question ?? "What number would show this worked, and what is that number today?";
-        gaps.push({ kind: "baseline", item: item.id, target: "core.outcome", question: q });
+        const q2 = fw.scoring.gap_questions?.success_metric?.question ?? "What number would show this worked, and what is that number today?";
+        gaps.push({ kind: "baseline", item: item.id, target: "core.outcome", question: q2 });
         open.push(`${areaLabel("core.outcome")}: no number for how things are today`);
       }
     }
@@ -17374,9 +17513,13 @@ function findGaps(session, fw) {
   }
   for (const t of (session.terms ?? []).filter((x) => x.status !== "not_a_term")) {
     const draftFromNotes = t.draft && session.session.sources?.find((x) => x.id === t.draft.source)?.kind === "notes";
-    if (t.conflict) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `"${t.term}" was defined two ways: "${t.definition ?? t.draft?.definition}" and "${t.conflict.definition}". Which is right? Please say it in your own words.` });
-    else if (t.draft && draftFromNotes) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `Our notes define "${t.term}" as "${t.draft.definition}". Is that right? Please say what counts and what doesn't, in your own words.` });
-    else if (t.status === "unconfirmed" && t.draft) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `You described "${t.term}" as "${t.draft.definition}", but weren't sure about all of it. What exactly counts, and what doesn't?` });
+    const first = t.definition ? t.quotes.length ? { quote: t.quotes.at(-1), source: t.source } : null : t.draft ? { quote: t.draft.quote, source: t.draft.source } : null;
+    if (t.conflict) {
+      const one = q.said(first?.quote, first?.source) ?? q.summary(t.definition ?? t.draft?.definition, "In summary, one definition");
+      const two = q.said(t.conflict.quote, t.conflict.source) ?? q.summary(t.conflict.definition, "In summary, the other");
+      gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `Two definitions of ${t.term} disagree. ${one} ${two} Which is right? Please say what counts and what doesn't, in your own words.` });
+    } else if (t.draft && draftFromNotes) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `On what ${t.term} means: ${q.said(t.draft.quote, t.draft.source) ?? q.summary(t.draft.definition)} Is that right? Please say what counts and what doesn't, in your own words.` });
+    else if (t.status === "unconfirmed" && t.draft) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `On what ${t.term} means: ${q.said(t.draft.quote, t.draft.source) ?? q.summary(t.draft.definition)} That wasn't certain. What exactly counts, and what doesn't?` });
     else if (t.status === "unconfirmed") gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: termQuestion(t) });
     else continue;
     for (const r of readiness.filter((x) => t.items.includes(x.item))) r.open.push(`"${t.term}": ${t.conflict ? "two definitions disagree" : draftFromNotes ? "defined in notes only, needs the owner to confirm" : "no confirmed definition"}`);
@@ -17413,11 +17556,22 @@ function dedupe(gaps) {
 function readinessLines(r) {
   return r.readiness.map((x) => `${x.title}: ${x.answered} of ${x.required} required answered${x.open.length ? `; still open: ${x.open.join("; ")}` : "; ready for the summary"}.`);
 }
+var leadIn = (title) => {
+  const name = title.replace(/…$/, "");
+  if (name.split(/\s+/).length > 5 || name !== title) return `About this next part (${title}):`;
+  return `About the ${/^[A-Z][a-z]/.test(name) ? name[0].toLowerCase() + name.slice(1) : name} you mentioned:`;
+};
 function followUpEmail(session, r) {
   if (!r.gaps.length) return "";
-  const request = session.session.sources?.find((s) => s.kind === "request")?.text ?? session.items[0]?.title ?? "";
-  const lines = [`# A few follow-up questions about: ${request}`, "", "Thanks for your answers. These are the only things still open. If you don't know, say so. That's a useful answer.", ""];
-  r.gaps.forEach((g, i) => lines.push(`${i + 1}. ${g.question}`, ""));
+  const primary = session.items.find((i) => !i.spawned_from && !i.dropped) ?? session.items[0];
+  const lines = [`# A few follow-up questions about: ${primary?.title ?? ""}`, "", "Thanks for your answers. These are the only things still open. If you don't know, say so. That's a useful answer.", ""];
+  let about = null;
+  r.gaps.forEach((g, i) => {
+    const item = session.items.find((x) => x.id === g.item);
+    if (item?.spawned_from && about !== item.id) lines.push(leadIn(item.title), "");
+    about = item?.spawned_from ? item.id : null;
+    lines.push(`${i + 1}. ${g.question}`, "");
+  });
   return lines.join("\n").trimEnd() + "\n";
 }
 
@@ -17519,16 +17673,16 @@ function buildPacket(fw, input) {
   const asked = new Set(queue);
   const all = ["core", input.type, ...modifiers.map((m) => `mod.${m}`)].flatMap((m) => fw.modules[m]?.areas.map((a) => a.id) ?? []);
   const if_you_know = [...new Set(all)].filter((id) => !asked.has(id)).map(fromArea);
-  return { request: input.request, type: input.type, modifiers, questions, if_you_know };
+  return { request: input.request, title: input.title?.trim() || shortTitle(input.request), type: input.type, modifiers, questions, if_you_know };
 }
 var INTRO = [
   "Please answer what you can, in your own words. If you don't know, say so. That's a useful answer.",
   "Real examples help most: the last time it happened, what you saw, who was involved."
 ];
 function packetEmail(p) {
-  const lines = [`# Questions about: ${p.request}`, "", ...INTRO, ""];
+  const lines = [`# Questions about: ${p.title}`, "", `The request: "${p.request}"`, "", ...INTRO, ""];
   p.questions.forEach((q, i) => lines.push(`${i + 1}. **${q.ask}**`, `   _Why: ${q.why}_${q.example ? `  
-   _For example: "${q.example}"_` : ""}`, ""));
+   _For example: ${q.example}_` : ""}`, ""));
   if (p.if_you_know.length) {
     lines.push("## If you know", "", "These help, but skip any you're not sure about.", "");
     p.if_you_know.forEach((q, i) => lines.push(`${p.questions.length + i + 1}. ${q.ask}`, ""));
@@ -17536,7 +17690,7 @@ function packetEmail(p) {
   return lines.join("\n").trimEnd() + "\n";
 }
 function packetAgenda(p) {
-  const lines = [`# Intake meeting: ${p.request}`, "", `About ${Math.max(15, Math.round(p.questions.length * 3 / 5) * 5)} minutes. Ask for a real, recent example on each.`, ""];
+  const lines = [`# Intake meeting: ${p.title}`, "", `The request: "${p.request}"`, "", `About ${Math.max(15, Math.round(p.questions.length * 3 / 5) * 5)} minutes. Ask for a real, recent example on each.`, ""];
   p.questions.forEach((q, i) => lines.push(`## ${i + 1}. ${q.ask}`, "", `_Why: ${q.why}_`, "", "Notes:", "", ""));
   if (p.if_you_know.length) {
     lines.push("## If there's time", "");
@@ -18339,7 +18493,7 @@ function writePacket(dir, s) {
   const fw = loadFramework(pluginRoot());
   const item = s.items.find((i) => !i.spawned_from);
   const request = s.session.sources?.find((x) => x.kind === "request")?.text ?? item.title;
-  const p = buildPacket(fw, { request, type: item.type, modifiers: item.modifiers });
+  const p = buildPacket(fw, { request, title: item.title, type: item.type, modifiers: item.modifiers });
   const email = join4(paths(dir).stateDir, "packet.md");
   const agenda = join4(paths(dir).stateDir, "agenda.md");
   writeFileSync2(email, packetEmail(p));

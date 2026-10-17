@@ -56,11 +56,14 @@ export function addGapQuestions(session: Session, item: Item, fw: Framework): vo
   }
 }
 
-/** The definition question names the term: "How exactly do you calculate a 'variance'?" for a metric. */
+/**
+ * The definition question names the term: "How exactly do you calculate variance?" for a metric.
+ * Unquoted: quote marks hold only a source's own words, and the term is the model's spelling.
+ */
 export function termQuestion(t: { term: string; kind: string }): string {
   return t.kind === "metric"
-    ? `How exactly do you calculate "${t.term}"? What's in and what's out? Give one real example and the right number.`
-    : `In your own words, what counts as "${t.term}", and what doesn't? Give one real example.`;
+    ? `How exactly do you calculate ${t.term}? What's in and what's out? Give one real example and the right number.`
+    : `In your own words, what counts as ${t.term}, and what doesn't? Give one real example.`;
 }
 
 /** The terms an item uses that block Go: no confirmed definition, or two that disagree. */

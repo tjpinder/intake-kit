@@ -5,6 +5,7 @@ From the intake (session 2026-10-14-de70). Steps as the user described the last 
 ## Steps
 
 - Sam exports pick confirmations from WMS, pastes into Excel, filters out cancelled lines, builds a pivot table per picker, and emails to shift leads. [manual_process.walkthrough] "I export last week's pick confirmations from the WMS, paste them into my Excel template, filter out the cancelled lines, then build a pivot table of exceptions per picker and email it to the three shift leads."
+- Sam sends the finished report to the three shift leads. [manual_process.boundary] "email it to the three shift leads."
 - No other rules or approvals beyond Priya signing off on retraining. [manual_process.rules] "No other rules or approvals beyond Priya signing off on retraining."
 
 ## Candidates

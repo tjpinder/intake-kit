@@ -7,6 +7,7 @@ import type { Framework, ItemType, Modifier } from "./framework.ts";
 import type { Item } from "./session.ts";
 import { queueFor } from "../engine/plan.ts";
 import { MANUAL_QUESTION } from "../engine/turn.ts";
+import { shortTitle } from "./title.ts";
 
 export interface PacketQuestion {
   /** The coverage ID the answer fills, or the check it settles. */
@@ -19,6 +20,8 @@ export interface PacketQuestion {
 
 export interface Packet {
   request: string;
+  /** The item's short title, for the header. */
+  title: string;
   type: ItemType;
   modifiers: Modifier[];
   /** Required areas in queue order, then the checks. */
@@ -29,6 +32,8 @@ export interface Packet {
 
 export interface PacketInput {
   request: string;
+  /** The item's short title; the request cut to its first clause when there's none. */
+  title?: string;
   type: ItemType;
   modifiers?: Modifier[];
 }
@@ -53,7 +58,7 @@ export function buildPacket(fw: Framework, input: PacketInput): Packet {
   const asked = new Set(queue);
   const all = ["core", input.type, ...modifiers.map((m) => `mod.${m}`)].flatMap((m) => fw.modules[m]?.areas.map((a) => a.id) ?? []);
   const if_you_know = [...new Set(all)].filter((id) => !asked.has(id)).map(fromArea);
-  return { request: input.request, type: input.type, modifiers, questions, if_you_know };
+  return { request: input.request, title: input.title?.trim() || shortTitle(input.request), type: input.type, modifiers, questions, if_you_know };
 }
 
 const INTRO = [
@@ -61,10 +66,13 @@ const INTRO = [
   "Real examples help most: the last time it happened, what you saw, who was involved.",
 ];
 
-/** The packet as text to paste into an email. */
+/**
+ * The packet as text to paste into an email: the short title in the header, the request as it came
+ * in. Quote marks hold only the request's own words; examples are unquoted.
+ */
 export function packetEmail(p: Packet): string {
-  const lines = [`# Questions about: ${p.request}`, "", ...INTRO, ""];
-  p.questions.forEach((q, i) => lines.push(`${i + 1}. **${q.ask}**`, `   _Why: ${q.why}_${q.example ? `  \n   _For example: "${q.example}"_` : ""}`, ""));
+  const lines = [`# Questions about: ${p.title}`, "", `The request: "${p.request}"`, "", ...INTRO, ""];
+  p.questions.forEach((q, i) => lines.push(`${i + 1}. **${q.ask}**`, `   _Why: ${q.why}_${q.example ? `  \n   _For example: ${q.example}_` : ""}`, ""));
   if (p.if_you_know.length) {
     lines.push("## If you know", "", "These help, but skip any you're not sure about.", "");
     p.if_you_know.forEach((q, i) => lines.push(`${p.questions.length + i + 1}. ${q.ask}`, ""));
@@ -74,7 +82,7 @@ export function packetEmail(p: Packet): string {
 
 /** The packet as a meeting agenda, with room for notes under each question. */
 export function packetAgenda(p: Packet): string {
-  const lines = [`# Intake meeting: ${p.request}`, "", `About ${Math.max(15, Math.round((p.questions.length * 3) / 5) * 5)} minutes. Ask for a real, recent example on each.`, ""];
+  const lines = [`# Intake meeting: ${p.title}`, "", `The request: "${p.request}"`, "", `About ${Math.max(15, Math.round((p.questions.length * 3) / 5) * 5)} minutes. Ask for a real, recent example on each.`, ""];
   p.questions.forEach((q, i) => lines.push(`## ${i + 1}. ${q.ask}`, "", `_Why: ${q.why}_`, "", "Notes:", "", ""));
   if (p.if_you_know.length) {
     lines.push("## If there's time", "");

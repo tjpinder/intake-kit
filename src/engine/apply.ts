@@ -176,7 +176,9 @@ export function applyCheck(original: Session, pending: Pending, x: Extraction, c
   const spawns: ItemType | null | undefined = check?.spawns;
   if (result === "yes" && spawns && primary) {
     const id = `item-${session.items.reduce((n, i) => Math.max(n, Number(i.id.slice(5)) || 0), 0) + 1}`;
-    const title = shortTitle(x.value?.trim() || "Manual work done today");
+    // A short name reads as a name in the follow-up ("About the morning Excel export you mentioned");
+    // without one, the value cut to its first clause.
+    const title = x.name?.trim() ? shortTitle(x.name, 40) : shortTitle(x.value?.trim() || "Manual work done today");
     session.items.push({
       id, title, type: spawns, confidence: "med", trigger_quote: quote!, modifiers: [],
       spawned_from: primary.id,

@@ -54,10 +54,10 @@ describe("gaps and the follow-up packet", () => {
     assert.ok(!r.gaps.some((g) => g.target === "core.users"), "an answered area isn't asked again");
     const partial = r.gaps.find((g) => g.target === "data_report.definition")!;
     assert.equal(partial.kind, "partial");
-    assert.match(partial.question, /^You mentioned "I think wrong-location scans count, not sure\."/);
+    assert.match(partial.question, /^Ops supervisor wrote: "I think wrong-location scans count, not sure\." Could you say more\?/);
     const conflict = r.gaps.find((g) => g.target === "data_report.decision")!;
     assert.equal(conflict.kind, "conflict");
-    assert.match(conflict.question, /"v data_report.decision" and "Monthly site review"\. Which is right\?/);
+    assert.match(conflict.question, /Ops supervisor wrote: "pick who gets retraining each week"\. Site manager wrote: "for the monthly site review"\. Which is right\?/);
     const email = followUpEmail(s, r);
     for (const g of r.gaps) assert.ok(email.includes(g.question));
     assert.ok(!email.includes(fw.areas.get("core.users")!.packet.ask));
@@ -78,7 +78,7 @@ describe("gaps and the follow-up packet", () => {
       terms: [{ term: "over pick", quote: "Over picks", kind: "metric" }],
     });
     const r = findGaps(s, fw);
-    assert.match(r.gaps.find((g) => g.kind === "term")!.question, /How exactly do you calculate "over pick"?/);
+    assert.match(r.gaps.find((g) => g.kind === "term")!.question, /How exactly do you calculate over pick\?/);
     assert.ok(r.gaps.some((g) => g.kind === "baseline"));
     assert.ok(readinessLines(r)[0].includes('"over pick": no confirmed definition'));
   });
@@ -101,7 +101,7 @@ describe("one question per definition (live test: the area and the term both ask
     assert.ok(!r.gaps.some((g) => g.target === "data_report.definition"), "the generic area question is merged away");
     const q = r.gaps.filter((g) => g.kind === "term");
     assert.equal(q.length, 1);
-    assert.match(q[0].question, /^How exactly do you calculate "variance"\?/);
+    assert.match(q[0].question, /^How exactly do you calculate variance\?/);
   });
 });
 
@@ -111,20 +111,21 @@ describe("a disagreement on an optional area is asked too (worked example: 6am v
     s = await ingest(s, "- wants report by 6am, not 7", { answers: [ans("data_report.delivery", "wants report by 6am", { value: "Ready by 6am", conflict: true })] }, "Priya");
     const g = findGaps(s, fw).gaps.find((x) => x.target === "data_report.delivery")!;
     assert.equal(g.kind, "conflict");
-    assert.match(g.question, /"Ready by 7am" and "Ready by 6am"\. Which is right\?/);
+    assert.match(g.question, /Ops supervisor wrote: "It needs to be there by 7am"\. Priya wrote: "wants report by 6am"\. Which is right\?/);
   });
 });
 
 describe("each thing is asked once (cycle-count test: 11 questions with repeats)", () => {
-  test("one sentence offered for two areas is quoted back once: the second area is asked plainly", async () => {
+  test("one sentence offered for two areas is quoted back once, with both areas' questions", async () => {
     const said = "We recount because the auditors sample our biggest variances.";
     const s = await ingest(triaged(), said, { answers: [
       ans("core.constraints", "because the auditors sample our biggest variances", { status: "partial", value: "Auditors sample variances" }),
       ans("core.trust", "because the auditors sample our biggest variances", { status: "partial", value: "Auditors sample variances" }),
     ] });
     const gaps = findGaps(s, fw).gaps;
-    assert.equal(gaps.filter((g) => g.question.includes("auditors sample")).length, 1);
-    assert.equal(gaps.find((g) => g.target === "core.trust")?.kind, "unknown");
+    const quoted = gaps.filter((g) => g.question.includes("auditors sample"));
+    assert.equal(quoted.length, 1);
+    assert.ok(quoted[0].question.includes(`Also: ${fw.areas.get("core.trust")!.packet.ask}`));
   });
 
   test("the same disagreement filed under two areas is asked once", async () => {

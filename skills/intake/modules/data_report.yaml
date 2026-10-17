@@ -28,7 +28,7 @@ areas:
     must_capture: Exactly how the thing is counted, what's in and what's out
     packet:
       ask: "How exactly is one counted? What's in and what's out?"
-      why: "Two people counting \"the same thing\" differently is the most common reason reports get distrusted."
+      why: "Two people counting the same thing differently is the most common reason reports get distrusted."
       example: "A late delivery is anything after the agreed date. Cancelled orders don't count."
     probes:
       - "How exactly do you count one? What's in and what's out?"

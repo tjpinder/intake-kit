@@ -8,7 +8,7 @@ areas:
     must_capture: What "the same as before" means
     packet:
       ask: "How will you know the new one does everything the old one did?"
-      why: "\"The same as before\" has to be written down, or something gets lost."
+      why: "What counts as the same as before has to be written down, or something gets lost."
       example: "Same totals on the five reports the leads use, to the unit."
     probes:
       - "How will you know the new one does everything the old one did?"

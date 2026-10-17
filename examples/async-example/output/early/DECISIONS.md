@@ -30,7 +30,6 @@ _None._
 Each assumption was confirmed in the reflect-back but not verified. Give each one an owner who will check it.
 
 - **data_report.definition** (`item-1`): A short pick is when the confirmed quantity is less than the task quantity; cancelled lines don't count; wrong-location scans do count. ("a short pick is when the confirmed quantity is less than the task quantity. Cancelled lines don't count. I think wrong-location scans should count too but I'm not totally sure, Priya might know."). Owner: _unassigned_
-- **data_report.truth** (`item-1`): WMS pick confirmations are the source of truth if numbers disagree. ("if dashboard and report disagree, WMS pick confirmations win"). Owner: _unassigned_
 - **"over pick"** can not be seen in the system's data, by the owner's definition. How it will be measured is still open. Owner: _unassigned_
 
 ## Adoption risks

@@ -11,6 +11,8 @@ import { runIngest, startAsync } from "../src/engine/ingest.ts";
 import { findGaps, followUpEmail } from "../src/engine/gaps.ts";
 import { buildPacket, packetAgenda, packetEmail } from "../src/lib/packet.ts";
 import { exactSpan } from "../src/lib/grounding.ts";
+import { enforceVerbatim, quotedSpans } from "../src/lib/verbatim.ts";
+import { buildSummary, dontBuildQuestions, summaryText } from "../src/lib/summary.ts";
 import { validateSession } from "../src/lib/schemas.ts";
 import type { Provider } from "../src/llm/types.ts";
 
@@ -117,7 +119,7 @@ describe("quote marks hold only a source's own words", () => {
     const conflict = s.session.engine!.areas["core.constraints"].conflict!;
     conflict.quote = "words that aren't in any source";
     const g = findGaps(s, fw).gaps.find((x) => x.target === "core.constraints")!;
-    assert.match(g.question, /In summary, the other: Mike wants anything above \$250\. Which is right\?/);
+    assert.match(g.question, /Our summary of the other: Mike wants anything above \$250\. Which is right\?/);
   });
 });
 
@@ -162,5 +164,65 @@ describe("a conflict stays where it was found (retest)", () => {
     const g = findGaps(s, fw).gaps.find((x) => x.target === "core.constraints")!;
     assert.equal(g.kind, "conflict");
     assert.match(g.question, /^We have two different answers here\. The request from Dana says: "Cycle count variances over \$500 should go to the controller"\. Our notes from talking to Mike \(controller\) say: "anything over \$250 should come to him, not \$500"\. Which is right\?/);
+  });
+});
+
+describe("structural: every quoted span in anything the stakeholder reads is verbatim from a source (third retest)", () => {
+  /** Every text a stakeholder can be sent or shown for this session. */
+  const everyText = (s: Session) => {
+    const item = s.items.find((i) => !i.spawned_from)!;
+    const request = s.session.sources!.find((x) => x.kind === "request")!.text;
+    const p = buildPacket(fw, { request, title: item.title, type: item.type, modifiers: item.modifiers });
+    return [packetEmail(p), packetAgenda(p), followUpEmail(s, findGaps(s, fw)), summaryText(buildSummary(s, fw)), ...dontBuildQuestions(s, fw)];
+  };
+
+  test("the first packet, the agenda, the round-2 packet, the summary and the sign-off questions", async () => {
+    const s = await cycleCount();
+    const texts = s.session.sources!.map((x) => x.text);
+    for (const text of everyText(s)) for (const span of quotedSpans(text)) assert.ok(texts.some((t) => t.includes(span)), `not verbatim from any source: "${span}"`);
+  });
+
+  test("a builder that slips can't quote a paraphrase: the last step strips its quote marks", async () => {
+    const s = await cycleCount();
+    // An invented definition, as in the retest's Q5, and model prose that quotes its own words.
+    s.terms![0].conflict = { definition: "The difference found in a cycle count, but only those over $500", quote: "The difference found in a cycle count, but only those over $500", source: "src-3" };
+    s.items[0].prose.problem_statement = 'Dana says "variances above the limit get missed" today.';
+    s.items[0].open_questions.push({ area: "core.outcome", question: 'Is "fewer write-offs" the goal?', who_can_answer: "Dana", artifact_needed: "A number" });
+    const texts = s.session.sources!.map((x) => x.text);
+    const all = everyText(s).join("\n");
+    for (const span of quotedSpans(all)) assert.ok(texts.some((t) => t.includes(span)), `not verbatim: "${span}"`);
+    assert.ok(all.includes("The difference found in a cycle count, but only those over $500"), "still shown, unquoted");
+    assert.ok(!all.includes('"The difference found'));
+  });
+
+  test("enforceVerbatim keeps exact spans and unquotes everything else", () => {
+    assert.equal(enforceVerbatim('Dana wrote: "by 7am". Our summary: "ready early".', ["It needs to be in by 7am."]), 'Dana wrote: "by 7am". Our summary: ready early.');
+  });
+});
+
+describe("terms and definitions (third retest)", () => {
+  test("a definition read from the request line is only a draft, so the requester's own hedged words are kept", async () => {
+    let s = startAsync(fw, { id: "2026-10-17-cc05", request: REQUEST, type: "data_report", from: "Dana", provider: "azure-openai", now: NOW });
+    const r = await runIngest({ provider: scripted([
+      out({ terms: [{ term: "variance", quote: "variances", kind: "metric" }], definitions: [{ term: "variance", definition: "The difference found in a cycle count, but only those over $500", quotes: ["Cycle count variances over $500"], certain: true, measurable: "yes", examples: [], conflict: false }] }),
+      out({ definitions: [{ term: "variance", definition: "Units off times the cost, she thinks", quotes: ["A variance is the units off times the cost, I think."], certain: false, measurable: "yes", examples: [], conflict: false }] }),
+    ]), fw, session: s, source: { kind: "reply", from: "Dana", text: REPLY }, now: NOW });
+    s = r.session;
+    const t = s.terms![0];
+    assert.equal(t.status, "unconfirmed");
+    assert.equal(t.draft!.quote, "A variance is the units off times the cost, I think.");
+    const q = findGaps(s, fw).gaps.find((g) => g.kind === "term")!.question;
+    assert.ok(q.includes('Dana wrote: "A variance is the units off times the cost, I think."'), q);
+  });
+
+  test("a phrase inside another term's definition isn't flagged as a term", async () => {
+    const s = startAsync(fw, { id: "2026-10-17-cc06", request: REQUEST, type: "data_report", from: "Dana", provider: "azure-openai", now: NOW });
+    s.session.engine!.request_read = true;
+    const r = await runIngest({ provider: scripted([out({
+      terms: [{ term: "variance", quote: "variance", kind: "metric" }, { term: "absolute value per SKU", quote: "absolute value per SKU", kind: "metric" }],
+      definitions: [{ term: "variance", definition: "Absolute value per SKU", quotes: ["variance = absolute value per SKU, not net across locations"], certain: true, measurable: "yes", examples: [], conflict: false }],
+    })]), fw, session: s, source: { kind: "notes", from: "Mike (controller)", text: NOTES }, now: NOW });
+    assert.deepEqual(r.session.terms!.map((t) => t.term), ["variance"]);
+    assert.ok(r.events.some((e) => e.includes('"absolute value per SKU": part of another term')));
   });
 });

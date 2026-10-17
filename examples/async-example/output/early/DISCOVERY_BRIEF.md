@@ -13,7 +13,7 @@ Open questions:
 - Should wrong-location scans always count as short picks, and are there any exceptions? Who can answer: Priya (DC manager). What would settle it: Confirmation from Priya. [data_report.definition]
 - Is 6am the final deadline for report delivery, or is there flexibility? Who can answer: Priya (DC manager). What would settle it: Confirmation from Priya. [data_report.delivery]
 - How exactly do you calculate short-pick? What's in and what's out? Give one real example and the right number. Who can answer: Whoever owns the process. What would settle it: The owner's definition in their own words, and one real example with the correct result. [term-1]
-- Recommended: give one real example of "over pick" and the right count, so the build can be checked against it. Who can answer: Whoever owns the process. What would settle it: A real case and its correct result. [term-2]
+- Recommended: give one real example of over pick and the right count, so the build can be checked against it. Who can answer: Whoever owns the process. What would settle it: A real case and its correct result. [term-2]
 
 ## Monday Excel export (`item-2`)
 

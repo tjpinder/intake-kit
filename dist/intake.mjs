@@ -15718,9 +15718,9 @@ function termReasons(session, item) {
 function addTermQuestions(session, item) {
   for (const t of (session.terms ?? []).filter((x) => x.items.includes(item.id) && x.status !== "not_a_term")) {
     let q = null;
-    if (t.conflict) q = { question: `"${t.term}" was defined two ways: "${t.definition ?? t.draft?.definition}" and "${t.conflict.definition}". Which is right?`, artifact_needed: "One agreed definition, in the owner's words" };
+    if (t.conflict) q = { question: `Two definitions of ${t.term} disagree (our summaries: ${t.definition ?? t.draft?.definition}; and ${t.conflict.definition}). Which is right?`, artifact_needed: "One agreed definition, in the owner's words" };
     else if (t.status === "unconfirmed") q = { question: termQuestion(t), artifact_needed: "The owner's definition in their own words, and one real example with the correct result" };
-    else if (t.kind === "metric" && !t.examples.length) q = { question: `Recommended: give one real example of "${t.term}" and the right count, so the build can be checked against it.`, artifact_needed: "A real case and its correct result" };
+    else if (t.kind === "metric" && !t.examples.length) q = { question: `Recommended: give one real example of ${t.term} and the right count, so the build can be checked against it.`, artifact_needed: "A real case and its correct result" };
     if (q && !item.open_questions.some((o) => o.area === t.id)) item.open_questions.push({ area: t.id, question: q.question, who_can_answer: "Whoever owns the process", artifact_needed: q.artifact_needed });
   }
 }
@@ -16641,6 +16641,11 @@ function newEngine() {
   return { version: 2, phase: "opening", turns: 0, pending: null, areas: {}, checks: {}, disambiguated: false };
 }
 
+// src/lib/verbatim.ts
+function enforceVerbatim(text, sources) {
+  return text.replace(/"([^"\n]+)"/g, (whole, span) => sources.some((s) => s.includes(span)) ? whole : span);
+}
+
 // src/lib/summary.ts
 var CORE_LABEL = {
   "core.users": "Who's involved",
@@ -16674,8 +16679,22 @@ function factLabel(fw, fact) {
 }
 function buildSummary(session, fw) {
   const live = session.items.filter((i) => !i.superseded_by && !i.dropped);
+  const texts = session.session.sources?.map((s) => s.text);
+  const v = (t) => t && texts ? enforceVerbatim(t, texts) : t;
+  const items = live.map((item) => summarizeItem(session, item, fw)).map((it) => ({
+    ...it,
+    problem: v(it.problem),
+    today: v(it.today),
+    smallest_version: v(it.smallest_version),
+    out_of_scope: v(it.out_of_scope),
+    mitigation: v(it.mitigation),
+    answers: it.answers.map((a) => ({ ...a, value: v(a.value) })),
+    acceptance: it.acceptance.map((x) => v(x)),
+    guardrails: it.guardrails.map((x) => v(x)),
+    open_questions: it.open_questions.map((x) => v(x))
+  }));
   return {
-    items: live.map((item) => summarizeItem(session, item, fw)),
+    items,
     confirm_first: dontBuildQuestions(session, fw),
     set_aside: [
       ...session.items.filter((i) => i.dropped).map((i) => `${i.title}: dropped (${i.dropped.reason})`),
@@ -16700,7 +16719,7 @@ function summarizeItem(session, item, fw) {
       label: factLabel(fw, fact),
       text: bandText(fw, fact, band),
       unknown: band === "unknown",
-      note: reason === "captured" ? `Left as not known: it rested only on a reply I didn't record properly (I'd have said "${bandText(fw, fact, f.band)}").` : reason === "no_number" ? "Shown as vague: nothing you said about it has a number to measure against." : null
+      note: reason === "captured" ? `Left as not known: it rested only on a reply I didn't record properly (I'd have said: ${bandText(fw, fact, f.band)}).` : reason === "no_number" ? "Shown as vague: nothing you said about it has a number to measure against." : null
     };
   });
   return {
@@ -16744,10 +16763,10 @@ function dontBuildChecks(session, fw) {
       if (reason.startsWith("(also")) continue;
       const by = item.superseded_by ? preview.items.find((i) => i.id === item.superseded_by)?.title : null;
       const add = (k, question) => out2.push({ key: `${item.id}:${k}`, question });
-      if (reason.startsWith("An existing report or feature already covers it")) add("existing_asset", `You said something you already have does what "${item.title}" would do, so it wouldn't be built. Is that right?`);
-      else if (reason.startsWith("No decision depends on it")) add("decision_depends", `No decision depends on "${item.title}", so it wouldn't be built. Is that right?`);
-      else if (reason.startsWith("The user describes its value as trivial")) add("value", `You described "${item.title}" as low value, so it wouldn't be built. Is that right?`);
-      else if (reason.startsWith("Superseded by") && by) add("superseded", `"${item.title}" would go away once "${by}" exists, so it wouldn't be built on its own. Is that right?`);
+      if (reason.startsWith("An existing report or feature already covers it")) add("existing_asset", `You said something you already have does what the ${item.title} would do, so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("No decision depends on it")) add("decision_depends", `No decision depends on the ${item.title}, so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("The user describes its value as trivial")) add("value", `You described the ${item.title} as low value, so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("Superseded by") && by) add("superseded", `The ${item.title} would go away once the ${by} exists, so it wouldn't be built on its own. Is that right?`);
     }
   }
   return out2;
@@ -17285,10 +17304,19 @@ function applyTerms(session, source, r, transcript) {
     terms.push(t);
     return t;
   };
+  const definitionWords = [
+    ...r.definitions.map((d) => ({ term: d.term, quotes: d.quotes })),
+    ...terms.map((x) => ({ term: x.term, quotes: [...x.quotes, ...x.draft ? [x.draft.quote] : [], ...x.conflict ? [x.conflict.quote] : []] }))
+  ];
+  const insideADefinition = (name) => definitionWords.some((d) => !sameTerm(d.term, name) && d.quotes.some((q) => normalize(q).includes(normalize(name))));
   for (const t of r.terms) {
     const quote = grounded(t.quote, transcript);
     if (!quote || !t.term.trim()) {
       events.push(`term "${t.term}": not in the source, ignored`);
+      continue;
+    }
+    if (!find(t.term) && insideADefinition(t.term)) {
+      events.push(`term "${t.term}": part of another term's definition, not a term of its own`);
       continue;
     }
     const known = find(t.term);
@@ -17311,8 +17339,9 @@ function applyTerms(session, source, r, transcript) {
     const t = find(d.term) ?? add(d.term, quotes[0], "label");
     const definition = d.definition.trim();
     const prior = t.definition ?? t.draft?.definition ?? null;
+    const certain = d.certain && source.kind !== "request";
     if (t.conflict && !d.conflict) {
-      if (source.kind !== "notes" && d.certain) {
+      if (source.kind !== "notes" && certain) {
         Object.assign(t, { status: "confirmed", definition, quotes: [.../* @__PURE__ */ new Set([...t.quotes, ...quotes])], given_by: source.from, source: source.id, conflict: null, draft: null });
         events.push(`definition of "${t.term}": disagreement settled`);
       } else {
@@ -17331,7 +17360,7 @@ function applyTerms(session, source, r, transcript) {
         t.draft = { definition: d.definition.trim(), quote: quotes[0], source: source.id };
         events.push(`definition of "${t.term}": from notes only, kept as a draft for the owner to confirm`);
       }
-    } else if (!d.certain) {
+    } else if (!certain) {
       if (t.status !== "confirmed") {
         t.draft = { definition: d.definition.trim(), quote: quotes[0], source: source.id };
         events.push(`definition of "${t.term}": hedged, kept as a draft for the follow-up`);
@@ -17406,7 +17435,7 @@ function quoter(session) {
     const who = src.kind === "notes" ? `Our notes from talking to ${src.from} say` : src.kind === "request" ? `The request from ${src.from} says` : src.kind === "transcript" ? `${src.from} said` : `${src.from} wrote`;
     return `${who}: "${span}"${/[.!?]$/.test(span) ? "" : "."}`;
   };
-  const summary = (value, lead = "In summary") => `${lead}: ${(value ?? "").trim().replace(/[.!?]+$/, "")}.`;
+  const summary = (value, lead = "Our summary") => `${lead}: ${(value ?? "").trim().replace(/[.!?]+$/, "")}.`;
   const latest = (e) => {
     const q = e ? quoteFor(e.value, e.quotes) : null;
     return q ? { quote: q, source: e.quote_sources?.[q] ?? null } : null;
@@ -17422,8 +17451,8 @@ function findGaps(session, fw) {
   const q = quoter(session);
   const conflictGap = (item, area, e, c) => {
     const before = c.against ?? q.latest(e);
-    const one = q.said(before?.quote, before?.source) ?? q.summary(e?.value, "In summary, one answer");
-    const two = q.said(c.quote, c.source) ?? q.summary(c.value, "In summary, the other");
+    const one = q.said(before?.quote, before?.source) ?? q.summary(e?.value, "Our summary of one answer");
+    const two = q.said(c.quote, c.source) ?? q.summary(c.value, "Our summary of the other");
     return { kind: "conflict", item: item.id, target: area, pair: [before?.quote ?? e?.value ?? "", c.quote], question: `We have two different answers here. ${one} ${two} Which is right? (${fw.areas.get(area).packet.ask})` };
   };
   const confirmGap = (item, area, e, ask) => {
@@ -17515,8 +17544,8 @@ function findGaps(session, fw) {
     const draftFromNotes = t.draft && session.session.sources?.find((x) => x.id === t.draft.source)?.kind === "notes";
     const first = t.definition ? t.quotes.length ? { quote: t.quotes.at(-1), source: t.source } : null : t.draft ? { quote: t.draft.quote, source: t.draft.source } : null;
     if (t.conflict) {
-      const one = q.said(first?.quote, first?.source) ?? q.summary(t.definition ?? t.draft?.definition, "In summary, one definition");
-      const two = q.said(t.conflict.quote, t.conflict.source) ?? q.summary(t.conflict.definition, "In summary, the other");
+      const one = q.said(first?.quote, first?.source) ?? q.summary(t.definition ?? t.draft?.definition, "Our summary of one definition");
+      const two = q.said(t.conflict.quote, t.conflict.source) ?? q.summary(t.conflict.definition, "Our summary of the other");
       gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `Two definitions of ${t.term} disagree. ${one} ${two} Which is right? Please say what counts and what doesn't, in your own words.` });
     } else if (t.draft && draftFromNotes) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `On what ${t.term} means: ${q.said(t.draft.quote, t.draft.source) ?? q.summary(t.draft.definition)} Is that right? Please say what counts and what doesn't, in your own words.` });
     else if (t.status === "unconfirmed" && t.draft) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `On what ${t.term} means: ${q.said(t.draft.quote, t.draft.source) ?? q.summary(t.draft.definition)} That wasn't certain. What exactly counts, and what doesn't?` });
@@ -17573,7 +17602,7 @@ function followUpEmail(session, r) {
     about = item?.spawned_from ? item.id : null;
     lines.push(`${i + 1}. ${g.question}`, "");
   });
-  return lines.join("\n").trimEnd() + "\n";
+  return enforceVerbatim(lines.join("\n").trimEnd() + "\n", (session.session.sources ?? []).map((x) => x.text));
 }
 
 // src/engine/async.ts
@@ -17688,7 +17717,7 @@ function packetEmail(p) {
     lines.push("## If you know", "", "These help, but skip any you're not sure about.", "");
     p.if_you_know.forEach((q, i) => lines.push(`${p.questions.length + i + 1}. ${q.ask}`, ""));
   }
-  return lines.join("\n").trimEnd() + "\n";
+  return enforceVerbatim(lines.join("\n").trimEnd() + "\n", [p.request]);
 }
 function packetAgenda(p) {
   const lines = [`# Intake meeting: ${p.title}`, "", `The request: "${p.request}"`, "", `About ${Math.max(15, Math.round(p.questions.length * 3 / 5) * 5)} minutes. Ask for a real, recent example on each.`, ""];
@@ -17697,7 +17726,7 @@ function packetAgenda(p) {
     lines.push("## If there's time", "");
     p.if_you_know.forEach((q, i) => lines.push(`${p.questions.length + i + 1}. ${q.ask}`, "", "   Notes:", ""));
   }
-  return lines.join("\n").trimEnd() + "\n";
+  return enforceVerbatim(lines.join("\n").trimEnd() + "\n", [p.request]);
 }
 
 // src/lib/check-meta.ts

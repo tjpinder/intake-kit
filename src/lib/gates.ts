@@ -79,9 +79,10 @@ function termReasons(session: Session, item: Item): string[] {
 export function addTermQuestions(session: Session, item: Item): void {
   for (const t of (session.terms ?? []).filter((x) => x.items.includes(item.id) && x.status !== "not_a_term")) {
     let q: { question: string; artifact_needed: string } | null = null;
-    if (t.conflict) q = { question: `"${t.term}" was defined two ways: "${t.definition ?? t.draft?.definition}" and "${t.conflict.definition}". Which is right?`, artifact_needed: "One agreed definition, in the owner's words" };
+    // Definitions here are the model's paraphrases: unquoted, labelled as ours.
+    if (t.conflict) q = { question: `Two definitions of ${t.term} disagree (our summaries: ${t.definition ?? t.draft?.definition}; and ${t.conflict.definition}). Which is right?`, artifact_needed: "One agreed definition, in the owner's words" };
     else if (t.status === "unconfirmed") q = { question: termQuestion(t), artifact_needed: "The owner's definition in their own words, and one real example with the correct result" };
-    else if (t.kind === "metric" && !t.examples.length) q = { question: `Recommended: give one real example of "${t.term}" and the right count, so the build can be checked against it.`, artifact_needed: "A real case and its correct result" };
+    else if (t.kind === "metric" && !t.examples.length) q = { question: `Recommended: give one real example of ${t.term} and the right count, so the build can be checked against it.`, artifact_needed: "A real case and its correct result" };
     if (q && !item.open_questions.some((o) => o.area === t.id)) item.open_questions.push({ area: t.id, question: q.question, who_can_answer: "Whoever owns the process", artifact_needed: q.artifact_needed });
   }
 }

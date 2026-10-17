@@ -8,6 +8,7 @@ import type { Item } from "./session.ts";
 import { queueFor } from "../engine/plan.ts";
 import { MANUAL_QUESTION } from "../engine/turn.ts";
 import { shortTitle } from "./title.ts";
+import { enforceVerbatim } from "./verbatim.ts";
 
 export interface PacketQuestion {
   /** The coverage ID the answer fills, or the check it settles. */
@@ -77,7 +78,7 @@ export function packetEmail(p: Packet): string {
     lines.push("## If you know", "", "These help, but skip any you're not sure about.", "");
     p.if_you_know.forEach((q, i) => lines.push(`${p.questions.length + i + 1}. ${q.ask}`, ""));
   }
-  return lines.join("\n").trimEnd() + "\n";
+  return enforceVerbatim(lines.join("\n").trimEnd() + "\n", [p.request]);
 }
 
 /** The packet as a meeting agenda, with room for notes under each question. */
@@ -88,5 +89,5 @@ export function packetAgenda(p: Packet): string {
     lines.push("## If there's time", "");
     p.if_you_know.forEach((q, i) => lines.push(`${p.questions.length + i + 1}. ${q.ask}`, "", "   Notes:", ""));
   }
-  return lines.join("\n").trimEnd() + "\n";
+  return enforceVerbatim(lines.join("\n").trimEnd() + "\n", [p.request]);
 }

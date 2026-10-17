@@ -75,7 +75,7 @@ describe("the reflect-back summary", () => {
     assert.equal(digital.text, "Fully digital");
     const docs = it.bands.find((b) => b.fact === "documentation")!;
     assert.equal(docs.unknown, true, "a band resting only on a captured reply is shown as not known");
-    assert.match(docs.note!, /I'd have said "None"/);
+    assert.match(docs.note!, /I'd have said: None\)/);
   });
 
   test("the text version marks captured answers for the user to check", () => {

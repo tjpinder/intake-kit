@@ -213,12 +213,12 @@ Set aside:
 - Monday Excel export: replaced by Daily short-pick report
 
 Please confirm:
-- "Monday Excel export" would go away once "Daily short-pick report" exists, so it wouldn't be built on its own. Is that right?
+- The Monday Excel export would go away once the Daily short-pick report exists, so it wouldn't be built on its own. Is that right?
 ```
 
 Don't-build reasons to confirm, one at a time:
 
-- `item-2:superseded`: "Monday Excel export" would go away once "Daily short-pick report" exists, so it wouldn't be built on its own. Is that right?
+- `item-2:superseded`: The Monday Excel export would go away once the Daily short-pick report exists, so it wouldn't be built on its own. Is that right?
 
 ## 06-signoff: sign-off
 

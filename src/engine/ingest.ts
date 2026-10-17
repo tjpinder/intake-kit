@@ -273,9 +273,17 @@ export function applyTerms(session: Session, source: Source, r: Pick<IngestResul
     terms.push(t);
     return t;
   };
+  // A phrase inside another term's definition isn't a term of its own (retest: "absolute value per
+  // SKU", from the controller's definition of variance, was flagged).
+  const definitionWords = [
+    ...r.definitions.map((d) => ({ term: d.term, quotes: d.quotes })),
+    ...terms.map((x) => ({ term: x.term, quotes: [...x.quotes, ...(x.draft ? [x.draft.quote] : []), ...(x.conflict ? [x.conflict.quote] : [])] })),
+  ];
+  const insideADefinition = (name: string) => definitionWords.some((d) => !sameTerm(d.term, name) && d.quotes.some((q) => normalize(q).includes(normalize(name))));
   for (const t of r.terms) {
     const quote = grounded(t.quote, transcript);
     if (!quote || !t.term.trim()) { events.push(`term "${t.term}": not in the source, ignored`); continue; }
+    if (!find(t.term) && insideADefinition(t.term)) { events.push(`term "${t.term}": part of another term's definition, not a term of its own`); continue; }
     const known = find(t.term);
     if (known) {
       // The shorter name is kept (retest: the request, read first, named it "cycle count variance").
@@ -291,10 +299,13 @@ export function applyTerms(session: Session, source: Source, r: Pick<IngestResul
     const t = find(d.term) ?? add(d.term, quotes[0], "label");
     const definition = d.definition.trim();
     const prior = t.definition ?? t.draft?.definition ?? null;
+    // A one-line request isn't the owner defining a term: at most a draft (retest: the request's
+    // threshold confirmed "variance", and the requester's own hedged words were then dropped).
+    const certain = d.certain && source.kind !== "request";
     if (t.conflict && !d.conflict) {
       // Two definitions disagreed. Only the stakeholder's own, certain words settle it; notes or a
       // hedge are kept as a draft and the disagreement stays open.
-      if (source.kind !== "notes" && d.certain) {
+      if (source.kind !== "notes" && certain) {
         Object.assign(t, { status: "confirmed", definition, quotes: [...new Set([...t.quotes, ...quotes])], given_by: source.from, source: source.id, conflict: null, draft: null });
         events.push(`definition of "${t.term}": disagreement settled`);
       } else {
@@ -317,7 +328,7 @@ export function applyTerms(session: Session, source: Source, r: Pick<IngestResul
         t.draft = { definition: d.definition.trim(), quote: quotes[0], source: source.id };
         events.push(`definition of "${t.term}": from notes only, kept as a draft for the owner to confirm`);
       }
-    } else if (!d.certain) {
+    } else if (!certain) {
       // A hedged definition never confirms a term; a confirmed one keeps its definition.
       if (t.status !== "confirmed") {
         t.draft = { definition: d.definition.trim(), quote: quotes[0], source: source.id };

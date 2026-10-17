@@ -7,6 +7,7 @@ import type { Framework } from "./framework.ts";
 import { scoreAndGate } from "./gates.ts";
 import { bandCheck } from "./score.ts";
 import { coverageFor, isCaptured, type CoverageEntry, type Item, type Session } from "./session.ts";
+import { enforceVerbatim } from "./verbatim.ts";
 
 export interface SummaryAnswer {
   area: string;
@@ -92,8 +93,18 @@ function factLabel(fw: Framework, fact: string): string {
 
 export function buildSummary(session: Session, fw: Framework): Summary {
   const live = session.items.filter((i) => !i.superseded_by && !i.dropped);
+  // Async: the summary goes back to the stakeholder, so the model's prose can't quote anything that
+  // isn't in a source (verbatim.ts). Live mode keeps its transcript outside the session.
+  const texts = session.session.sources?.map((s) => s.text);
+  const v = (t: string | null) => (t && texts ? enforceVerbatim(t, texts) : t);
+  const items = live.map((item) => summarizeItem(session, item, fw)).map((it) => ({
+    ...it,
+    problem: v(it.problem), today: v(it.today), smallest_version: v(it.smallest_version), out_of_scope: v(it.out_of_scope), mitigation: v(it.mitigation),
+    answers: it.answers.map((a) => ({ ...a, value: v(a.value) })),
+    acceptance: it.acceptance.map((x) => v(x)!), guardrails: it.guardrails.map((x) => v(x)!), open_questions: it.open_questions.map((x) => v(x)!),
+  }));
   return {
-    items: live.map((item) => summarizeItem(session, item, fw)),
+    items,
     confirm_first: dontBuildQuestions(session, fw),
     set_aside: [
       ...session.items.filter((i) => i.dropped).map((i) => `${i.title}: dropped (${i.dropped!.reason})`),
@@ -120,7 +131,7 @@ function summarizeItem(session: Session, item: Item, fw: Framework): SummaryItem
       text: bandText(fw, fact, band),
       unknown: band === "unknown",
       note: reason === "captured"
-        ? `Left as not known: it rested only on a reply I didn't record properly (I'd have said "${bandText(fw, fact, f.band)}").`
+        ? `Left as not known: it rested only on a reply I didn't record properly (I'd have said: ${bandText(fw, fact, f.band)}).`
         : reason === "no_number"
           ? "Shown as vague: nothing you said about it has a number to measure against."
           : null,
@@ -175,10 +186,11 @@ export function dontBuildChecks(session: Session, fw: Framework): Array<{ key: s
       if (reason.startsWith("(also")) continue;
       const by = item.superseded_by ? preview.items.find((i) => i.id === item.superseded_by)?.title : null;
       const add = (k: string, question: string) => out.push({ key: `${item.id}:${k}`, question });
-      if (reason.startsWith("An existing report or feature already covers it")) add("existing_asset", `You said something you already have does what "${item.title}" would do, so it wouldn't be built. Is that right?`);
-      else if (reason.startsWith("No decision depends on it")) add("decision_depends", `No decision depends on "${item.title}", so it wouldn't be built. Is that right?`);
-      else if (reason.startsWith("The user describes its value as trivial")) add("value", `You described "${item.title}" as low value, so it wouldn't be built. Is that right?`);
-      else if (reason.startsWith("Superseded by") && by) add("superseded", `"${item.title}" would go away once "${by}" exists, so it wouldn't be built on its own. Is that right?`);
+      // Item titles are names, not anyone's words: unquoted.
+      if (reason.startsWith("An existing report or feature already covers it")) add("existing_asset", `You said something you already have does what the ${item.title} would do, so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("No decision depends on it")) add("decision_depends", `No decision depends on the ${item.title}, so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("The user describes its value as trivial")) add("value", `You described the ${item.title} as low value, so it wouldn't be built. Is that right?`);
+      else if (reason.startsWith("Superseded by") && by) add("superseded", `The ${item.title} would go away once the ${by} exists, so it wouldn't be built on its own. Is that right?`);
     }
   }
   return out;

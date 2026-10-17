@@ -6,6 +6,7 @@ import type { Framework } from "../lib/framework.ts";
 import { criticalAreas, termQuestion } from "../lib/gates.ts";
 import { hasNumber, sessionQuotes } from "../lib/score.ts";
 import { exactSpan, quoteFor } from "../lib/grounding.ts";
+import { enforceVerbatim } from "../lib/verbatim.ts";
 import type { CoverageEntry, Item, Session } from "../lib/session.ts";
 import { areaLabel } from "../lib/summary.ts";
 import { entryOf } from "./apply.ts";
@@ -53,7 +54,8 @@ const settled = (s: Session, item: Item, check: string) => {
 /**
  * Quote marks hold only a source's own words (cycle-count retest: a reworded request line and two
  * third-person paraphrases were quoted). A quote is shown as the source has it, with who said it;
- * when there's no span to show, the paraphrase goes unquoted, labelled as a summary.
+ * when there's no span to show, the paraphrase goes unquoted, labelled "our summary". followUpEmail
+ * then strips quote marks from anything that still isn't verbatim (enforceVerbatim).
  */
 function quoter(session: Session) {
   const sources = session.session.sources ?? [];
@@ -65,7 +67,7 @@ function quoter(session: Session) {
     const who = src.kind === "notes" ? `Our notes from talking to ${src.from} say` : src.kind === "request" ? `The request from ${src.from} says` : src.kind === "transcript" ? `${src.from} said` : `${src.from} wrote`;
     return `${who}: "${span}"${/[.!?]$/.test(span) ? "" : "."}`;
   };
-  const summary = (value: string | null | undefined, lead = "In summary") => `${lead}: ${(value ?? "").trim().replace(/[.!?]+$/, "")}.`;
+  const summary = (value: string | null | undefined, lead = "Our summary") => `${lead}: ${(value ?? "").trim().replace(/[.!?]+$/, "")}.`;
   /** The quote the entry's value came from, and its source. */
   const latest = (e: CoverageEntry | undefined) => { const q = e ? quoteFor(e.value, e.quotes) : null; return q ? { quote: q, source: e!.quote_sources?.[q] ?? null } : null; };
   return { said, summary, latest };
@@ -81,8 +83,8 @@ export function findGaps(session: Session, fw: Framework): GapReport {
   const q = quoter(session);
   const conflictGap = (item: Item, area: string, e: CoverageEntry | undefined, c: NonNullable<AreaState["conflict"]>): Gap => {
     const before = c.against ?? q.latest(e);
-    const one = q.said(before?.quote, before?.source) ?? q.summary(e?.value, "In summary, one answer");
-    const two = q.said(c.quote, c.source) ?? q.summary(c.value, "In summary, the other");
+    const one = q.said(before?.quote, before?.source) ?? q.summary(e?.value, "Our summary of one answer");
+    const two = q.said(c.quote, c.source) ?? q.summary(c.value, "Our summary of the other");
     return { kind: "conflict", item: item.id, target: area, pair: [before?.quote ?? e?.value ?? "", c.quote], question: `We have two different answers here. ${one} ${two} Which is right? (${fw.areas.get(area)!.packet.ask})` };
   };
   const confirmGap = (item: Item, area: string, e: CoverageEntry, ask: string): Gap => {
@@ -177,8 +179,8 @@ export function findGaps(session: Session, fw: Framework): GapReport {
     const draftFromNotes = t.draft && session.session.sources?.find((x) => x.id === t.draft!.source)?.kind === "notes";
     const first = t.definition ? (t.quotes.length ? { quote: t.quotes.at(-1)!, source: t.source } : null) : t.draft ? { quote: t.draft.quote, source: t.draft.source } : null;
     if (t.conflict) {
-      const one = q.said(first?.quote, first?.source) ?? q.summary(t.definition ?? t.draft?.definition, "In summary, one definition");
-      const two = q.said(t.conflict.quote, t.conflict.source) ?? q.summary(t.conflict.definition, "In summary, the other");
+      const one = q.said(first?.quote, first?.source) ?? q.summary(t.definition ?? t.draft?.definition, "Our summary of one definition");
+      const two = q.said(t.conflict.quote, t.conflict.source) ?? q.summary(t.conflict.definition, "Our summary of the other");
       gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `Two definitions of ${t.term} disagree. ${one} ${two} Which is right? Please say what counts and what doesn't, in your own words.` });
     } else if (t.draft && draftFromNotes) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `On what ${t.term} means: ${q.said(t.draft.quote, t.draft.source) ?? q.summary(t.draft.definition)} Is that right? Please say what counts and what doesn't, in your own words.` });
     else if (t.status === "unconfirmed" && t.draft) gaps.push({ kind: "term", item: t.items[0] ?? null, target: t.id, question: `On what ${t.term} means: ${q.said(t.draft.quote, t.draft.source) ?? q.summary(t.draft.definition)} That wasn't certain. What exactly counts, and what doesn't?` });
@@ -258,5 +260,5 @@ export function followUpEmail(session: Session, r: GapReport): string {
     about = item?.spawned_from ? item.id : null;
     lines.push(`${i + 1}. ${g.question}`, "");
   });
-  return lines.join("\n").trimEnd() + "\n";
+  return enforceVerbatim(lines.join("\n").trimEnd() + "\n", (session.session.sources ?? []).map((x) => x.text));
 }

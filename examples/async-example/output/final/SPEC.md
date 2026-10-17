@@ -6,7 +6,7 @@ Rendered by intake-kit from `intake-answers.yaml` (session 2026-10-14-de70, 2026
 
 - Are there any other edge cases or exceptions (besides cancelled lines and wrong-location scans) that should be included or excluded from the short pick count? Who can answer: Priya (DC manager). What would settle it: Written rule or example cases for short pick counting. [data_report.definition]
 - Is there a step-by-step SOP or template for building the current report, or is it all in Sam's head? Who can answer: Sam. What would settle it: Sample Excel template or written instructions. [manual_process.documentation]
-- Recommended: give one real example of "over pick" and the right count, so the build can be checked against it. Who can answer: Whoever owns the process. What would settle it: A real case and its correct result. [term-2]
+- Recommended: give one real example of over pick and the right count, so the build can be checked against it. Who can answer: Whoever owns the process. What would settle it: A real case and its correct result. [term-2]
 
 ## Problem
 

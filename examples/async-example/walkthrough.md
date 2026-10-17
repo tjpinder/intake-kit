@@ -53,7 +53,7 @@ Follow-up packet (round 2):
 
 Thanks for your answers. These are the only things still open. If you don't know, say so. That's a useful answer.
 
-1. We have two different answers here. Sam (ops supervisor) wrote: "it needs to be there by 7am when I get in." Our notes from talking to Tom say: "wants report by 6am, not 7". Which is right? (Are there rules it must follow: policies, deadlines, time windows, approvals, or anyone outside your team who requires it?)
+1. We have two different answers here. Sam (ops supervisor) wrote: "it needs to be there by 7am when I get in." Our notes from talking to Tom say: "wants report by 6am, not 7". Which is right?
 
 About the Monday Excel export you mentioned:
 

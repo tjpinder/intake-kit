@@ -17453,7 +17453,8 @@ function findGaps(session, fw) {
     const before = c.against ?? q.latest(e);
     const one = q.said(before?.quote, before?.source) ?? q.summary(e?.value, "Our summary of one answer");
     const two = q.said(c.quote, c.source) ?? q.summary(c.value, "Our summary of the other");
-    return { kind: "conflict", item: item.id, target: area, pair: [before?.quote ?? e?.value ?? "", c.quote], question: `We have two different answers here. ${one} ${two} Which is right? (${fw.areas.get(area).packet.ask})` };
+    const ask = fw.areas.get(area).packet.ask;
+    return { kind: "conflict", item: item.id, target: area, pair: [before?.quote ?? e?.value ?? "", c.quote], ask, question: `We have two different answers here. ${one} ${two} Which is right? (${ask})` };
   };
   const confirmGap = (item, area, e, ask) => {
     const last = q.latest(e);
@@ -17560,15 +17561,22 @@ function findGaps(session, fw) {
 function dedupe(gaps) {
   const out2 = [];
   const seenQuestion = /* @__PURE__ */ new Set();
-  const seenPair = /* @__PURE__ */ new Set();
+  const seenPair = /* @__PURE__ */ new Map();
   const byQuote = /* @__PURE__ */ new Map();
   for (const g of gaps) {
     if (seenQuestion.has(g.question)) continue;
     seenQuestion.add(g.question);
     if (g.pair) {
       const key = g.pair.map((x) => x.trim().toLowerCase()).join("\0");
-      if (seenPair.has(key)) continue;
-      seenPair.add(key);
+      const first = seenPair.get(key);
+      if (first) {
+        if (first.ask) {
+          first.question = first.question.slice(0, -` (${first.ask})`.length);
+          first.ask = void 0;
+        }
+        continue;
+      }
+      seenPair.set(key, g);
     }
     if (g.kind === "partial" && g.quoted) {
       const first = byQuote.get(g.quoted);

@@ -27,7 +27,7 @@ export interface Gap {
   question: string;
   /** Conflicts: the two answers, so the same disagreement filed under two areas is asked once. */
   pair?: [string, string];
-  /** Partials: the words quoted back and the area's question, so one sentence is quoted back once. */
+  /** Partials and conflicts: the area's question (partials also keep the words quoted back), so one thing is asked once. */
   quoted?: string;
   ask?: string;
 }
@@ -85,7 +85,8 @@ export function findGaps(session: Session, fw: Framework): GapReport {
     const before = c.against ?? q.latest(e);
     const one = q.said(before?.quote, before?.source) ?? q.summary(e?.value, "Our summary of one answer");
     const two = q.said(c.quote, c.source) ?? q.summary(c.value, "Our summary of the other");
-    return { kind: "conflict", item: item.id, target: area, pair: [before?.quote ?? e?.value ?? "", c.quote], question: `We have two different answers here. ${one} ${two} Which is right? (${fw.areas.get(area)!.packet.ask})` };
+    const ask = fw.areas.get(area)!.packet.ask;
+    return { kind: "conflict", item: item.id, target: area, pair: [before?.quote ?? e?.value ?? "", c.quote], ask, question: `We have two different answers here. ${one} ${two} Which is right? (${ask})` };
   };
   const confirmGap = (item: Item, area: string, e: CoverageEntry, ask: string): Gap => {
     const last = q.latest(e);
@@ -204,15 +205,21 @@ export function findGaps(session: Session, fw: Framework): GapReport {
 function dedupe(gaps: Gap[]): Gap[] {
   const out: Gap[] = [];
   const seenQuestion = new Set<string>();
-  const seenPair = new Set<string>();
+  const seenPair = new Map<string, Gap>();
   const byQuote = new Map<string, Gap>();
   for (const g of gaps) {
     if (seenQuestion.has(g.question)) continue;
     seenQuestion.add(g.question);
     if (g.pair) {
       const key = g.pair.map((x) => x.trim().toLowerCase()).join("\u0000");
-      if (seenPair.has(key)) continue;
-      seenPair.add(key);
+      const first = seenPair.get(key);
+      if (first) {
+        // Filed under several areas, one area's prompt would mislead (retest: a threshold
+        // disagreement ended with the decision area's "What will you do differently?").
+        if (first.ask) { first.question = first.question.slice(0, -` (${first.ask})`.length); first.ask = undefined; }
+        continue;
+      }
+      seenPair.set(key, g);
     }
     if (g.kind === "partial" && g.quoted) {
       const first = byQuote.get(g.quoted);

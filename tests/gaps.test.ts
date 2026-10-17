@@ -137,6 +137,8 @@ describe("each thing is asked once (cycle-count test: 11 questions with repeats)
       ans("core.data", "Cost should be standard cost from the ERP.", { value: "Standard cost from the ERP", conflict: true }),
       ans("data_report.truth", "Cost should be standard cost from the ERP.", { value: "Standard cost from the ERP", conflict: true }),
     ] });
-    assert.equal(findGaps(s, fw).gaps.filter((g) => g.kind === "conflict").length, 1);
+    const conflicts = findGaps(s, fw).gaps.filter((g) => g.kind === "conflict");
+    assert.equal(conflicts.length, 1);
+    assert.match(conflicts[0].question, /Which is right\?$/, "filed under two areas, no one area's prompt");
   });
 });
